@@ -58,6 +58,12 @@ class flit
 
     int get_outport() {return m_outport; }
     int get_size() { return m_size; }
+
+    // Lab4 In-Network All-Reduce: reduction payload carried by the flit.
+    int64_t get_value() { return m_value; }
+    int get_collective_id() { return m_collective_id; }
+    bool is_reduce() { return m_is_reduce; }
+
     Tick get_enqueue_time() { return m_enqueue_time; }
     Tick get_dequeue_time() { return m_dequeue_time; }
     int getPacketID() { return m_packet_id; }
@@ -73,6 +79,12 @@ class flit
 
     void set_outport(int port) { m_outport = port; }
     void set_time(Tick time) { m_time = time; }
+
+    // Lab4 In-Network All-Reduce setters.
+    void set_value(int64_t v) { m_value = v; }
+    void set_collective_id(int cid) { m_collective_id = cid; }
+    void set_is_reduce(bool r) { m_is_reduce = r; }
+
     void set_vc(int vc) { m_vc = vc; }
     void set_route(RouteInfo route) { m_route = route; }
     void set_src_delay(Tick delay) { src_delay = delay; }
@@ -129,6 +141,12 @@ class flit
     int m_outport;
     Tick src_delay;
     std::pair<flit_stage, Tick> m_stage;
+
+    // Lab4 In-Network All-Reduce: default-initialized so unmodified paths
+    // (all non-collective traffic) behave exactly as before.
+    int64_t m_value = 0;
+    int m_collective_id = -1;
+    bool m_is_reduce = false;
 };
 
 inline std::ostream&

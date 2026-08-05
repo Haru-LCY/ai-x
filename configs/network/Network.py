@@ -48,6 +48,12 @@ def define_options(parser):
         help="the number of rows in the mesh topology",
     )
     parser.add_argument(
+        "--collective-root",
+        type=int,
+        default=0,
+        help="router id used as the Lab4 all-reduce tree root",
+    )
+    parser.add_argument(
         "--network",
         default="simple",
         choices=["simple", "garnet"],

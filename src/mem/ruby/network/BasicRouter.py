@@ -38,3 +38,17 @@ class BasicRouter(ClockedObject):
 
     # only used by garnet
     latency = Param.Cycles(1, "number of cycles inside router")
+
+    # Lab4 convergence-tree metadata. Keeping these on BasicRouter lets the
+    # shared Mesh_XY topology instantiate either simple or Garnet routers.
+    collective_root = Param.Bool(False, "Lab4 all-reduce tree root")
+    collective_enabled = Param.Bool(False, "Whether Lab4 collective tree metadata is configured")
+    collective_parent_outport = Param.String(
+        "", "Lab4 tree direction toward the root; empty at root"
+    )
+    collective_child_inports = VectorParam.String(
+        [], "Lab4 tree input directions from child routers"
+    )
+    collective_expected_fanin = Param.UInt32(
+        1, "Lab4 child contributions plus one local contribution"
+    )

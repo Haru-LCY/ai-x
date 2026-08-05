@@ -52,7 +52,12 @@ Router::Router(const Params &p)
   : BasicRouter(p), Consumer(this), m_latency(p.latency),
     m_virtual_networks(p.virt_nets), m_vc_per_vnet(p.vcs_per_vnet),
     m_num_vcs(m_virtual_networks * m_vc_per_vnet), m_bit_width(p.width),
-    m_network_ptr(nullptr), routingUnit(this), switchAllocator(this),
+    m_network_ptr(nullptr), m_collective_root(p.collective_root),
+    m_collective_enabled(p.collective_enabled),
+    m_collective_parent_outport(p.collective_parent_outport),
+    m_collective_child_inports(p.collective_child_inports),
+    m_collective_expected_fanin(p.collective_expected_fanin),
+    routingUnit(this), switchAllocator(this),
     crossbarSwitch(this)
 {
     m_input_unit.clear();
@@ -66,6 +71,26 @@ Router::init()
 
     switchAllocator.init();
     crossbarSwitch.init();
+
+    if (!m_collective_enabled)
+        return;
+
+    fatal_if(m_collective_root && !m_collective_parent_outport.empty(),
+             "Collective root router %d has parent direction %s", m_id,
+             m_collective_parent_outport.c_str());
+    fatal_if(!m_collective_root && m_collective_parent_outport.empty(),
+             "Non-root router %d has no collective parent", m_id);
+    fatal_if(m_collective_expected_fanin !=
+                 m_collective_child_inports.size() + 1,
+             "Router %d collective fan-in %u does not match %u children", m_id,
+             m_collective_expected_fanin,
+             (unsigned)m_collective_child_inports.size());
+
+    DPRINTF(RubyNetwork,
+            "Lab4 tree: router=%d root=%d parent=%s fanin=%u children=%u\n",
+            m_id, m_collective_root, m_collective_parent_outport.c_str(),
+            m_collective_expected_fanin,
+            (unsigned)m_collective_child_inports.size());
 }
 
 void

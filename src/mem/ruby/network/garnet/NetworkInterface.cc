@@ -175,6 +175,15 @@ NetworkInterface::incrementStats(flit *t_flit)
 
     // Hops
     m_net_ptr->increment_total_hops(t_flit->get_route().hops_traversed);
+
+    // Lab4 minimal loop: the value stamped at injection (= src_ni) must
+    // survive the network unchanged. This proves the flit payload channel
+    // is sound end-to-end before we build reduction on top of it.
+    DPRINTF(RubyNetwork, "Lab4 eject: src_ni=%d value=%ld dest_ni=%d\n",
+            t_flit->get_route().src_ni, (long)t_flit->get_value(),
+            t_flit->get_route().dest_ni);
+    assert(t_flit->get_value() == t_flit->get_route().src_ni &&
+           "Lab4: flit value corrupted in transit");
 }
 
 /*
@@ -446,6 +455,12 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 oPort->bitWidth(), curTick());
 
             fl->set_src_delay(curTick() - msg_ptr->getTime());
+            // Lab4 minimal loop: stamp value = f(src) = src_ni on every flit
+            // so we can verify at ejection that the payload survives the
+            // network intact. (Harmless for non-collective traffic.)
+            fl->set_value(route.src_ni);
+            DPRINTF(RubyNetwork, "Lab4 inject: src_ni=%d value=%ld "
+                    "vnet=%d\n", route.src_ni, (long)fl->get_value(), vnet);
             niOutVcs[vc].insert(fl);
         }
 

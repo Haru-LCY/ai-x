@@ -87,6 +87,10 @@ flit::serialize(int ser_id, int parts, uint32_t bWidth)
                     new_size, m_msg_ptr, msgSize, bWidth, m_time);
     fl->set_enqueue_time(m_enqueue_time);
     fl->set_src_delay(src_delay);
+    // Lab4: carry the reduction payload across (de)serialization.
+    fl->set_value(m_value);
+    fl->set_collective_id(m_collective_id);
+    fl->set_is_reduce(m_is_reduce);
     return fl;
 }
 
@@ -102,6 +106,10 @@ flit::deserialize(int des_id, int num_flits, uint32_t bWidth)
                     new_size, m_msg_ptr, msgSize, bWidth, m_time);
     fl->set_enqueue_time(m_enqueue_time);
     fl->set_src_delay(src_delay);
+    // Lab4: carry the reduction payload across (de)serialization.
+    fl->set_value(m_value);
+    fl->set_collective_id(m_collective_id);
+    fl->set_is_reduce(m_is_reduce);
     return fl;
 }
 

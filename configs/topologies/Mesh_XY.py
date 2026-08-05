@@ -65,9 +65,50 @@ class Mesh_XY(SimpleTopology):
         num_columns = int(num_routers / num_rows)
         assert num_columns * num_rows == num_routers
 
+        # Lab4: precompute the convergence tree induced by deterministic XY
+        # routing. Every non-root router first moves in X toward the root,
+        # then in Y. Reversing those parent edges yields each router's child
+        # input directions.
+        root_id = options.collective_root
+        assert 0 <= root_id < num_routers
+        root_x, root_y = root_id % num_columns, root_id // num_columns
+
+        def parent_direction(router_id):
+            x, y = router_id % num_columns, router_id // num_columns
+            if x != root_x:
+                return "East" if root_x > x else "West"
+            if y != root_y:
+                return "North" if root_y > y else "South"
+            return ""
+
+        opposite = {
+            "East": "West",
+            "West": "East",
+            "North": "South",
+            "South": "North",
+        }
+        parents = [parent_direction(i) for i in range(num_routers)]
+        child_inports = [[] for _ in range(num_routers)]
+        for child_id, direction in enumerate(parents):
+            if not direction:
+                continue
+            x, y = child_id % num_columns, child_id // num_columns
+            dx = 1 if direction == "East" else -1 if direction == "West" else 0
+            dy = 1 if direction == "North" else -1 if direction == "South" else 0
+            parent_id = (y + dy) * num_columns + (x + dx)
+            child_inports[parent_id].append(opposite[direction])
+
         # Create the routers in the mesh
         routers = [
-            Router(router_id=i, latency=router_latency)
+            Router(
+                router_id=i,
+                latency=router_latency,
+                collective_enabled=True,
+                collective_root=(i == root_id),
+                collective_parent_outport=parents[i],
+                collective_child_inports=sorted(child_inports[i]),
+                collective_expected_fanin=len(child_inports[i]) + 1,
+            )
             for i in range(num_routers)
         ]
         network.routers = routers

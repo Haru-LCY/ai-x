@@ -90,6 +90,21 @@ class Router : public BasicRouter, public Consumer
     int get_num_outports()  { return m_output_unit.size(); }
     int get_id()            { return m_id; }
 
+    bool isCollectiveRoot() const { return m_collective_root; }
+    bool collectiveEnabled() const { return m_collective_enabled; }
+    const std::string& collectiveParentOutport() const
+    {
+        return m_collective_parent_outport;
+    }
+    const std::vector<std::string>& collectiveChildInports() const
+    {
+        return m_collective_child_inports;
+    }
+    uint32_t collectiveExpectedFanin() const
+    {
+        return m_collective_expected_fanin;
+    }
+
     void init_net_ptr(GarnetNetwork* net_ptr)
     {
         m_network_ptr = net_ptr;
@@ -147,6 +162,13 @@ class Router : public BasicRouter, public Consumer
     uint32_t m_virtual_networks, m_vc_per_vnet, m_num_vcs;
     uint32_t m_bit_width;
     GarnetNetwork *m_network_ptr;
+
+    // Lab4 all-reduce convergence-tree metadata, computed by Mesh_XY.py.
+    bool m_collective_root;
+    bool m_collective_enabled;
+    std::string m_collective_parent_outport;
+    std::vector<std::string> m_collective_child_inports;
+    uint32_t m_collective_expected_fanin;
 
     RoutingUnit routingUnit;
     SwitchAllocator switchAllocator;
