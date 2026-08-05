@@ -1,43 +1,165 @@
-This is the gem5 simulator.
+# Lab4 Project — Mesh In-Network All-Reduce
 
-The main website can be found at http://www.gem5.org
+## 1. Introduction
 
-A good starting point is http://www.gem5.org/about, and for
-more information about building the simulator and getting started
-please see http://www.gem5.org/documentation and
-http://www.gem5.org/documentation/learning_gem5/introduction.
+本项目基于 gem5 Garnet，实现 Mesh 网络上的 in-network all-reduce。目标是让每个 node 注入一个标量贡献，由网络中的 Router 沿 XY 路由诱导的收敛树完成部分归约，再由 root 沿同一棵树广播全局结果。
 
-To build gem5, you will need the following software: g++ or clang,
-Python (gem5 links in the Python interpreter), SCons, zlib, m4, and lastly
-protobuf if you want trace capture and playback support. Please see
-http://www.gem5.org/documentation/general_docs/building for more details
-concerning the minimum versions of these tools.
+项目采用一个可证明、可复现的保底版本作为第一阶段目标：single-flit、标量、串行单 collective。只有这个闭环在小规模网络上正确运行后，才进入多轮、更多 root、baseline 对比和 stretch 功能。
 
-Once you have all dependencies resolved, type 'scons
-build/<CONFIG>/gem5.opt' where CONFIG is one of the options in build_opts like
-ARM, NULL, MIPS, POWER, SPARC, X86, Garnet_standalone, etc. This will build an
-optimized version of the gem5 binary (gem5.opt) with the the specified
-configuration. See http://www.gem5.org/documentation/general_docs/building for
-more details and options.
+当前代码库是 `/volume/haru/cxiao03/work/gem5-lab4` 的 `lab4` 分支。`Lab4_project/` 是配套的设计规范、计划和独立树校验工具，不是 gem5 主代码库。
 
-The main source tree includes these subdirectories:
-   - build_opts: pre-made default configurations for gem5
-   - build_tools: tools used internally by gem5's build process.
-   - configs: example simulation configuration scripts
-   - ext: less-common external packages needed to build gem5
-   - include: include files for use in other programs
-   - site_scons: modular components of the build system
-   - src: source code of the gem5 simulator
-   - system: source for some optional system software for simulated systems
-   - tests: regression tests
-   - util: useful utility programs and files
+## 2. Project highlights
 
-To run full-system simulations, you may need compiled system firmware, kernel
-binaries and one or more disk images, depending on gem5's configuration and
-what type of workload you're trying to run. Many of those resources can be
-downloaded from http://resources.gem5.org, and/or from the git repository here:
-https://gem5.googlesource.com/public/gem5-resources/
+当前工作的主要亮点和目标如下：
 
-If you have questions, please send mail to gem5-users@gem5.org
+- **Deterministic convergence tree**：根据 `Mesh_XY` 的 XY 路由和 `--collective-root`，离线计算每个 Router 的 parent、children 和 expected fan-in。
+- **Payload-carrying flit**：为 flit 增加 `value`、`collective_id`、`is_reduce` 字段，为后续 reduce/broadcast 协议保留稳定的数据通道。
+- **In-network reduction**：最终版本将在 Router 内合并子树贡献，减少向 root 的重复传输。
+- **Tree broadcast**：root 得到全局 sum 后沿反向树传播，使每个 node 收到相同结果。
+- **Fair evaluation**：最终比较 naive unicast、ring 和 tree 三种方案的完整通信量、完成周期和延迟，而不是只比较 reduce 阶段。
 
-Enjoy using gem5 and please share your modifications and extensions.
+注意：前两项已经有代码；后面的 reduction、broadcast 和公平实验仍在实现中，不能把当前 smoke 结果当作 all-reduce 正确性结果。
+
+## 3. Architecture
+
+### 3.1 Network topology
+
+网络使用 `Mesh_XY`。Router id 与坐标的关系为：
+
+```text
+x = router_id % columns
+y = router_id // columns
+```
+
+对于 root `(rx, ry)`，任意 Router `(x, y)` 的 parent 方向由 XY 路由唯一确定：先沿 X 维移动到 `rx`，再沿 Y 维移动到 `ry`。将所有 parent 边反向即可得到 children 集合。
+
+每个 Router 保存以下元数据：
+
+```text
+parent_outport       # 向 root 的出方向，root 为空
+child_inports        # 子 Router 合并 flit 的入方向
+expected_fanin       # len(children) + 1，本地贡献也计入
+```
+
+### 3.2 Reduce and broadcast protocol
+
+保底协议的目标流程如下：
+
+```text
+local contribution
+       │
+       ▼
+child Routers ── merged flit ──► parent Routers ──► root
+                                                      │
+                                                      ▼
+                         broadcast global sum to every child
+```
+
+每个 Router 只维护当前串行 collective 的一组状态：`accum`、`count` 和 `active`。收到 reduce flit 后累加并计数；收齐 fan-in 后，非 root 向 parent 发送一个 merged flit，root 产生最终 sum。broadcast 阶段需要对每个 child 出端口复制 flit，并正确处理 credit。
+
+## 4. Implementation status
+
+### 4.1 Implemented now
+
+- `configs/network/Network.py`：加入 `--collective-root`。
+- `configs/topologies/Mesh_XY.py`：计算 parent/children/fan-in，并向 Router 下发 collective 元数据。
+- `src/mem/ruby/network/BasicRouter.py`：增加 collective 参数；`collective_enabled` 使普通拓扑不受 Lab4 元数据校验影响。
+- `src/mem/ruby/network/garnet/Router.{cc,hh}`：保存并校验树元数据。
+- `src/mem/ruby/network/garnet/flit.{cc,hh}`：增加并保持 `value`、`collective_id`、`is_reduce`。
+- `src/mem/ruby/network/garnet/NetworkInterface.cc`：注入时写入 `value = src_ni`，eject 时断言 value 传输不变。
+- `configs/topologies/Ring.py`：加入 Ring 拓扑骨架，供后续 baseline 使用。
+
+### 4.2 Not implemented yet
+
+以下部分是当前开发主线：
+
+1. traffic generator 的 all-reduce 输入格式、轮次和结束条件；
+2. Router reduction state machine；
+3. 本地贡献与子节点贡献的统一 fan-in；
+4. merged flit 的 parent 路由；
+5. root sum 断言和 broadcast；
+6. 所有 node 的结果校验与网络 drain 检查；
+7. 100 轮串行稳定性测试；
+8. naive/ring/tree 的统一性能统计。
+
+## 5. Verification and evaluation plan
+
+### Stage 0 — Baseline
+
+- 运行独立树校验：2×2、3×3、4×4 的所有 root；
+- 固定编译和仿真命令；
+- 确认当前环境实际生成、可加载的 `build/NULL/gem5.opt`。
+
+### Stage 1 — Minimal correctness
+
+验收范围为 2×2、root=0、single-flit、单轮。每个 node 的贡献设为 `src_id + 1`，理论结果为：
+
+```text
+sum = 1 + 2 + ... + N = N * (N + 1) / 2
+```
+
+必须同时满足：root 的 sum 正确、每个 node 的 broadcast 值正确、仿真正常退出、没有 assertion failure。
+
+### Stage 2 — Stability
+
+对同一 2×2 配置运行至少 100 轮串行 collective，验证 consume credit、broadcast clone credit、无残留 flit 和无 hang。
+
+### Stage 3 — Scale and root
+
+扩展到 3×3、4×4，并覆盖角落、边缘和中心 root；记录完成周期、平均 flit latency、network latency 和 queueing latency。
+
+### Stage 4 — Fair baselines
+
+统一以下变量：网络规模、root、`f(src)`、轮数、注入格式和终止条件。对 naive unicast、ring、tree 统计：
+
+- reduce traffic、broadcast traffic、total flits；
+- completion cycles、average latency、network latency、queueing latency；
+- 三种方案的最终 sum 是否一致。
+
+### Stage 5/6 — Stretch and report
+
+至少选择一项 stretch（多 flit/vector reduction、多个 collective、独立 multicast、bypass/express link 或更大规模实验），并补齐架构图、理论通信量、实测数据、限制说明和展示材料。
+
+## 6. Reproduction
+
+工作区根目录为 `/volume/haru/cxiao03/work`。
+
+快速校验收敛树：
+
+```bash
+cd /volume/haru/cxiao03/work
+python3 Lab4_project/test_tree.py
+python3 Lab4_project/spanning_tree.py
+```
+
+推荐使用项目脚本构建：
+
+```bash
+cd /volume/haru/cxiao03/work
+auto_env=/volume/haru/cxiao03/work/env-gem5
+./build_lab4.sh
+```
+
+脚本使用 `Garnet_standalone`、`NULL ISA` 和 `-j4`。当前环境没有 `protoc` 和 HDF5 时会有 warning；历史日志中还出现过 protobuf/Abseil 链接失败，所以验收时必须检查实际 binary 是否存在并可运行。
+
+已有 smoke 产物：
+
+- `lab4_smoke.log`：普通 Garnet traffic，可正常结束；
+- `m5out_lab4_smoke/`：`config.ini`、`config.json`、`stats.txt`。
+
+这个 smoke 只证明普通 traffic 的 flit payload 没有被破坏，不证明 all-reduce 已经完成。
+
+## 7. Development constraints
+
+- Stage 1 通过之前不扩展到并发 collective、vector reduction、adaptive routing、bypass 或性能优化；
+- 每次协议改动都要保留独立正确性测试；
+- `lab4_smoke.log` 和 `m5out_lab4_smoke/` 是运行产物，不应作为源码提交；
+- 性能比较必须包含完整 reduce + broadcast 流程；
+- 现有源码改动与 README 文档提交分开管理，避免把未验收实现误标记为完成。
+
+## 8. Reference files
+
+- `Lab4_project/BASELINE_SPEC.md`：保底版协议和硬性验收项；
+- `Lab4_project/todo.md`：阶段化任务清单；
+- `Lab4_project/spanning_tree.py`：树构造、打印和验证；
+- `Lab4_project/test_tree.py`：快速回归检查。
