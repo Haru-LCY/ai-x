@@ -134,6 +134,8 @@ class Router : public BasicRouter, public Consumer
     int route_compute(RouteInfo route, int inport, PortDirection direction);
     void grant_switch(int inport, flit *t_flit);
     void schedule_wakeup(Cycles time);
+    // Lab4: consume one reduction flit and update the local tree state.
+    void handleCollectiveFlit(flit *t_flit, int inport);
 
     std::string getPortDirectionName(PortDirection direction);
     void printFaultVector(std::ostream& out);
@@ -169,6 +171,15 @@ class Router : public BasicRouter, public Consumer
     std::string m_collective_parent_outport;
     std::vector<std::string> m_collective_child_inports;
     uint32_t m_collective_expected_fanin;
+    int64_t m_collective_accum;
+    uint32_t m_collective_count;
+    int m_collective_id;
+    bool m_collective_active;
+
+    int collectiveOutport(const std::string& direction) const;
+    int collectiveChildId(const std::string& child_inport) const;
+    void sendCollectiveFlit(int64_t value, bool reduce, int dest_router,
+                            flit *template_flit);
 
     RoutingUnit routingUnit;
     SwitchAllocator switchAllocator;

@@ -84,6 +84,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--collective-rounds",
+    type=int,
+    default=1,
+    help="number of serialized Lab4 all-reduce rounds",
+)
+
+parser.add_argument(
     "--num-packets-max",
     type=int,
     default=-1,
@@ -135,6 +142,9 @@ cpus = [
         inj_vnet=args.inj_vnet,
         precision=args.precision,
         num_dest=args.num_dirs,
+        collective_mode=args.lab4_all_reduce,
+        collective_root=args.collective_root,
+        collective_rounds=args.collective_rounds,
     )
     for i in range(args.num_cpus)
 ]
@@ -151,6 +161,8 @@ system.clk_domain = SrcClockDomain(
 )
 
 Ruby.create_system(args, False, system)
+if args.lab4_all_reduce:
+    system.ruby.network.collective_mode = True
 
 # Create a seperate clock domain for Ruby
 system.ruby.clk_domain = SrcClockDomain(

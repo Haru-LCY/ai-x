@@ -163,3 +163,36 @@ auto_env=/volume/haru/cxiao03/work/env-gem5
 - `Lab4_project/todo.md`：阶段化任务清单；
 - `Lab4_project/spanning_tree.py`：树构造、打印和验证；
 - `Lab4_project/test_tree.py`：快速回归检查。
+
+## 9. Current status (2026-08-07)
+
+### 9.1 What is working
+
+- 已完成 Garnet collective plumbing：`collective-root` 配置、Mesh_XY 树元数据、flit 的 `value`/`collective_id`/`is_reduce` 字段，以及 Router/NetworkInterface 的 collective 接口。
+- 已完成 Router 内部的单轮标量归约和 root 广播路径。2×2、root=0、single-flit、单轮 Stage 1 测试已通过：4 个节点注入、子树合并、root 汇总为 10，并向所有节点广播且仿真正常退出。
+- 首次广播失败暴露的 Router 子节点方向映射错误已经修正。输入方向的含义是“从父 Router 指向 child 的方向”，因此 East/West/North/South 必须分别映射为 `(x+1)`, `(x-1)`, `(y+1)`, `(y-1)`。
+- collective 注入值已按规范使用 `src_ni + 1`；普通 smoke traffic 仍使用 `src_ni`。
+
+### 9.2 Current status and next blocker
+
+Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×2、root=0、100 轮串行 collective 测试：仿真正常结束，`TEST_RC=0`，没有 hang 或断言失败。下一步是扩展不同 root/网络规模，并建立公平 baseline。
+
+### 9.3 Build pitfalls and recovery
+
+1. **Protobuf 链接失败**：Lab4 不需要 Protobuf tracing。不能只忽略 linker 报错；构建时使用 `PROTOC=/bin/false`，让 gem5 明确关闭 protobuf 相关生成功能，并确认最终 binary 可运行。
+2. **混用 Python 版本导致 pybind 链接失败**：系统 Python 头文件/库与 gem5 虚拟环境不一致时，会出现 Python 3.12 头文件和 Python 3.10 库混用。必须统一使用 `/volume/haru/cxiao03/work/env-gem5/bin/python3`、对应的 `python3-config`，并设置 `LD_LIBRARY_PATH=/volume/haru/cxiao03/work/env-gem5/lib`。
+3. **旧 build 目录混杂**：曾有不同配置生成物共存，造成 ABI/链接结果不可靠。旧目录已保存在 `build/NULL_mixed_backup_20260806`，当前有效目标是 `build/NULL/gem5.opt`。
+4. **远端 CPU 配额**：容器虽然报告 128 个 CPU，但 cgroup 实际只分配约 1 个 CPU；因此全量 gem5 编译使用 `-j4` 仍会被限流，耗时可达几十分钟。编译过程使用 `nohup` 后台运行，SSH 断开不会中断。
+
+### 9.4 Verification artifacts
+
+- `build_lab4_routerfix.log`：方向修复后的成功编译日志。
+- `lab4_collective_2x2_fix.log`：方向修复后的测试日志；其中 `TEST_RC=134` 记录了旧注入值导致的 `6 != 10` 断言失败。
+- `lab4_collective_2x2_valuefix.log`：修正注入值后的 Stage 1 成功日志，`TEST_RC=0`。
+- `lab4_collective_2x2_100.log`：2×2、root=0、100 轮串行稳定性测试，`TEST_RC=0`。
+- `lab4_smoke.log` 和 `m5out_lab4_smoke/`：普通 Garnet smoke，证明基础 traffic 仍可运行，但不等于 all-reduce 已验收。
+
+### 9.5 Remaining minimum-work items
+
+1. 扩展到其他 root/规模，并覆盖 3×3、4×4 的正确性和稳定性；
+2. 实现 naive/ring/tree 的统一 baseline 统计。

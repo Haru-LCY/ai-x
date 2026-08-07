@@ -176,14 +176,25 @@ NetworkInterface::incrementStats(flit *t_flit)
     // Hops
     m_net_ptr->increment_total_hops(t_flit->get_route().hops_traversed);
 
-    // Lab4 minimal loop: the value stamped at injection (= src_ni) must
-    // survive the network unchanged. This proves the flit payload channel
-    // is sound end-to-end before we build reduction on top of it.
-    DPRINTF(RubyNetwork, "Lab4 eject: src_ni=%d value=%ld dest_ni=%d\n",
-            t_flit->get_route().src_ni, (long)t_flit->get_value(),
-            t_flit->get_route().dest_ni);
-    assert(t_flit->get_value() == t_flit->get_route().src_ni &&
-           "Lab4: flit value corrupted in transit");
+    if (m_net_ptr->collectiveMode() && t_flit->get_collective_id() >= 0) {
+        const int n = m_net_ptr->getNumRouters();
+        const int64_t expected = (int64_t)n * (n + 1) / 2;
+        DPRINTF(RubyNetwork,
+                "Lab4 eject: dest_ni=%d value=%ld expected=%ld reduce=%d\n",
+                t_flit->get_route().dest_ni, (long)t_flit->get_value(),
+                (long)expected, t_flit->is_reduce());
+        assert(!t_flit->is_reduce() &&
+               "Lab4: reduce flit must not eject at a network interface");
+        assert(t_flit->get_value() == expected &&
+               "Lab4: broadcast result is incorrect");
+    } else {
+        // Legacy smoke check: ordinary traffic preserves its source value.
+        DPRINTF(RubyNetwork, "Lab4 eject: src_ni=%d value=%ld dest_ni=%d\n",
+                t_flit->get_route().src_ni, (long)t_flit->get_value(),
+                t_flit->get_route().dest_ni);
+        assert(t_flit->get_value() == t_flit->get_route().src_ni &&
+               "Lab4: flit value corrupted in transit");
+    }
 }
 
 /*
@@ -243,6 +254,18 @@ NetworkInterface::wakeup()
 
             int vnet = t_flit->get_vnet();
             t_flit->set_dequeue_time(curTick());
+
+            // Collective broadcast flits are validation messages, not
+            // coherence responses. Consume them at the NI and return credit.
+            if (m_net_ptr->collectiveMode() &&
+                t_flit->get_collective_id() >= 0) {
+                assert(!t_flit->is_reduce());
+                Credit *cFlit = new Credit(t_flit->get_vc(), true, curTick());
+                iPort->sendCredit(cFlit);
+                incrementStats(t_flit);
+                delete t_flit;
+                continue;
+            }
 
             // If a tail flit is received, enqueue into the protocol buffers
             // if space is available. Otherwise, exchange non-tail flits for
@@ -455,12 +478,20 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 oPort->bitWidth(), curTick());
 
             fl->set_src_delay(curTick() - msg_ptr->getTime());
-            // Lab4 minimal loop: stamp value = f(src) = src_ni on every flit
-            // so we can verify at ejection that the payload survives the
-            // network intact. (Harmless for non-collective traffic.)
-            fl->set_value(route.src_ni);
+            if (m_net_ptr->collectiveMode()) {
+                // Stage 1 collective contribution is f(src) = src_ni + 1,
+                // so an N-node run has the deterministic expected sum
+                // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
+                fl->set_value(route.src_ni + 1);
+                fl->set_collective_id(0);
+                fl->set_is_reduce(true);
+            } else {
+                // Preserve the legacy smoke check for ordinary traffic.
+                fl->set_value(route.src_ni);
+            }
             DPRINTF(RubyNetwork, "Lab4 inject: src_ni=%d value=%ld "
-                    "vnet=%d\n", route.src_ni, (long)fl->get_value(), vnet);
+                    "vnet=%d reduce=%d\n", route.src_ni,
+                    (long)fl->get_value(), vnet, fl->is_reduce());
             niOutVcs[vc].insert(fl);
         }
 

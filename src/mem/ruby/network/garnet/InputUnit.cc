@@ -87,6 +87,14 @@ InputUnit::wakeup()
         int vc = t_flit->get_vc();
         t_flit->increment_hops(); // for stats
 
+        // Lab4 reduction flits are consumed by the Router state machine
+        // before entering a normal input VC.  The state machine returns the
+        // upstream credit and emits only merged/broadcast flits.
+        if (m_router->collectiveEnabled() && t_flit->is_reduce()) {
+            m_router->handleCollectiveFlit(t_flit, m_id);
+            return;
+        }
+
         if ((t_flit->get_type() == HEAD_) ||
             (t_flit->get_type() == HEAD_TAIL_)) {
 

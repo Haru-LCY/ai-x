@@ -54,6 +54,12 @@ def define_options(parser):
         help="router id used as the Lab4 all-reduce tree root",
     )
     parser.add_argument(
+        "--lab4-all-reduce",
+        action="store_true",
+        default=False,
+        help="enable the Lab4 single-round all-reduce traffic",
+    )
+    parser.add_argument(
         "--network",
         default="simple",
         choices=["simple", "garnet"],

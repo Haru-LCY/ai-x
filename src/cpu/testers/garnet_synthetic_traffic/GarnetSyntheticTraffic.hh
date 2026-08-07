@@ -124,6 +124,11 @@ class GarnetSyntheticTraffic : public ClockedObject
     int numPacketsSent;
     int singleSender;
     int singleDest;
+    bool collectiveMode;
+    int collectiveRoot;
+    int collectiveRounds;
+    int collectiveRound;
+    Tick collectivePeriod;
 
     std::string trafficType; // string
     TrafficType traffic; // enum from string

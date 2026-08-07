@@ -57,6 +57,8 @@ Router::Router(const Params &p)
     m_collective_parent_outport(p.collective_parent_outport),
     m_collective_child_inports(p.collective_child_inports),
     m_collective_expected_fanin(p.collective_expected_fanin),
+    m_collective_accum(0), m_collective_count(0), m_collective_id(-1),
+    m_collective_active(false),
     routingUnit(this), switchAllocator(this),
     crossbarSwitch(this)
 {
@@ -200,6 +202,128 @@ Router::schedule_wakeup(Cycles time)
 {
     // wake up after time cycles
     scheduleEvent(time);
+}
+
+int
+Router::collectiveOutport(const std::string& direction) const
+{
+    for (int i = 0; i < m_output_unit.size(); ++i) {
+        if (m_output_unit[i]->get_direction() == direction)
+            return i;
+    }
+    return -1;
+}
+
+int
+Router::collectiveChildId(const std::string& child_inport) const
+{
+    const int cols = m_network_ptr->getNumCols();
+    const int x = m_id % cols;
+    const int y = m_id / cols;
+    // The input direction names the direction from this router toward the
+    // child: a child east of us sends west and arrives on our East input.
+    if (child_inport == "East")
+        return y * cols + (x + 1);
+    if (child_inport == "West")
+        return y * cols + (x - 1);
+    if (child_inport == "North")
+        return (y + 1) * cols + x;
+    if (child_inport == "South")
+        return (y - 1) * cols + x;
+    fatal("Invalid Lab4 child input direction %s at Router %d",
+          child_inport, m_id);
+}
+
+void
+Router::sendCollectiveFlit(int64_t value, bool reduce, int dest_router,
+                            flit *template_flit)
+{
+    const int cols = m_network_ptr->getNumCols();
+    const int out_x = dest_router % cols;
+    const int out_y = dest_router / cols;
+    const int x = m_id % cols;
+    const int y = m_id / cols;
+    std::string direction = "Local";
+    if (out_x > x) direction = "East";
+    else if (out_x < x) direction = "West";
+    else if (out_y > y) direction = "North";
+    else if (out_y < y) direction = "South";
+
+    const int outport = collectiveOutport(direction);
+    fatal_if(outport < 0, "Router %d has no Lab4 output %s", m_id,
+             direction);
+    OutputUnit *output = m_output_unit[outport].get();
+    const int vnet = template_flit->get_vnet();
+    const int outvc = output->select_free_vc(vnet);
+    fatal_if(outvc < 0, "Router %d has no free VC for Lab4 collective", m_id);
+
+    RouteInfo route = template_flit->get_route();
+    route.src_ni = m_network_ptr->getNumRouters() + m_id;
+    route.src_router = m_id;
+    route.dest_ni = m_network_ptr->getNumRouters() + dest_router;
+    route.dest_router = dest_router;
+    route.net_dest.clear();
+    route.net_dest.add(MachineID(MachineType_Directory, dest_router));
+    route.hops_traversed = -1;
+
+    flit *out_flit = new flit(m_network_ptr->getNextPacketID(), 0, outvc,
+        vnet, route, 1, template_flit->get_msg_ptr(), template_flit->msgSize,
+        m_bit_width, curTick());
+    out_flit->set_value(value);
+    out_flit->set_collective_id(template_flit->get_collective_id());
+    out_flit->set_is_reduce(reduce);
+    output->decrement_credit(outvc);
+    output->insert_flit(out_flit);
+    DPRINTF(RubyNetwork,
+            "Lab4 collective send router=%d dest_router=%d reduce=%d value=%ld\
+",
+            m_id, dest_router, reduce, (long)value);
+}
+
+void
+Router::handleCollectiveFlit(flit *t_flit, int inport)
+{
+    fatal_if(!m_collective_enabled,
+             "Lab4 flit reached Router %d without collective metadata", m_id);
+    if (!m_collective_active) {
+        m_collective_active = true;
+        m_collective_accum = 0;
+        m_collective_count = 0;
+        m_collective_id = t_flit->get_collective_id();
+    } else {
+        fatal_if(t_flit->get_collective_id() != m_collective_id,
+                 "Router %d received mixed Lab4 collective ids", m_id);
+    }
+
+    m_collective_accum += t_flit->get_value();
+    ++m_collective_count;
+    getInputUnit(inport)->increment_credit(t_flit->get_vc(), true, curTick());
+
+    if (m_collective_count == m_collective_expected_fanin) {
+        const int64_t sum = m_collective_accum;
+        if (m_collective_root) {
+            // Include the root's local NI and every child in the broadcast.
+            sendCollectiveFlit(sum, false, m_id, t_flit);
+            for (const auto& child_in : m_collective_child_inports)
+                sendCollectiveFlit(sum, false, collectiveChildId(child_in),
+                                    t_flit);
+        } else {
+            const int cols = m_network_ptr->getNumCols();
+            const int x = m_id % cols;
+            const int y = m_id / cols;
+            int parent = m_id;
+            if (m_collective_parent_outport == "East") parent = y * cols + x + 1;
+            else if (m_collective_parent_outport == "West") parent = y * cols + x - 1;
+            else if (m_collective_parent_outport == "North") parent = (y + 1) * cols + x;
+            else if (m_collective_parent_outport == "South") parent = (y - 1) * cols + x;
+            sendCollectiveFlit(sum, true, parent, t_flit);
+        }
+        m_collective_active = false;
+        m_collective_count = 0;
+        m_collective_accum = 0;
+        m_collective_id = -1;
+    }
+    delete t_flit;
 }
 
 std::string

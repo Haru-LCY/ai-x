@@ -51,6 +51,9 @@ class GarnetNetwork(RubyNetwork):
     garnet_deadlock_threshold = Param.UInt32(
         50000, "network-level deadlock threshold"
     )
+    collective_mode = Param.Bool(
+        False, "enable Lab4 collective flit handling"
+    )
 
 
 class GarnetNetworkInterface(ClockedObject):

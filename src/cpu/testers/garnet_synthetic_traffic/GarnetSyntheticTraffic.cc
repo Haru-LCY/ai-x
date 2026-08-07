@@ -28,6 +28,7 @@
 
 #include "cpu/testers/garnet_synthetic_traffic/GarnetSyntheticTraffic.hh"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <set>
@@ -86,6 +87,12 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       numPacketsSent(0),
       singleSender(p.single_sender),
       singleDest(p.single_dest),
+      collectiveMode(p.collective_mode),
+      collectiveRoot(p.collective_root),
+      collectiveRounds(std::max(1, p.collective_rounds)),
+      collectiveRound(0),
+      collectivePeriod(std::max<Tick>(1, p.sim_cycles /
+                                      std::max(1, p.collective_rounds))),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
       injVnet(p.inj_vnet),
@@ -158,7 +165,13 @@ GarnetSyntheticTraffic::tick()
         sendAllowedThisCycle = false;
 
     // always generatePkt unless fixedPkts or singleSender is enabled
-    if (sendAllowedThisCycle) {
+    if (collectiveMode) {
+        if (collectiveRound < collectiveRounds &&
+            curTick() >= collectiveRound * collectivePeriod) {
+            generatePkt();
+            ++collectiveRound;
+        }
+    } else if (sendAllowedThisCycle) {
         bool senderEnable = true;
 
         if (numPacketsMax >= 0 && numPacketsSent >= numPacketsMax)
@@ -192,7 +205,18 @@ GarnetSyntheticTraffic::generatePkt()
     int src_x = id%radix;
     int src_y = id/radix;
 
-    if (singleDest >= 0)
+    if (collectiveMode) {
+        int root_x = collectiveRoot % radix;
+        int root_y = collectiveRoot / radix;
+        int x = src_x;
+        int y = src_y;
+        if (x != root_x)
+            destination = y * radix + x + (root_x > x ? 1 : -1);
+        else if (y != root_y)
+            destination = (y + (root_y > y ? 1 : -1)) * radix + x;
+        else
+            destination = collectiveRoot;
+    } else if (singleDest >= 0)
     {
         destination = singleDest;
     } else if (traffic == UNIFORM_RANDOM_) {
