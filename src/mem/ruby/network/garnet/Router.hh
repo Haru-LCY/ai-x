@@ -218,6 +218,9 @@ class Router : public BasicRouter, public Consumer
 
     statistics::Scalar m_sw_input_arbiter_activity;
     statistics::Scalar m_sw_output_arbiter_activity;
+    statistics::Scalar m_outvc_stalls;
+    statistics::Scalar m_credit_stalls;
+    statistics::Scalar m_ordering_stalls;
 
     statistics::Scalar m_crossbar_activity;
 };

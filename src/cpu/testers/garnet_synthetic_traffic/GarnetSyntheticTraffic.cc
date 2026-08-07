@@ -107,9 +107,22 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       injRate(p.inj_rate),
       injVnet(p.inj_vnet),
       precision(p.precision),
+      syntheticWarmupCycles(p.synthetic_warmup_cycles),
+      syntheticDrainCycles(p.synthetic_drain_cycles),
+      syntheticMeasurementCycles(p.synthetic_measurement_cycles),
+      hotspotDestination(p.hotspot_destination),
+      hotspotProbability(p.hotspot_probability),
       responseLimit(p.response_limit),
       requestorId(p.system->getRequestorId(this))
 {
+    fatal_if(syntheticWarmupCycles < 0 || syntheticDrainCycles < 0 ||
+             syntheticMeasurementCycles < 0,
+             "Synthetic measurement cycle counts cannot be negative");
+    fatal_if(hotspotDestination < 0 || hotspotDestination >= numDestinations,
+             "Hotspot destination %d lies outside %d destinations",
+             hotspotDestination, numDestinations);
+    fatal_if(hotspotProbability < 0.0 || hotspotProbability > 1.0,
+             "Hotspot probability must lie in [0, 1]");
     fatal_if(collectiveMode && collectiveNetwork == nullptr,
              "Lab4 collective tester requires a Garnet network");
     fatal_if(multicastMode == "naive_unicast" &&
@@ -144,6 +157,32 @@ GarnetSyntheticTraffic::init()
     numPacketsSent = 0;
 }
 
+void
+GarnetSyntheticTraffic::regStats()
+{
+    ClockedObject::regStats();
+    offeredDestinations
+        .init(numDestinations)
+        .name(name() + ".offered_destinations")
+        .flags(statistics::total | statistics::nozero);
+    for (int destination = 0; destination < numDestinations; ++destination) {
+        offeredDestinations.subname(
+            destination, csprintf("dest-%d", destination));
+    }
+}
+
+bool
+GarnetSyntheticTraffic::inMeasuredSyntheticWindow() const
+{
+    if (syntheticMeasurementCycles == 0)
+        return false;
+    const Cycles measurementStart =
+        Cycles(syntheticWarmupCycles + syntheticDrainCycles);
+    const Cycles measurementEnd =
+        measurementStart + Cycles(syntheticMeasurementCycles);
+    return curCycle() >= measurementStart && curCycle() < measurementEnd;
+}
+
 
 void
 GarnetSyntheticTraffic::completeRequest(PacketPtr pkt)
@@ -166,17 +205,22 @@ GarnetSyntheticTraffic::tick()
         fatal("%s deadlocked at cycle %d\n", name(), curTick());
     }
 
-    // make new request based on injection rate
-    // (injection rate's range depends on precision)
-    // - generate a random number between 0 and 10^precision
-    // - send pkt if this number is < injRate*(10^precision)
-    bool sendAllowedThisCycle;
+    // The integral part injects that many packets per source cycle.  The
+    // fractional part uses the original Bernoulli test, so rates <= 1 retain
+    // the historical synthetic-traffic behavior while performance sweeps can
+    // drive a faster network beyond one packet per source cycle.
     double injRange = pow((double) 10, (double) precision);
     unsigned trySending = localRandom.random<unsigned>(0, (int) injRange);
-    if (trySending < injRate*injRange)
-        sendAllowedThisCycle = true;
-    else
-        sendAllowedThisCycle = false;
+    unsigned packetsToSend = 0;
+    if (injRate <= 1.0) {
+        if (trySending < injRate * injRange)
+            packetsToSend = 1;
+    } else {
+        packetsToSend = std::floor(injRate);
+        const double fractionalRate = injRate - packetsToSend;
+        if (trySending < fractionalRate * injRange)
+            ++packetsToSend;
+    }
 
     // always generatePkt unless fixedPkts or singleSender is enabled
     if (collectiveMode) {
@@ -225,8 +269,18 @@ GarnetSyntheticTraffic::tick()
             nextMulticastInjectionCycle = curCycle() +
                 Cycles(multicastInjectionGap);
         }
-    } else if (sendAllowedThisCycle) {
+    } else if (packetsToSend > 0) {
         bool senderEnable = true;
+
+        if (syntheticMeasurementCycles > 0) {
+            const Cycles cycle = curCycle();
+            const Cycles measurementStart =
+                Cycles(syntheticWarmupCycles + syntheticDrainCycles);
+            const Cycles measurementEnd =
+                measurementStart + Cycles(syntheticMeasurementCycles);
+            senderEnable = cycle < Cycles(syntheticWarmupCycles) ||
+                (cycle >= measurementStart && cycle < measurementEnd);
+        }
 
         if (numPacketsMax >= 0 && numPacketsSent >= numPacketsMax)
             senderEnable = false;
@@ -234,16 +288,31 @@ GarnetSyntheticTraffic::tick()
         if (singleSender >= 0 && id != singleSender)
             senderEnable = false;
 
-        if (senderEnable)
-            generatePkt();
+        if (senderEnable) {
+            for (unsigned packet = 0; packet < packetsToSend; ++packet)
+                generatePkt();
+        }
     }
 
-    // Schedule wakeup
-    if (curTick() >= simCycles)
+    // Schedule wakeup. Performance windows jump over the quiet drain and
+    // stop tester activity during cooldown; network events continue to run.
+    if (syntheticMeasurementCycles == 0 && curTick() >= simCycles)
         exitSimLoop("Network Tester completed simCycles");
     else {
-        if (!tickEvent.scheduled())
-            schedule(tickEvent, clockEdge(Cycles(1)));
+        const Cycles measurementStart =
+            Cycles(syntheticWarmupCycles + syntheticDrainCycles);
+        const Cycles measurementEnd =
+            measurementStart + Cycles(syntheticMeasurementCycles);
+        if (syntheticMeasurementCycles > 0 &&
+            curCycle() >= Cycles(syntheticWarmupCycles) &&
+            curCycle() < measurementStart) {
+            if (!tickEvent.scheduled())
+                schedule(tickEvent, clockEdge(measurementStart - curCycle()));
+        } else if (syntheticMeasurementCycles == 0 ||
+                   curCycle() < measurementEnd) {
+            if (!tickEvent.scheduled())
+                schedule(tickEvent, clockEdge(Cycles(1)));
+        }
     }
 }
 
@@ -277,6 +346,15 @@ GarnetSyntheticTraffic::generatePkt()
         destination = singleDest;
     } else if (traffic == UNIFORM_RANDOM_) {
         destination = localRandom.random<unsigned>(0, num_destinations - 1);
+    } else if (traffic == HOTSPOT_) {
+        const unsigned threshold =
+            std::round(hotspotProbability * 1000000.0);
+        if (localRandom.random<unsigned>(0, 999999) < threshold) {
+            destination = hotspotDestination;
+        } else {
+            destination = localRandom.random<unsigned>(
+                0, num_destinations - 1);
+        }
     } else if (traffic == BIT_COMPLEMENT_) {
         dest_x = radix - src_x - 1;
         dest_y = radix - src_y - 1;
@@ -320,6 +398,9 @@ GarnetSyntheticTraffic::generatePkt()
     else {
         fatal("Unknown Traffic Type: %s!\n", traffic);
     }
+
+    if (inMeasuredSyntheticWindow())
+        ++offeredDestinations[destination];
 
     // The source of the packets is a cache.
     // The destination of the packets is a directory.
@@ -414,6 +495,7 @@ GarnetSyntheticTraffic::initTrafficType()
     trafficStringToEnum["tornado"] = TORNADO_;
     trafficStringToEnum["transpose"] = TRANSPOSE_;
     trafficStringToEnum["uniform_random"] = UNIFORM_RANDOM_;
+    trafficStringToEnum["hotspot"] = HOTSPOT_;
 }
 
 void

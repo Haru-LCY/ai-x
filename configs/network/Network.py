@@ -88,6 +88,12 @@ def define_options(parser):
         help="optional path for a stable topology/cost JSON dump",
     )
     parser.add_argument(
+        "--synthetic-packet-flits",
+        type=int,
+        default=0,
+        help="override ordinary Garnet synthetic packet size in flits",
+    )
+    parser.add_argument(
         "--collective-root",
         type=int,
         default=0,
@@ -234,6 +240,7 @@ def init_network(options, network, InterfaceClass):
         network.buffers_per_ctrl_vc = options.buffers_per_ctrl_vc
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
+        network.synthetic_packet_flits = options.synthetic_packet_flits
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
 
         # Create Bridges and connect them to the corresponding links

@@ -171,6 +171,8 @@ NetworkInterface::incrementStats(flit *t_flit)
         m_net_ptr->increment_received_packets(vnet);
         m_net_ptr->increment_packet_network_latency(network_delay, vnet);
         m_net_ptr->increment_packet_queueing_latency(queueing_delay, vnet);
+        m_net_ptr->samplePacketLatency(
+            ticksToCycles(network_delay + queueing_delay));
     }
 
     // Hops
@@ -430,6 +432,8 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_net_ptr->collectiveTraffic(vnet, oPort->routerID());
     int num_flits = (int)divCeil((float) m_net_ptr->MessageSizeType_to_int(
         net_msg_ptr->getMessageSize()), (float)oPort->bitWidth());
+    if (!collective_message && m_net_ptr->syntheticPacketFlits() > 0)
+        num_flits = m_net_ptr->syntheticPacketFlits();
     if (collective_message && m_net_ptr->collectiveMulticast())
         num_flits = m_net_ptr->multicastPacketFlits();
     fatal_if(collective_message &&

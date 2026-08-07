@@ -75,6 +75,9 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_bypass_first_hops = p.bypass_first_hops;
     m_bypass_link_ids = p.bypass_link_ids;
     m_bypass_link_spans = p.bypass_link_spans;
+    m_synthetic_packet_flits = p.synthetic_packet_flits;
+    fatal_if(m_synthetic_packet_flits < 0,
+             "Synthetic packet flits cannot be negative");
     fatal_if(m_bypass_link_ids.size() != m_bypass_link_spans.size(),
              "Bypass link id/span vectors differ: %d != %d",
              (int)m_bypass_link_ids.size(), (int)m_bypass_link_spans.size());
@@ -698,6 +701,9 @@ GarnetNetwork::regStats()
         .name(name() + ".packet_queueing_latency")
         .flags(statistics::oneline)
         ;
+    m_packet_latency_histogram
+        .init(16384)
+        .name(name() + ".packet_latency_histogram");
 
     for (int i = 0; i < m_virtual_networks; i++) {
         m_packets_received.subname(i, csprintf("vnet-%i", i));
@@ -817,6 +823,15 @@ GarnetNetwork::regStats()
         .name(name() + ".physical_hops_skipped");
     m_average_link_utilization
         .name(name() + ".avg_link_utilization");
+    int maximum_link_id = -1;
+    for (const auto *link : m_networklinks)
+        maximum_link_id = std::max(maximum_link_id, link->get_id());
+    m_internal_link_activity
+        .init(maximum_link_id + 1)
+        .name(name() + ".internal_link_activity")
+        .flags(statistics::total | statistics::nozero);
+    for (int id = 0; id <= maximum_link_id; ++id)
+        m_internal_link_activity.subname(id, csprintf("link-%d", id));
     m_average_vc_load
         .init(m_virtual_networks * m_max_vcs_per_vnet)
         .name(name() + ".avg_vc_load")
@@ -862,6 +877,7 @@ GarnetNetwork::collateStats()
             m_total_ext_out_link_utilization += activity;
         else if (type == INT_) {
             m_total_int_link_utilization += activity;
+            m_internal_link_activity[m_networklinks[i]->get_id()] += activity;
             m_router_traversals += activity;
             const auto bypass =
                 std::find(m_bypass_link_ids.begin(), m_bypass_link_ids.end(),

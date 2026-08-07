@@ -76,6 +76,9 @@ class SwitchAllocator : public Consumer
     {
         return m_output_arbiter_activity;
     }
+    uint64_t get_outvc_stalls() const { return m_outvc_stalls; }
+    uint64_t get_credit_stalls() const { return m_credit_stalls; }
+    uint64_t get_ordering_stalls() const { return m_ordering_stalls; }
 
     void resetStats();
 
@@ -84,6 +87,7 @@ class SwitchAllocator : public Consumer
     int m_num_vcs, m_vc_per_vnet;
 
     double m_input_arbiter_activity, m_output_arbiter_activity;
+    uint64_t m_outvc_stalls, m_credit_stalls, m_ordering_stalls;
 
     Router *m_router;
     std::vector<int> m_round_robin_invc;

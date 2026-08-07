@@ -148,6 +148,8 @@ class GarnetNetwork : public Network
     void increment_injected_packets(int vnet) { m_packets_injected[vnet]++; }
     void increment_received_packets(int vnet) { m_packets_received[vnet]++; }
 
+    int syntheticPacketFlits() const { return m_synthetic_packet_flits; }
+
     void
     increment_packet_network_latency(Tick latency, int vnet)
     {
@@ -158,6 +160,11 @@ class GarnetNetwork : public Network
     increment_packet_queueing_latency(Tick latency, int vnet)
     {
         m_packet_queueing_latency[vnet] += latency;
+    }
+
+    void samplePacketLatency(Cycles latency)
+    {
+        m_packet_latency_histogram.sample(latency);
     }
 
     void increment_injected_flits(int vnet) { m_flits_injected[vnet]++; }
@@ -209,6 +216,7 @@ class GarnetNetwork : public Network
     std::vector<std::string> m_bypass_first_hops;
     std::vector<int> m_bypass_link_ids;
     std::vector<int> m_bypass_link_spans;
+    int m_synthetic_packet_flits;
     bool m_collective_mode;
     bool m_collective_multicast;
     int m_collective_rounds;
@@ -231,6 +239,7 @@ class GarnetNetwork : public Network
     statistics::Vector m_packets_injected;
     statistics::Vector m_packet_network_latency;
     statistics::Vector m_packet_queueing_latency;
+    statistics::SparseHistogram m_packet_latency_histogram;
 
     statistics::Formula m_avg_packet_vnet_latency;
     statistics::Formula m_avg_packet_vqueue_latency;
@@ -258,6 +267,7 @@ class GarnetNetwork : public Network
     statistics::Scalar m_physical_wire_flit_distance;
     statistics::Scalar m_physical_hops_skipped;
     statistics::Scalar m_average_link_utilization;
+    statistics::Vector m_internal_link_activity;
     statistics::Vector m_average_vc_load;
 
     statistics::Scalar  m_total_hops;

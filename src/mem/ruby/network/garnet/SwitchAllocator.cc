@@ -55,6 +55,9 @@ SwitchAllocator::SwitchAllocator(Router *router)
 
     m_input_arbiter_activity = 0;
     m_output_arbiter_activity = 0;
+    m_outvc_stalls = 0;
+    m_credit_stalls = 0;
+    m_ordering_stalls = 0;
 }
 
 void
@@ -310,8 +313,14 @@ SwitchAllocator::send_allowed(int inport, int invc, int outport, int outvc)
     }
 
     // cannot send if no outvc or no credit.
-    if (!has_outvc || !has_credit)
+    if (!has_outvc) {
+        ++m_outvc_stalls;
         return false;
+    }
+    if (!has_credit) {
+        ++m_credit_stalls;
+        return false;
+    }
 
 
     // protocol ordering check
@@ -329,6 +338,7 @@ SwitchAllocator::send_allowed(int inport, int invc, int outport, int outvc)
             if (input_unit->need_stage(temp_vc, SA_, curTick()) &&
                (input_unit->get_outport(temp_vc) == outport) &&
                (input_unit->get_enqueue_time(temp_vc) < t_enqueue_time)) {
+                ++m_ordering_stalls;
                 return false;
             }
         }
@@ -394,6 +404,9 @@ SwitchAllocator::resetStats()
 {
     m_input_arbiter_activity = 0;
     m_output_arbiter_activity = 0;
+    m_outvc_stalls = 0;
+    m_credit_stalls = 0;
+    m_ordering_stalls = 0;
 }
 
 } // namespace garnet

@@ -569,6 +569,21 @@ Router::regStats()
         .name(name() + ".sw_output_arbiter_activity")
         .flags(statistics::nozero)
     ;
+
+    m_outvc_stalls
+        .name(name() + ".outvc_stalls")
+        .flags(statistics::nozero)
+    ;
+
+    m_credit_stalls
+        .name(name() + ".credit_stalls")
+        .flags(statistics::nozero)
+    ;
+
+    m_ordering_stalls
+        .name(name() + ".ordering_stalls")
+        .flags(statistics::nozero)
+    ;
 }
 
 void
@@ -585,6 +600,9 @@ Router::collateStats()
     m_sw_output_arbiter_activity =
         switchAllocator.get_output_arbiter_activity();
     m_crossbar_activity = crossbarSwitch.get_crossbar_activity();
+    m_outvc_stalls = switchAllocator.get_outvc_stalls();
+    m_credit_stalls = switchAllocator.get_credit_stalls();
+    m_ordering_stalls = switchAllocator.get_ordering_stalls();
 }
 
 void

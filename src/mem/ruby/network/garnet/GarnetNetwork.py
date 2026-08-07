@@ -53,6 +53,9 @@ class GarnetNetwork(RubyNetwork):
     bypass_link_spans = VectorParam.Int(
         [], "Manhattan physical spans aligned with bypass_link_ids"
     )
+    synthetic_packet_flits = Param.Int(
+        0, "override ordinary synthetic packet size in flits (0 disables)"
+    )
     enable_fault_model = Param.Bool(False, "enable network fault model")
     fault_model = Param.FaultModel(NULL, "network fault model")
     garnet_deadlock_threshold = Param.UInt32(

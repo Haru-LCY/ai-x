@@ -58,8 +58,16 @@ parser.add_argument(
         "neighbor",
         "shuffle",
         "transpose",
+        "hotspot",
     ],
 )
+parser.add_argument("--synthetic-seed", type=int, default=1)
+parser.add_argument("--hotspot-destination", type=int, default=0)
+parser.add_argument("--hotspot-probability", type=float, default=0.5)
+parser.add_argument("--synthetic-warmup-cycles", type=int, default=0)
+parser.add_argument("--synthetic-drain-cycles", type=int, default=0)
+parser.add_argument("--synthetic-measurement-cycles", type=int, default=0)
+parser.add_argument("--synthetic-cooldown-cycles", type=int, default=0)
 
 parser.add_argument(
     "-i",
@@ -324,6 +332,9 @@ for i in range(args.num_cpus):
                   (args.injectionrate if not multicast_requested else 0.0)),
         inj_vnet=(0 if background_tester else args.inj_vnet),
         precision=args.precision,
+        synthetic_warmup_cycles=args.synthetic_warmup_cycles,
+        synthetic_drain_cycles=args.synthetic_drain_cycles,
+        synthetic_measurement_cycles=args.synthetic_measurement_cycles,
         num_dest=args.num_dirs,
         collective_mode=is_collective_tester,
         collective_multicast=multicast_requested,
@@ -334,7 +345,11 @@ for i in range(args.num_cpus):
         multicast_injection_gap=max(
             1, math.ceil(1.0 / args.multicast_injection_rate)
         ),
-        random_seed=args.multicast_seed,
+        random_seed=(
+            args.multicast_seed if multicast_requested else args.synthetic_seed
+        ),
+        hotspot_destination=args.hotspot_destination,
+        hotspot_probability=args.hotspot_probability,
     ))
 
 # create the desired simulated system
@@ -399,7 +414,47 @@ m5.ticks.setGlobalFrequency("1ps")
 # instantiate configuration
 m5.instantiate()
 
-# simulate until program terminates
-exit_event = m5.simulate(args.abs_max_tick)
+# Synthetic performance runs use a quiet drain before the measured interval,
+# then stop injection and drain in-flight traffic during cooldown.  The first
+# dump is the fixed-duration performance sample; the second proves completion.
+if args.synthetic_measurement_cycles:
+    if collective_requested:
+        parser.error("synthetic measurement windows conflict with collectives")
+    if min(
+        args.synthetic_warmup_cycles,
+        args.synthetic_drain_cycles,
+        args.synthetic_measurement_cycles,
+        args.synthetic_cooldown_cycles,
+    ) < 0:
+        parser.error("synthetic measurement cycle counts cannot be negative")
+    ticks_per_cycle = m5.ticks.fromSeconds(
+        1.0 / m5.util.convert.toFrequency(args.sys_clock)
+    )
+    pre_measurement = (
+        args.synthetic_warmup_cycles + args.synthetic_drain_cycles
+    ) * ticks_per_cycle
+    if pre_measurement:
+        exit_event = m5.simulate(pre_measurement)
+        if exit_event.getCause() != "simulate() limit reached":
+            raise RuntimeError(
+                "synthetic warmup ended early: " + exit_event.getCause()
+            )
+    m5.stats.dump()
+    m5.stats.reset()
+    exit_event = m5.simulate(
+        args.synthetic_measurement_cycles * ticks_per_cycle
+    )
+    if exit_event.getCause() != "simulate() limit reached":
+        raise RuntimeError(
+            "synthetic measurement ended early: " + exit_event.getCause()
+        )
+    m5.stats.dump()
+    exit_event = m5.simulate(
+        args.synthetic_cooldown_cycles * ticks_per_cycle
+    )
+    m5.stats.dump()
+else:
+    # simulate until program terminates
+    exit_event = m5.simulate(args.abs_max_tick)
 
 print("Exiting @ tick", m5.curTick(), "because", exit_event.getCause())

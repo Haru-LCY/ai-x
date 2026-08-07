@@ -63,6 +63,15 @@ class GarnetSyntheticTraffic(ClockedObject):
                               0 and 1 are 1-flit, 2 is 5-flit. \
                                 Default is to inject in all three vnets",
     )
+    synthetic_warmup_cycles = Param.Int(
+        0, "cycles of synthetic warmup traffic"
+    )
+    synthetic_drain_cycles = Param.Int(
+        0, "quiet cycles between warmup and measurement"
+    )
+    synthetic_measurement_cycles = Param.Int(
+        0, "cycles of measured synthetic traffic (0 disables windows)"
+    )
     precision = Param.Int(
         3,
         "Number of digits of precision \
@@ -88,3 +97,5 @@ class GarnetSyntheticTraffic(ClockedObject):
     multicast_destinations = VectorParam.Int([], "multicast destination Routers")
     multicast_injection_gap = Param.Int(1, "cycles between multicast requests")
     random_seed = Param.Unsigned(1, "per-tester deterministic random seed")
+    hotspot_destination = Param.Int(0, "synthetic hotspot destination")
+    hotspot_probability = Param.Float(0.5, "probability of hotspot traffic")
