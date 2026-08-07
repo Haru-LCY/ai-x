@@ -172,6 +172,11 @@ parser.add_argument(
     help="Only send to this destination.\
                         Set to -1 to disable.",
 )
+parser.add_argument(
+    "--source-destinations",
+    default="",
+    help="comma-separated per-source destinations, for example 0:8,4:0",
+)
 
 parser.add_argument(
     "--inj-vnet",
@@ -189,6 +194,25 @@ parser.add_argument(
 Ruby.define_options(parser)
 
 args = parser.parse_args()
+
+source_destinations = {}
+if args.source_destinations:
+    if args.single_sender_id >= 0 or args.single_dest_id >= 0:
+        parser.error("--source-destinations conflicts with single sender/dest")
+    try:
+        for entry in args.source_destinations.split(","):
+            source, destination = (int(item) for item in entry.split(":"))
+            if source in source_destinations:
+                parser.error("duplicate source in --source-destinations")
+            source_destinations[source] = destination
+    except ValueError:
+        parser.error("--source-destinations requires SRC:DST pairs")
+    if any(
+        source < 0 or source >= args.num_cpus
+        or destination < 0 or destination >= args.num_cpus
+        for source, destination in source_destinations.items()
+    ):
+        parser.error("source/destination mapping lies outside the Mesh")
 
 if args.lab4_multicast:
     if args.multicast_mode not in (None, "tree_multicast"):
@@ -237,6 +261,8 @@ else:
     multicast_destinations = []
 
 collective_requested = args.lab4_all_reduce or multicast_requested
+if collective_requested and source_destinations:
+    parser.error("--source-destinations conflicts with collective traffic")
 if collective_requested:
     if args.collective_rounds < 1:
         parser.error("--collective-rounds must be positive")
@@ -285,9 +311,13 @@ for i in range(args.num_cpus):
         and args.multicast_background_traffic == "uniform_random"
     )
     cpus.append(GarnetSyntheticTraffic(
-        num_packets_max=args.num_packets_max,
+        num_packets_max=(
+            args.num_packets_max
+            if not source_destinations or i in source_destinations
+            else 0
+        ),
         single_sender=args.single_sender_id,
-        single_dest=args.single_dest_id,
+        single_dest=source_destinations.get(i, args.single_dest_id),
         sim_cycles=args.sim_cycles,
         traffic_type=args.synthetic,
         inj_rate=(args.multicast_background_rate if background_tester else

@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO_ROOT / "configs"))
 from topologies.bypass_oracle import build_oracle  # noqa: E402
 
 
-STAT_RE = re.compile(r"^(system\.ruby\.network\.\S+)\s+([0-9.eE+-]+)\s")
+STAT_RE = re.compile(r"^(system\.ruby\.\S+)\s+([0-9.eE+-]+)\s")
 
 
 def cases():
@@ -82,6 +82,26 @@ def g4_cases():
         ("fixed-4x4-0to15", 16, 16, 4, "diagonal", f"file:{fixed}", 0, 15,
          [0, 10, 11, 15]),
     ]
+
+
+def g5_cases():
+    packet_flits = (1, 2, 4, 8, 16, 64)
+    cases = []
+    for flits in packet_flits:
+        cases.append(
+            (f"default-diagonal-0to8-f{flits}", 0, 8, flits, False)
+        )
+        cases.append(
+            (f"restricted-diagonal-8to0-f{flits}", 8, 0, flits, True)
+        )
+    cases.append(
+        ("restricted-stride-bit-complement-contention", None,
+         "bit_complement", 5, True)
+    )
+    cases.append(
+        ("restricted-stride-opposing-contention", None, "opposing", 5, True)
+    )
+    return cases
 
 
 def router_id(path):
@@ -527,6 +547,232 @@ def run_g4_case(gem5, output_root, case):
     return name, errors, evidence
 
 
+def run_g5_case(gem5, output_root, rounds, case):
+    name, source, destination, packet_flits, restricted = case
+    if source is None:
+        return run_g5_contention_case(gem5, output_root, case)
+    cpus, dirs, rows = 9, 16, 3
+    output = output_root / name
+    output.mkdir(parents=True, exist_ok=False)
+    dump_path = output / "topology.json"
+    command = [
+        str(gem5), "-d", str(output), str(CONFIG),
+        "--network=garnet", "--topology=Mesh_Bypass",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
+        "--routing-algorithm=2", "--bypass-mode=diagonal",
+        "--bypass-placement=checkerboard",
+        f"--bypass-topology-dump={dump_path}",
+        "--multicast-mode=naive_unicast", f"--multicast-source={source}",
+        f"--multicast-destinations={destination}",
+        f"--multicast-rounds={rounds}",
+        f"--multicast-packet-flits={packet_flits}",
+        "--sim-cycles=100000000",
+    ]
+    if restricted:
+        command.extend(
+            [
+                "--vcs-per-vnet=1",
+                "--buffers-per-ctrl-vc=1",
+                "--buffers-per-data-vc=1",
+                "--router-latency=4",
+                "--link-latency=4",
+                "--multicast-workload=throughput",
+                "--multicast-max-outstanding=4",
+            ]
+        )
+    result = subprocess.run(
+        command, cwd=REPO_ROOT, env=os.environ.copy(), stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, check=False,
+    )
+    (output / "command.json").write_text(
+        json.dumps(command, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "sim.log").write_text(result.stdout, encoding="utf-8")
+    errors = []
+    completion = f"Lab4 collective round {rounds - 1} delivered to all 1 "
+    if result.returncode != 0:
+        errors.append(f"gem5 returned {result.returncode}")
+    if completion not in result.stdout:
+        errors.append("final unicast round did not complete")
+    if "because Lab4 collective completed" not in result.stdout:
+        errors.append("simulation did not use completion-driven exit")
+    for required in (output / "stats.txt", dump_path):
+        if not required.is_file():
+            errors.append(f"missing {required.name}")
+    if errors:
+        return name, errors, None
+
+    topology = json.loads(dump_path.read_text(encoding="utf-8"))
+    oracle = build_oracle(topology)
+    route = next(
+        item for item in oracle["routes"]
+        if item["source"] == source and item["destination"] == destination
+    )
+    express_hops = sum(
+        channel.startswith("Bypass_") for channel in route["channels"]
+    )
+    ordinary_hops = len(route["channels"]) - express_hops
+    total_flits = rounds * packet_flits
+    expected = {
+        "collective_rounds_completed": rounds,
+        "collective_deliveries": rounds,
+        "collective_source_flits": total_flits,
+        "multicast_logical_requests": rounds,
+        "multicast_physical_packets": rounds,
+        "packets_injected::total": rounds,
+        "packets_received::total": rounds,
+        "flits_injected::total": total_flits,
+        "flits_received::total": total_flits,
+        "ordinary_internal_link_flits": total_flits * ordinary_hops,
+        "express_internal_link_flits": total_flits * express_hops,
+    }
+    stats = parse_scalar_stats(output / "stats.txt")
+    prefix = "system.ruby.network."
+    measured = {}
+    for stat, wanted in expected.items():
+        actual = stats.get(prefix + stat)
+        measured[stat] = actual
+        if actual != wanted:
+            errors.append(f"{stat}: expected {wanted}, got {actual}")
+    source_stall = stats.get(
+        f"system.ruby.l1_cntrl{source}.requestFromCache.m_stall_time"
+    )
+    if restricted and (source_stall is None or source_stall <= 0):
+        errors.append(f"restricted case did not measure backpressure: {source_stall}")
+    evidence = {
+        "case": name,
+        "rounds": rounds,
+        "packet_flits": packet_flits,
+        "restricted": restricted,
+        "max_outstanding": 4 if restricted else 1,
+        "path": route["path"],
+        "source_message_buffer_stall_ticks": source_stall,
+        "measured": measured,
+    }
+    return name, errors, evidence
+
+
+def run_g5_contention_case(gem5, output_root, case):
+    name, _, pattern, packet_flits, restricted = case
+    cpus, dirs, rows, packets_per_source = 16, 16, 4, 10
+    if pattern == "bit_complement":
+        source_destinations = {
+            source: cpus - 1 - source for source in range(cpus)
+        }
+        traffic_args = ["--synthetic=bit_complement"]
+    else:
+        source_destinations = {0: 15, 2: 0}
+        mapping = ",".join(
+            f"{source}:{destination}"
+            for source, destination in source_destinations.items()
+        )
+        traffic_args = [f"--source-destinations={mapping}"]
+    output = output_root / name
+    output.mkdir(parents=True, exist_ok=False)
+    dump_path = output / "topology.json"
+    command = [
+        str(gem5), "-d", str(output), str(CONFIG),
+        "--network=garnet", "--topology=Mesh_Bypass",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
+        "--routing-algorithm=2", "--bypass-mode=stride",
+        "--bypass-placement=symmetric",
+        f"--bypass-topology-dump={dump_path}",
+        f"--num-packets-max={packets_per_source}",
+        "--inj-vnet=2", "--injectionrate=1", "--sim-cycles=5000000",
+        "--vcs-per-vnet=1", "--buffers-per-data-vc=1",
+        "--buffers-per-ctrl-vc=1", "--router-latency=4", "--link-latency=4",
+    ] + traffic_args
+    result = subprocess.run(
+        command, cwd=REPO_ROOT, env=os.environ.copy(), stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, check=False,
+    )
+    (output / "command.json").write_text(
+        json.dumps(command, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "sim.log").write_text(result.stdout, encoding="utf-8")
+    errors = []
+    if result.returncode != 0:
+        errors.append(f"gem5 returned {result.returncode}")
+    for required in (output / "stats.txt", dump_path):
+        if not required.is_file():
+            errors.append(f"missing {required.name}")
+    if errors:
+        return name, errors, None
+
+    topology = json.loads(dump_path.read_text(encoding="utf-8"))
+    oracle = build_oracle(topology)
+    route_map = {
+        (route["source"], route["destination"]): route
+        for route in oracle["routes"]
+    }
+    routes = [
+        route_map[(source, destination)]
+        for source, destination in source_destinations.items()
+    ]
+    express_channels = {
+        channel
+        for route in routes
+        for channel in route["channels"]
+        if channel.startswith("Bypass_")
+    }
+    reverse_pairs = 0
+    for channel in express_channels:
+        _, src, _, dst = channel.split("_")
+        if f"Bypass_{dst}_to_{src}" in express_channels:
+            reverse_pairs += 1
+    if pattern == "opposing" and reverse_pairs == 0:
+        errors.append("traffic does not exercise opposing express directions")
+    express_hops = sum(
+        channel.startswith("Bypass_")
+        for route in routes
+        for channel in route["channels"]
+    )
+    all_hops = sum(len(route["channels"]) for route in routes)
+    ordinary_hops = all_hops - express_hops
+    sources = len(source_destinations)
+    packets = sources * packets_per_source
+    flits = packets * packet_flits
+    expected = {
+        "packets_injected::total": packets,
+        "packets_received::total": packets,
+        "flits_injected::total": flits,
+        "flits_received::total": flits,
+        "ordinary_internal_link_flits": ordinary_hops * packets_per_source
+        * packet_flits,
+        "express_internal_link_flits": express_hops * packets_per_source
+        * packet_flits,
+    }
+    stats = parse_scalar_stats(output / "stats.txt")
+    prefix = "system.ruby.network."
+    measured = {}
+    for stat, wanted in expected.items():
+        actual = stats.get(prefix + stat)
+        measured[stat] = actual
+        if actual != wanted:
+            errors.append(f"{stat}: expected {wanted}, got {actual}")
+    stall_values = [
+        value for key, value in stats.items()
+        if key.endswith("responseFromCache.m_stall_time") and value > 0
+    ]
+    if len(stall_values) != sources:
+        errors.append(
+            f"expected {sources} stalled sources, got {len(stall_values)}"
+        )
+    evidence = {
+        "case": name,
+        "sources": sources,
+        "pattern": pattern,
+        "packets_per_source": packets_per_source,
+        "packet_flits": packet_flits,
+        "restricted": restricted,
+        "opposing_express_directed_channels": reverse_pairs,
+        "sources_with_positive_stall": len(stall_values),
+        "total_stall_ticks": sum(stall_values),
+        "measured": measured,
+    }
+    return name, errors, evidence
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -537,7 +783,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=3)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
-        "--gate", choices=["G1", "G2", "G3", "G4"], default="G1"
+        "--gate", choices=["G1", "G2", "G3", "G4", "G5"], default="G1"
     )
     args = parser.parse_args()
     if args.rounds < 1 or args.jobs < 1:
@@ -554,20 +800,26 @@ def main():
         "G2": g2_cases,
         "G3": g3_cases,
         "G4": g4_cases,
+        "G5": g5_cases,
     }[args.gate]()
     worker = {
         "G1": run_pair,
         "G2": run_g2_case,
         "G3": run_g3_case,
         "G4": run_g4_case,
+        "G5": run_g5_case,
     }[args.gate]
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = [
-            (pool.submit(worker, args.gem5, output_root, args.rounds, case)
-             if args.gate == "G1" else
-             pool.submit(worker, args.gem5, output_root, case))
-            for case in selected_cases
-        ]
+        if args.gate in ("G1", "G5"):
+            futures = [
+                pool.submit(worker, args.gem5, output_root, args.rounds, case)
+                for case in selected_cases
+            ]
+        else:
+            futures = [
+                pool.submit(worker, args.gem5, output_root, case)
+                for case in selected_cases
+            ]
         for future in concurrent.futures.as_completed(futures):
             name, errors, evidence = future.result()
             results.append({"case": name, "errors": errors, "evidence": evidence})
@@ -590,8 +842,18 @@ def main():
                          f"dependencies={evidence['dependencies']}, "
                          f"dag={evidence['dag']}"
                          if args.gate == "G3" else
-                         f"path={evidence['oracle_path']}, "
-                         f"measured={evidence['measured']}")))
+                         (f"path={evidence['oracle_path']}, "
+                          f"measured={evidence['measured']}"
+                          if args.gate == "G4" else
+                          (f"sources={evidence['sources']}, "
+                           f"packets_per_source={evidence['packets_per_source']}, "
+                           f"stalled_sources="
+                           f"{evidence['sources_with_positive_stall']}"
+                           if "sources" in evidence else
+                           f"rounds={evidence['rounds']}, "
+                           f"flits={evidence['packet_flits']}, "
+                           f"restricted={evidence['restricted']}, "
+                           f"path={evidence['path']}")))))
                 )
     results.sort(key=lambda item: item["case"])
     (output_root / f"{args.gate.lower()}-summary.json").write_text(
@@ -608,6 +870,7 @@ def main():
         "G2": "link-construction cases",
         "G3": "route/dependency audits",
         "G4": "single-flit route/traversal cases",
+        "G5": "multi-flit/backpressure cases",
     }[args.gate]
     print(f"PASS: all {len(results)} {args.gate} {label}")
     return 0

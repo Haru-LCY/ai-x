@@ -140,6 +140,18 @@ def define_options(parser):
             inside garnet network.""",
     )
     parser.add_argument(
+        "--buffers-per-data-vc",
+        type=int,
+        default=4,
+        help="buffers per Garnet data virtual channel",
+    )
+    parser.add_argument(
+        "--buffers-per-ctrl-vc",
+        type=int,
+        default=1,
+        help="buffers per Garnet control virtual channel",
+    )
+    parser.add_argument(
         "--routing-algorithm",
         action="store",
         type=int,
@@ -218,6 +230,8 @@ def init_network(options, network, InterfaceClass):
     if options.network == "garnet":
         network.num_rows = options.mesh_rows
         network.vcs_per_vnet = options.vcs_per_vnet
+        network.buffers_per_data_vc = options.buffers_per_data_vc
+        network.buffers_per_ctrl_vc = options.buffers_per_ctrl_vc
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
