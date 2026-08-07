@@ -62,6 +62,12 @@ class GarnetNetwork(RubyNetwork):
     multicast_source = Param.Int(0, "multicast source Router")
     multicast_destinations = VectorParam.Int([], "multicast destination Routers")
     multicast_packet_flits = Param.Int(1, "multicast packet size in flits")
+    collective_vnet = Param.Int(0, "vnet reserved for collective traffic")
+    multicast_workload = Param.String("latency", "latency or throughput")
+    multicast_max_outstanding = Param.Int(1, "maximum active requests")
+    multicast_warmup_rounds = Param.Int(0, "warmup requests")
+    multicast_measurement_rounds = Param.Int(1, "measured requests")
+    multicast_cooldown_rounds = Param.Int(0, "cooldown requests")
 
 
 class GarnetNetworkInterface(ClockedObject):

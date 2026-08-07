@@ -86,6 +86,12 @@ InputUnit::wakeup()
         assert(t_flit->m_width == m_router->getBitWidth());
         int vc = t_flit->get_vc();
         t_flit->increment_hops(); // for stats
+        if (t_flit->is_collective() &&
+            m_router->get_net_ptr()->collectiveMulticast() &&
+            m_direction != "Local") {
+            m_router->get_net_ptr()->recordMulticastInternalLinkFlit(
+                t_flit->get_collective_id());
+        }
 
         // Lab4 collective flits are consumed by the Router state machine
         // before entering a normal input VC. The state machine returns the

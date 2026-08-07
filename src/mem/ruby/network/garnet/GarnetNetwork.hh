@@ -82,6 +82,12 @@ class GarnetNetwork : public Network
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
+    bool collectiveTraffic(int vnet, int source_router) const
+    {
+        return m_collective_mode && vnet == m_collective_vnet &&
+               (!m_collective_multicast ||
+                source_router == m_multicast_source);
+    }
     bool treeMulticast() const { return m_multicast_mode == "tree_multicast"; }
     bool naiveMulticast() const { return m_multicast_mode == "naive_unicast"; }
     int multicastSource() const { return m_multicast_source; }
@@ -95,11 +101,8 @@ class GarnetNetwork : public Network
     }
     int multicastDestinationCount() const { return m_multicast_destination_count; }
     int multicastPacketFlits() const { return m_multicast_packet_flits; }
-    int collectiveRoundId() const { return m_collective_delivery_id; }
-    bool canInjectCollectiveRound(int collective_id) const
-    {
-        return collective_id == m_collective_delivery_id;
-    }
+    bool canInjectCollectiveRound(int collective_id) const;
+    int nextNaiveMulticastRound();
 
     bool isFaultModelEnabled() const { return m_enable_fault_model; }
     FaultModel* fault_model;
@@ -182,6 +185,13 @@ class GarnetNetwork : public Network
     void recordCollectiveInjection(int collective_id, int source_flits = 1);
     void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
     void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
+    void recordMulticastInternalLinkFlit(int collective_id);
+    void recordMulticastCreditStall() { ++m_multicast_credit_stalls; }
+    void recordMulticastReplication(int fanout)
+    {
+        if (fanout > 1)
+            ++m_multicast_replication_events;
+    }
 
   protected:
     // Configuration
@@ -198,6 +208,12 @@ class GarnetNetwork : public Network
     std::string m_multicast_mode;
     int m_multicast_source;
     int m_multicast_packet_flits;
+    int m_collective_vnet;
+    std::string m_multicast_workload;
+    int m_multicast_max_outstanding;
+    int m_multicast_warmup_rounds;
+    int m_multicast_measurement_rounds;
+    int m_multicast_cooldown_rounds;
     std::vector<bool> m_multicast_destinations;
     uint64_t m_multicast_destination_mask = 0;
     int m_multicast_destination_count = 0;
@@ -244,6 +260,18 @@ class GarnetNetwork : public Network
     statistics::Formula m_average_collective_completion_ticks;
     statistics::Scalar m_multicast_logical_requests;
     statistics::Scalar m_multicast_physical_packets;
+    statistics::Scalar m_multicast_internal_link_flits;
+    statistics::Scalar m_multicast_replication_events;
+    statistics::Scalar m_multicast_credit_stalls;
+    statistics::Scalar m_multicast_min_completion_ticks;
+    statistics::Scalar m_multicast_max_completion_ticks;
+    statistics::Scalar m_multicast_measurement_ticks;
+    statistics::Scalar m_multicast_measured_requests;
+    statistics::Scalar m_multicast_measured_completion_ticks;
+    statistics::Scalar m_multicast_measured_internal_link_flits;
+    statistics::Scalar m_multicast_destination_latency_ticks;
+    statistics::Formula m_multicast_average_destination_latency_ticks;
+    statistics::Formula m_multicast_completed_per_cycle;
 
     std::vector<std::vector<statistics::Scalar *>> m_data_traffic_distribution;
     std::vector<std::vector<statistics::Scalar *>> m_ctrl_traffic_distribution;
@@ -260,12 +288,37 @@ class GarnetNetwork : public Network
     std::vector<NetworkInterface *> m_nis;   // All NI's in Network
     int m_next_packet_id; // static vairable for packet id allocation
 
-    // A scalar collective must eject exactly once at every Router.
+    struct CollectiveRoundState
+    {
+        bool started = false;
+        bool completed = false;
+        Tick start_tick = 0;
+        int delivery_count = 0;
+        std::vector<bool> delivered;
+    };
+    std::vector<CollectiveRoundState> m_collective_round_states;
+    int m_collective_next_injection_id = 0;
+    int m_collective_active_rounds = 0;
+    int m_collective_completed_rounds = 0;
+    int m_naive_injection_round = 0;
+    int m_naive_packets_in_round = 0;
+    Tick m_multicast_first_injection_tick = 0;
+    Tick m_multicast_last_completion_tick = 0;
+    Tick m_multicast_min_latency = MaxTick;
+    Tick m_multicast_max_latency = 0;
+    Tick m_multicast_measurement_first_injection_tick = 0;
+    Tick m_multicast_measurement_last_completion_tick = 0;
+
+    bool
+    isMeasurementRound(int collective_id) const
+    {
+        return collective_id >= m_multicast_warmup_rounds &&
+               collective_id < m_multicast_warmup_rounds +
+                                   m_multicast_measurement_rounds;
+    }
+
+    // Compatibility cursor: lowest not-yet-completed round.
     int m_collective_delivery_id = 0;
-    int m_collective_delivery_count = 0;
-    std::vector<bool> m_collective_delivered;
-    bool m_collective_round_started = false;
-    Tick m_collective_round_start = 0;
 };
 
 inline std::ostream&

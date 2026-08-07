@@ -1,5 +1,25 @@
 # Multicast completion plan
 
+## Implementation status (2026-08-07)
+
+M1--M5 are implemented and gated by automated regression:
+
+- M1: unified mode/source/destination/round/packet/seed parameters and
+  duplicate/unexpected/missing-delivery tracking;
+- M2: runnable replicated-XY-unicast baseline, including local delivery and
+  retry-safe partial injection;
+- M3: per-flit 64-bit destination bitmap with pruned tree branches and SerDes
+  preservation;
+- M4: 1--64 flit packets with persistent branch VCs, atomic fanout credit
+  checks, interleaved-round buffering, and tail-driven release;
+- M5: latency/throughput modes, bounded outstanding requests,
+  warmup/measurement/cooldown phases, deterministic uniform-random
+  background traffic, protocol/link/stall/latency statistics, and paired
+  CSV/JSON comparison output.
+
+The implementation remains intentionally limited to at most 64 Routers per
+multicast destination bitmap. Bypass is not part of this milestone.
+
 ## 1. Goal and completion boundary
 
 本阶段只完成 Topic 3 的 multicast 部分，不实现 bypass。目标是在相同 Mesh、源节点、目的集合、payload、注入时刻和退出条件下，公平比较：

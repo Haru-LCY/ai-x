@@ -32,6 +32,8 @@
 
 #include "mem/ruby/network/garnet/Router.hh"
 
+#include <algorithm>
+
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/CreditLink.hh"
 #include "mem/ruby/network/garnet/GarnetNetwork.hh"
@@ -328,8 +330,10 @@ Router::allocateMulticastBranches(flit *head_flit)
         else if (dest_y > y) direction = "North";
         else if (dest_y < y) direction = "South";
         const int outport = collectiveOutport(direction);
-        if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet))
+        if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet)) {
+            m_network_ptr->recordMulticastCreditStall();
             return false;
+        }
     }
     for (const int destination : destinations) {
         const int cols = m_network_ptr->getNumCols();
@@ -383,7 +387,34 @@ Router::processPendingMulticastFlit()
     if (m_pending_multicast_flits.empty() ||
         m_multicast_last_send == curTick())
         return;
-    PendingMulticastFlit& pending = m_pending_multicast_flits.front();
+    auto pending_it = m_pending_multicast_flits.end();
+    if (m_multicast_packet_id >= 0) {
+        pending_it = std::find_if(
+            m_pending_multicast_flits.begin(),
+            m_pending_multicast_flits.end(),
+            [this](const PendingMulticastFlit& candidate) {
+                return candidate.packet_flit->get_collective_id() ==
+                           m_multicast_packet_id &&
+                       candidate.packet_flit->get_id() ==
+                           m_multicast_next_flit;
+            });
+    } else {
+        pending_it = std::min_element(
+            m_pending_multicast_flits.begin(),
+            m_pending_multicast_flits.end(),
+            [](const PendingMulticastFlit& left,
+               const PendingMulticastFlit& right) {
+                return left.packet_flit->get_collective_id() <
+                       right.packet_flit->get_collective_id();
+            });
+        if (pending_it != m_pending_multicast_flits.end() &&
+            pending_it->packet_flit->get_type() != HEAD_ &&
+            pending_it->packet_flit->get_type() != HEAD_TAIL_)
+            return;
+    }
+    if (pending_it == m_pending_multicast_flits.end())
+        return;
+    PendingMulticastFlit& pending = *pending_it;
     flit *packet_flit = pending.packet_flit;
     const bool is_head = packet_flit->get_type() == HEAD_ ||
                          packet_flit->get_type() == HEAD_TAIL_;
@@ -401,14 +432,17 @@ Router::processPendingMulticastFlit()
              packet_flit->get_id() != m_multicast_next_flit,
              "Router %d received out-of-order multicast flit", m_id);
     for (const auto& branch : m_multicast_branches) {
-        if (!m_output_unit[branch.outport]->has_credit(branch.outvc))
+        if (!m_output_unit[branch.outport]->has_credit(branch.outvc)) {
+            m_network_ptr->recordMulticastCreditStall();
             return;
+        }
     }
+    m_network_ptr->recordMulticastReplication(m_multicast_branches.size());
     for (const auto& branch : m_multicast_branches)
         sendMulticastBranchFlit(branch, packet_flit);
     getInputUnit(pending.inport)->increment_credit(
         packet_flit->get_vc(), is_tail, curTick());
-    m_pending_multicast_flits.pop_front();
+    m_pending_multicast_flits.erase(pending_it);
     ++m_multicast_next_flit;
     m_multicast_last_send = curTick();
     delete packet_flit;

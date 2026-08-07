@@ -78,6 +78,12 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_multicast_mode = p.multicast_mode;
     m_multicast_source = p.multicast_source;
     m_multicast_packet_flits = p.multicast_packet_flits;
+    m_collective_vnet = p.collective_vnet;
+    m_multicast_workload = p.multicast_workload;
+    m_multicast_max_outstanding = p.multicast_max_outstanding;
+    m_multicast_warmup_rounds = p.multicast_warmup_rounds;
+    m_multicast_measurement_rounds = p.multicast_measurement_rounds;
+    m_multicast_cooldown_rounds = p.multicast_cooldown_rounds;
     fatal_if(m_collective_rounds < 1,
              "Lab4 collective rounds must be positive");
     m_next_packet_id = 0;
@@ -104,7 +110,9 @@ GarnetNetwork::GarnetNetwork(const Params &p)
         // initialize the router's network pointers
         router->init_net_ptr(this);
     }
-    m_collective_delivered.assign(m_routers.size(), false);
+    m_collective_round_states.resize(m_collective_rounds);
+    for (auto& state : m_collective_round_states)
+        state.delivered.assign(m_routers.size(), false);
     m_multicast_destinations.assign(m_routers.size(), false);
     fatal_if(m_multicast_mode != "none" &&
              m_multicast_mode != "naive_unicast" &&
@@ -119,6 +127,13 @@ GarnetNetwork::GarnetNetwork(const Params &p)
              "Multicast destination bitmap supports at most 64 Routers");
     fatal_if(m_multicast_mode != "none" && m_multicast_packet_flits < 1,
              "Multicast packet must contain at least one flit");
+    fatal_if(m_multicast_mode != "none" &&
+             m_multicast_workload != "latency" &&
+             m_multicast_workload != "throughput",
+             "Invalid multicast workload '%s'",
+             m_multicast_workload.c_str());
+    fatal_if(m_multicast_max_outstanding < 1,
+             "Multicast max outstanding must be positive");
     for (const int destination : p.multicast_destinations) {
         fatal_if(destination < 0 || destination >= getNumRouters(),
                  "Invalid multicast destination Router %d", destination);
@@ -141,6 +156,38 @@ GarnetNetwork::GarnetNetwork(const Params &p)
 
     // Print Garnet version
     inform("Garnet version %s\n", garnetVersion);
+}
+
+bool
+GarnetNetwork::canInjectCollectiveRound(int collective_id) const
+{
+    return collective_id == m_collective_next_injection_id &&
+           m_collective_active_rounds < m_multicast_max_outstanding;
+}
+
+void
+GarnetNetwork::recordMulticastInternalLinkFlit(int collective_id)
+{
+    ++m_multicast_internal_link_flits;
+    if (isMeasurementRound(collective_id))
+        ++m_multicast_measured_internal_link_flits;
+}
+
+int
+GarnetNetwork::nextNaiveMulticastRound()
+{
+    fatal_if(!naiveMulticast(),
+             "Naive packet round requested outside naive multicast");
+    const int remote_destinations = m_multicast_destination_count -
+        (multicastDestination(m_multicast_source) ? 1 : 0);
+    fatal_if(remote_destinations == 0,
+             "Local-only multicast must not inject a physical packet");
+    const int round = m_naive_injection_round;
+    if (++m_naive_packets_in_round == remote_destinations) {
+        m_naive_packets_in_round = 0;
+        ++m_naive_injection_round;
+    }
+    return round;
 }
 
 bool
@@ -192,58 +239,85 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
 {
     fatal_if(!m_collective_mode,
              "Lab4 delivery recorded while collective mode is disabled");
-    fatal_if(collective_id != m_collective_delivery_id,
-             "Lab4 delivery for round %d while validating round %d",
-             collective_id, m_collective_delivery_id);
+    fatal_if(collective_id < 0 || collective_id >= m_collective_rounds,
+             "Lab4 delivery has invalid round %d", collective_id);
     fatal_if(dest_router < 0 || dest_router >= getNumRouters(),
              "Lab4 delivery has invalid destination Router %d", dest_router);
-    fatal_if(m_collective_delivered[dest_router],
+    CollectiveRoundState& state = m_collective_round_states[collective_id];
+    fatal_if(!state.started,
+             "Lab4 delivery for round %d before injection", collective_id);
+    fatal_if(state.delivered[dest_router],
              "Lab4 duplicate delivery for round %d at Router %d",
              collective_id, dest_router);
     fatal_if(m_collective_multicast && !multicastDestination(dest_router),
              "Lab4 unexpected multicast delivery for round %d at Router %d",
              collective_id, dest_router);
 
-    m_collective_delivered[dest_router] = true;
-    ++m_collective_delivery_count;
+    state.delivered[dest_router] = true;
+    ++state.delivery_count;
     ++m_collective_deliveries;
+    m_multicast_destination_latency_ticks += curTick() - state.start_tick;
     const int expected_deliveries = m_collective_multicast ?
         m_multicast_destination_count : getNumRouters();
-    if (m_collective_delivery_count == expected_deliveries) {
-        fatal_if(!m_collective_round_started,
-                 "Lab4 round %d completed without a source injection",
-                 collective_id);
+    if (state.delivery_count == expected_deliveries) {
+        state.completed = true;
+        --m_collective_active_rounds;
+        ++m_collective_completed_rounds;
+        const Tick latency = curTick() - state.start_tick;
         ++m_collective_rounds_completed;
-        m_collective_completion_ticks += curTick() - m_collective_round_start;
+        m_collective_completion_ticks += latency;
+        m_multicast_min_latency = std::min(m_multicast_min_latency, latency);
+        m_multicast_max_latency = std::max(m_multicast_max_latency, latency);
+        m_multicast_min_completion_ticks = m_multicast_min_latency;
+        m_multicast_max_completion_ticks = m_multicast_max_latency;
+        m_multicast_last_completion_tick = curTick();
+        if (isMeasurementRound(collective_id)) {
+            ++m_multicast_measured_requests;
+            m_multicast_measured_completion_ticks += latency;
+            m_multicast_measurement_last_completion_tick = curTick();
+        }
         if (expected_deliveries == getNumRouters()) {
-            inform("Lab4 collective round %d delivered to all %d routers\n",
-                   collective_id, expected_deliveries);
+            inform("Lab4 collective round %d delivered to all %d routers "
+                   "in %llu ticks\n", collective_id, expected_deliveries,
+                   latency);
         } else {
             inform("Lab4 collective round %d delivered to all %d "
-                   "destinations\n", collective_id, expected_deliveries);
+                   "destinations in %llu ticks\n", collective_id,
+                   expected_deliveries, latency);
         }
-        ++m_collective_delivery_id;
-        m_collective_delivery_count = 0;
-        std::fill(m_collective_delivered.begin(),
-                  m_collective_delivered.end(), false);
-        m_collective_round_started = false;
-        if (m_collective_delivery_id == m_collective_rounds)
+        while (m_collective_delivery_id < m_collective_rounds &&
+               m_collective_round_states[m_collective_delivery_id].completed)
+            ++m_collective_delivery_id;
+        if (m_collective_completed_rounds == m_collective_rounds) {
+            m_multicast_measurement_ticks =
+                m_multicast_measurement_last_completion_tick -
+                m_multicast_measurement_first_injection_tick;
             exitSimLoop("Lab4 collective completed");
+        }
     }
 }
 
 void
 GarnetNetwork::beginCollectiveRound(int collective_id)
 {
-    fatal_if(collective_id != m_collective_delivery_id,
-             "Lab4 attempted to start round %d while round %d is active",
-             collective_id, m_collective_delivery_id);
-    if (!m_collective_round_started) {
-        m_collective_round_started = true;
-        m_collective_round_start = curTick();
-        if (m_collective_multicast)
-            ++m_multicast_logical_requests;
-    }
+    fatal_if(collective_id < 0 || collective_id >= m_collective_rounds,
+             "Lab4 attempted to start invalid round %d", collective_id);
+    CollectiveRoundState& state = m_collective_round_states[collective_id];
+    if (state.started)
+        return;
+    fatal_if(!canInjectCollectiveRound(collective_id),
+             "Lab4 cannot start round %d with %d active rounds",
+             collective_id, m_collective_active_rounds);
+    state.started = true;
+    state.start_tick = curTick();
+    ++m_collective_next_injection_id;
+    ++m_collective_active_rounds;
+    if (m_collective_next_injection_id == 1)
+        m_multicast_first_injection_tick = curTick();
+    if (collective_id == m_multicast_warmup_rounds)
+        m_multicast_measurement_first_injection_tick = curTick();
+    if (m_collective_multicast)
+        ++m_multicast_logical_requests;
 }
 
 void
@@ -257,9 +331,6 @@ GarnetNetwork::recordMulticastLocalDelivery(int collective_id)
 void
 GarnetNetwork::recordCollectiveInjection(int collective_id, int source_flits)
 {
-    fatal_if(collective_id != m_collective_delivery_id,
-             "Lab4 source injection for round %d while round %d is active",
-             collective_id, m_collective_delivery_id);
     beginCollectiveRound(collective_id);
     m_collective_source_flits += source_flits;
     if (m_collective_multicast)
@@ -565,6 +636,35 @@ GarnetNetwork::regStats()
         .name(name() + ".multicast_logical_requests");
     m_multicast_physical_packets
         .name(name() + ".multicast_physical_packets");
+    m_multicast_internal_link_flits
+        .name(name() + ".multicast_internal_link_flits");
+    m_multicast_replication_events
+        .name(name() + ".multicast_replication_events");
+    m_multicast_credit_stalls
+        .name(name() + ".multicast_credit_stalls");
+    m_multicast_min_completion_ticks
+        .name(name() + ".multicast_min_completion_ticks");
+    m_multicast_max_completion_ticks
+        .name(name() + ".multicast_max_completion_ticks");
+    m_multicast_measurement_ticks
+        .name(name() + ".multicast_measurement_ticks");
+    m_multicast_measured_requests
+        .name(name() + ".multicast_measured_requests");
+    m_multicast_measured_completion_ticks
+        .name(name() + ".multicast_measured_completion_ticks");
+    m_multicast_measured_internal_link_flits
+        .name(name() + ".multicast_measured_internal_link_flits");
+    m_multicast_destination_latency_ticks
+        .name(name() + ".multicast_destination_latency_ticks");
+    m_multicast_average_destination_latency_ticks
+        .name(name() + ".multicast_average_destination_latency_ticks");
+    m_multicast_average_destination_latency_ticks =
+        m_multicast_destination_latency_ticks / m_collective_deliveries;
+    m_multicast_completed_per_cycle
+        .name(name() + ".multicast_completed_per_cycle");
+    m_multicast_completed_per_cycle =
+        m_multicast_measured_requests / m_multicast_measurement_ticks *
+        clockPeriod();
 
     // Packets
     m_packets_received

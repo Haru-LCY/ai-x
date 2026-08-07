@@ -81,6 +81,8 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       cachePort("GarnetSyntheticTraffic", this),
       retryPkt(NULL),
       size(p.memory_size),
+      id(TESTER_NETWORK++),
+      localRandom(p.random_seed + id * 9973),
       blockSizeBits(p.block_offset),
       numDestinations(p.num_dest),
       simCycles(p.sim_cycles),
@@ -99,6 +101,8 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       multicastDestinationIndex(0),
       currentMulticastDestination(-1),
       multicastRoundStarted(false),
+      multicastInjectionGap(p.multicast_injection_gap),
+      nextMulticastInjectionCycle(0),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
       injVnet(p.inj_vnet),
@@ -121,7 +125,6 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
     }
     traffic = trafficStringToEnum[trafficType];
 
-    id = TESTER_NETWORK++;
     DPRINTF(GarnetSyntheticTraffic,"Config Created: Name = %s , and id = %d\n",
             name(), id);
 }
@@ -169,7 +172,7 @@ GarnetSyntheticTraffic::tick()
     // - send pkt if this number is < injRate*(10^precision)
     bool sendAllowedThisCycle;
     double injRange = pow((double) 10, (double) precision);
-    unsigned trySending = random_mt.random<unsigned>(0, (int) injRange);
+    unsigned trySending = localRandom.random<unsigned>(0, (int) injRange);
     if (trySending < injRate*injRange)
         sendAllowedThisCycle = true;
     else
@@ -182,6 +185,7 @@ GarnetSyntheticTraffic::tick()
         } else if (multicastMode == "naive_unicast") {
             if (collectiveRound < collectiveRounds) {
                 if (!multicastRoundStarted &&
+                    curCycle() >= nextMulticastInjectionCycle &&
                     collectiveNetwork->canInjectCollectiveRound(
                         collectiveRound)) {
                     multicastRoundStarted = true;
@@ -189,6 +193,8 @@ GarnetSyntheticTraffic::tick()
                     if (collectiveNetwork->multicastDestination(id))
                         collectiveNetwork->recordMulticastLocalDelivery(
                             collectiveRound);
+                    nextMulticastInjectionCycle = curCycle() +
+                        Cycles(multicastInjectionGap);
                 }
                 while (multicastDestinationIndex <
                            multicastDestinations.size() &&
@@ -204,19 +210,20 @@ GarnetSyntheticTraffic::tick()
                     generatePkt();
                 } else if (multicastRoundStarted &&
                            multicastDestinationIndex ==
-                               multicastDestinations.size() &&
-                           collectiveNetwork->canInjectCollectiveRound(
-                               collectiveRound + 1)) {
+                               multicastDestinations.size()) {
                     ++collectiveRound;
                     multicastDestinationIndex = 0;
                     multicastRoundStarted = false;
                 }
             }
         } else if (collectiveRound < collectiveRounds &&
+                   curCycle() >= nextMulticastInjectionCycle &&
                    collectiveNetwork->canInjectCollectiveRound(
                        collectiveRound)) {
             generatePkt();
             ++collectiveRound;
+            nextMulticastInjectionCycle = curCycle() +
+                Cycles(multicastInjectionGap);
         }
     } else if (sendAllowedThisCycle) {
         bool senderEnable = true;
@@ -252,7 +259,7 @@ GarnetSyntheticTraffic::generatePkt()
     int src_x = id%radix;
     int src_y = id/radix;
 
-    if (multicastMode == "naive_unicast") {
+    if (collectiveMode && multicastMode == "naive_unicast") {
         destination = currentMulticastDestination;
     } else if (collectiveMode) {
         int root_x = collectiveRoot % radix;
@@ -269,7 +276,7 @@ GarnetSyntheticTraffic::generatePkt()
     {
         destination = singleDest;
     } else if (traffic == UNIFORM_RANDOM_) {
-        destination = random_mt.random<unsigned>(0, num_destinations - 1);
+        destination = localRandom.random<unsigned>(0, num_destinations - 1);
     } else if (traffic == BIT_COMPLEMENT_) {
         dest_x = radix - src_x - 1;
         dest_y = radix - src_y - 1;
@@ -358,7 +365,7 @@ GarnetSyntheticTraffic::generatePkt()
     if (injReqType < 0 || injReqType > 2)
     {
         // randomly inject in any vnet
-        injReqType = random_mt.random(0, 2);
+        injReqType = localRandom.random(0, 2);
     }
 
     if (injReqType == 0) {

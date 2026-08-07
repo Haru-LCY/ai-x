@@ -426,11 +426,13 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
     // This is expressed in terms of bytes/cycle or the flit size
     OutputPort *oPort = getOutportForVnet(vnet);
     assert(oPort);
+    const bool collective_message =
+        m_net_ptr->collectiveTraffic(vnet, oPort->routerID());
     int num_flits = (int)divCeil((float) m_net_ptr->MessageSizeType_to_int(
         net_msg_ptr->getMessageSize()), (float)oPort->bitWidth());
-    if (m_net_ptr->collectiveMulticast())
+    if (collective_message && m_net_ptr->collectiveMulticast())
         num_flits = m_net_ptr->multicastPacketFlits();
-    fatal_if(m_net_ptr->collectiveMode() &&
+    fatal_if(collective_message &&
              !m_net_ptr->collectiveMulticast() && num_flits != 1,
              "Lab4 scalar collective at NI %d requires one flit, got %d "
              "on vnet %d", m_id, num_flits, vnet);
@@ -491,22 +493,23 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_net_ptr->increment_injected_packets(vnet);
         m_net_ptr->update_traffic_distribution(route);
         int packet_id = m_net_ptr->getNextPacketID();
-        const int collective_id = m_net_ptr->naiveMulticast() ?
-            m_net_ptr->collectiveRoundId() : m_next_collective_id;
-        if (m_net_ptr->collectiveMode())
+        const int collective_id = m_net_ptr->naiveMulticast() &&
+                                  collective_message ?
+            m_net_ptr->nextNaiveMulticastRound() : m_next_collective_id;
+        if (collective_message)
             m_net_ptr->recordCollectiveInjection(collective_id, num_flits);
         for (int i = 0; i < num_flits; i++) {
             m_net_ptr->increment_injected_flits(vnet);
             flit *fl = new flit(packet_id,
                 i, vc, vnet, route, num_flits, new_msg_ptr,
-                m_net_ptr->collectiveMulticast() ?
+                collective_message && m_net_ptr->collectiveMulticast() ?
                     num_flits * oPort->bitWidth() :
                     m_net_ptr->MessageSizeType_to_int(
                         net_msg_ptr->getMessageSize()),
                 oPort->bitWidth(), curTick());
 
             fl->set_src_delay(curTick() - msg_ptr->getTime());
-            if (m_net_ptr->collectiveMode()) {
+            if (collective_message) {
                 // Stage 1 collective contribution is f(src) = src_ni + 1,
                 // so an N-node run has the deterministic expected sum
                 // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
@@ -537,7 +540,7 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_ni_out_vcs_enqueue_time[vc] = curTick();
         outVcState[vc].setState(ACTIVE_, curTick());
     }
-    if (m_net_ptr->collectiveMode() && !m_net_ptr->naiveMulticast())
+    if (collective_message && !m_net_ptr->naiveMulticast())
         ++m_next_collective_id;
     return true ;
 }

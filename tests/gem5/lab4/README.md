@@ -26,3 +26,18 @@ Run the M1 destination/subtree matrix with:
 LD_LIBRARY_PATH=/path/to/python/lib \
   python3 tests/gem5/lab4/run_multicast_matrix.py --jobs 8 --rounds 5
 ```
+
+The multicast matrix now covers both `naive_unicast` and `tree_multicast`,
+exhaustively checks all non-empty 2x2 destination sets, and accepts one or
+more packet sizes through `--packet-flits`.
+
+Run paired throughput experiments and emit `summary.csv` plus `summary.json`:
+
+```sh
+LD_LIBRARY_PATH=/path/to/python/lib \
+  python3 tests/gem5/lab4/run_multicast_performance.py --jobs 32
+```
+
+Every paired case uses the same source, destination seed, packet size,
+injection rate, phase lengths, and background rate. A run that reaches its
+tick limit without completion is rejected.

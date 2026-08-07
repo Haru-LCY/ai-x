@@ -31,6 +31,7 @@ from m5.objects import *
 from m5.defines import buildEnv
 from m5.util import addToPath
 import os, argparse, sys
+import math
 
 addToPath("../")
 
@@ -132,6 +133,23 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--multicast-workload",
+    choices=["latency", "throughput"],
+    default="latency",
+)
+parser.add_argument("--multicast-injection-rate", type=float, default=1.0)
+parser.add_argument("--multicast-max-outstanding", type=int, default=1)
+parser.add_argument("--multicast-warmup-rounds", type=int, default=0)
+parser.add_argument("--multicast-measurement-rounds", type=int, default=0)
+parser.add_argument("--multicast-cooldown-rounds", type=int, default=0)
+parser.add_argument(
+    "--multicast-background-traffic",
+    choices=["none", "uniform_random"],
+    default="none",
+)
+parser.add_argument("--multicast-background-rate", type=float, default=0.0)
+
+parser.add_argument(
     "--num-packets-max",
     type=int,
     default=-1,
@@ -224,6 +242,30 @@ if collective_requested:
         parser.error("--collective-rounds must be positive")
     if args.multicast_packet_flits < 1:
         parser.error("--multicast-packet-flits must be positive")
+    if not 0 < args.multicast_injection_rate <= 1:
+        parser.error("--multicast-injection-rate must be in (0, 1]")
+    if args.multicast_max_outstanding < 1:
+        parser.error("--multicast-max-outstanding must be positive")
+    phase_rounds = (
+        args.multicast_warmup_rounds
+        + args.multicast_measurement_rounds
+        + args.multicast_cooldown_rounds
+    )
+    if min(
+        args.multicast_warmup_rounds,
+        args.multicast_measurement_rounds,
+        args.multicast_cooldown_rounds,
+    ) < 0:
+        parser.error("multicast phase round counts must be non-negative")
+    if phase_rounds:
+        if args.multicast_measurement_rounds < 1:
+            parser.error("phased workload requires measurement rounds")
+        args.collective_rounds = phase_rounds
+    if not 0 <= args.multicast_background_rate <= 1:
+        parser.error("--multicast-background-rate must be in [0, 1]")
+    if (args.multicast_background_traffic == "uniform_random" and
+            args.multicast_background_rate == 0):
+        parser.error("uniform background requires a positive background rate")
     # M1 scalar collectives operate on one HEAD_TAIL flit.
     if args.inj_vnet == -1:
         args.inj_vnet = 0
@@ -233,26 +275,37 @@ if collective_requested:
             "(--inj-vnet=0 or --inj-vnet=1)"
         )
 
-cpus = [
-    GarnetSyntheticTraffic(
+cpus = []
+for i in range(args.num_cpus):
+    is_multicast_source = multicast_requested and i == args.multicast_source
+    is_collective_tester = args.lab4_all_reduce or is_multicast_source
+    background_tester = (
+        multicast_requested
+        and not is_multicast_source
+        and args.multicast_background_traffic == "uniform_random"
+    )
+    cpus.append(GarnetSyntheticTraffic(
         num_packets_max=args.num_packets_max,
         single_sender=args.single_sender_id,
         single_dest=args.single_dest_id,
         sim_cycles=args.sim_cycles,
         traffic_type=args.synthetic,
-        inj_rate=args.injectionrate,
-        inj_vnet=args.inj_vnet,
+        inj_rate=(args.multicast_background_rate if background_tester else
+                  (args.injectionrate if not multicast_requested else 0.0)),
+        inj_vnet=(0 if background_tester else args.inj_vnet),
         precision=args.precision,
         num_dest=args.num_dirs,
-        collective_mode=collective_requested,
+        collective_mode=is_collective_tester,
         collective_multicast=multicast_requested,
         collective_root=args.collective_root,
         collective_rounds=args.collective_rounds,
         multicast_mode=args.multicast_mode or "none",
         multicast_destinations=multicast_destinations,
-    )
-    for i in range(args.num_cpus)
-]
+        multicast_injection_gap=max(
+            1, math.ceil(1.0 / args.multicast_injection_rate)
+        ),
+        random_seed=args.multicast_seed,
+    ))
 
 # create the desired simulated system
 system = System(cpu=cpus, mem_ranges=[AddrRange(args.mem_size)])
@@ -276,6 +329,17 @@ if collective_requested:
     )
     system.ruby.network.multicast_destinations = multicast_destinations
     system.ruby.network.multicast_packet_flits = args.multicast_packet_flits
+    system.ruby.network.collective_vnet = args.inj_vnet
+    system.ruby.network.multicast_workload = args.multicast_workload
+    system.ruby.network.multicast_max_outstanding = (
+        1 if args.multicast_workload == "latency"
+        else args.multicast_max_outstanding
+    )
+    system.ruby.network.multicast_warmup_rounds = args.multicast_warmup_rounds
+    system.ruby.network.multicast_measurement_rounds = (
+        args.multicast_measurement_rounds or args.collective_rounds
+    )
+    system.ruby.network.multicast_cooldown_rounds = args.multicast_cooldown_rounds
     for cpu in cpus:
         cpu.collective_network = system.ruby.network
 

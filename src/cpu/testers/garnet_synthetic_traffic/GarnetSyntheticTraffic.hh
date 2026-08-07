@@ -32,6 +32,7 @@
 #include <set>
 
 #include "base/statistics.hh"
+#include "base/random.hh"
 #include "mem/port.hh"
 #include "params/GarnetSyntheticTraffic.hh"
 #include "sim/clocked_object.hh"
@@ -119,6 +120,7 @@ class GarnetSyntheticTraffic : public ClockedObject
     PacketPtr retryPkt;
     unsigned size;
     int id;
+    Random localRandom;
 
     std::map<std::string, TrafficType> trafficStringToEnum;
 
@@ -143,6 +145,8 @@ class GarnetSyntheticTraffic : public ClockedObject
     unsigned multicastDestinationIndex;
     int currentMulticastDestination;
     bool multicastRoundStarted;
+    int multicastInjectionGap;
+    Cycles nextMulticastInjectionCycle;
 
     std::string trafficType; // string
     TrafficType traffic; // enum from string

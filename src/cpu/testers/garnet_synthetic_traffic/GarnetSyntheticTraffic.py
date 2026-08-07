@@ -86,3 +86,5 @@ class GarnetSyntheticTraffic(ClockedObject):
     )
     multicast_mode = Param.String("none", "multicast implementation mode")
     multicast_destinations = VectorParam.Int([], "multicast destination Routers")
+    multicast_injection_gap = Param.Int(1, "cycles between multicast requests")
+    random_seed = Param.Unsigned(1, "per-tester deterministic random seed")
