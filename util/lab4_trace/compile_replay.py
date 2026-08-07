@@ -128,6 +128,7 @@ def main():
         "source_event_count": len(trace["events"]),
         "selected_broadcast_event_count": len(candidates),
         "request_count": len(requests),
+        "total_packet_flits": sum(request["packet_flits"] for request in requests),
         "requests": requests,
     }
     write_json(args.output, replay)

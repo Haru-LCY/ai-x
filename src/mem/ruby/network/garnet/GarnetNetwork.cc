@@ -73,6 +73,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_buffers_per_ctrl_vc = p.buffers_per_ctrl_vc;
     m_routing_algorithm = p.routing_algorithm;
     m_bypass_first_hops = p.bypass_first_hops;
+    m_bypass_first_hop_destinations = p.bypass_first_hop_destinations;
     m_bypass_link_ids = p.bypass_link_ids;
     m_bypass_link_spans = p.bypass_link_spans;
     m_synthetic_packet_flits = p.synthetic_packet_flits;
@@ -81,6 +82,10 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     fatal_if(m_bypass_link_ids.size() != m_bypass_link_spans.size(),
              "Bypass link id/span vectors differ: %d != %d",
              (int)m_bypass_link_ids.size(), (int)m_bypass_link_spans.size());
+    fatal_if(!m_bypass_first_hop_destinations.empty() &&
+             m_bypass_first_hop_destinations.size() !=
+                 m_bypass_first_hops.size(),
+             "Bypass first-hop destination/name vectors differ");
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
     m_collective_rounds = p.collective_rounds;
@@ -220,24 +225,68 @@ GarnetNetwork::multicastChildNeeded(uint64_t destinations, int router_id,
 {
     fatal_if(!treeMulticast(), "Tree branch query outside tree multicast");
     const int cols = m_num_cols;
-    const int root_x = m_multicast_source % cols;
-    const int root_y = m_multicast_source / cols;
+    const auto& bypass_first_hops = m_bypass_first_hop_destinations;
+    const bool use_bypass_tree = bypass_first_hops.size() ==
+        m_routers.size() * m_routers.size();
+    const auto xy_next = [cols](int node, int destination) {
+        const int x = node % cols;
+        const int dest_x = destination % cols;
+        if (x != dest_x)
+            return node + (dest_x > x ? 1 : -1);
+        return node + (destination > node ? cols : -cols);
+    };
     for (int destination = 0;
          destination < m_multicast_destinations.size(); ++destination) {
         if (!multicastDestination(destinations, destination))
             continue;
-        int node = destination;
-        while (node != m_multicast_source) {
+        bool use_express = use_bypass_tree && bypass_first_hops[
+            m_multicast_source * m_routers.size() + destination] >= 0;
+        if (use_express) {
+            // Keep the ordinary XY branch when another destination already
+            // uses any edge on this destination's XY path. In that case the
+            // express edge would destroy tree sharing and increase wire cost.
+            for (int other = 0; other < m_multicast_destinations.size() &&
+                 use_express; ++other) {
+                if (other == destination ||
+                    !multicastDestination(destinations, other))
+                    continue;
+                int candidate_node = m_multicast_source;
+                while (candidate_node != destination && use_express) {
+                    const int candidate_next =
+                        xy_next(candidate_node, destination);
+                    int other_node = m_multicast_source;
+                    while (other_node != other) {
+                        const int other_next = xy_next(other_node, other);
+                        if (candidate_node == other_node &&
+                            candidate_next == other_next) {
+                            use_express = false;
+                            break;
+                        }
+                        other_node = other_next;
+                    }
+                    candidate_node = candidate_next;
+                }
+            }
+        }
+        int node = m_multicast_source;
+        while (node != destination) {
             const int x = node % cols;
-            const int y = node / cols;
-            int parent;
-            if (x != root_x)
-                parent = y * cols + x + (root_x > x ? 1 : -1);
-            else
-                parent = (y + (root_y > y ? 1 : -1)) * cols + x;
-            if (parent == router_id && node == child_id)
+            int next;
+            if (use_express && node == m_multicast_source) {
+                // The deterministic bypass oracle uses an express link only
+                // on the source's first hop; all later hops are XY.
+                next = bypass_first_hops[
+                    m_multicast_source * m_routers.size() + destination];
+                if (next < 0)
+                    next = xy_next(node, destination);
+            } else if (x != destination % cols) {
+                next = xy_next(node, destination);
+            } else {
+                next = xy_next(node, destination);
+            }
+            if (node == router_id && next == child_id)
                 return true;
-            node = parent;
+            node = next;
         }
     }
     return false;
@@ -283,6 +332,7 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
         if (isMeasurementRound(collective_id)) {
             ++m_multicast_measured_requests;
             m_multicast_measured_completion_ticks += latency;
+            m_multicast_measured_latencies.push_back(latency);
             m_multicast_measurement_last_completion_tick = curTick();
         }
         if (expected_deliveries == getNumRouters()) {
@@ -298,6 +348,14 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
                m_collective_round_states[m_collective_delivery_id].completed)
             ++m_collective_delivery_id;
         if (m_collective_completed_rounds == m_collective_rounds) {
+            if (!m_multicast_measured_latencies.empty()) {
+                std::sort(m_multicast_measured_latencies.begin(),
+                          m_multicast_measured_latencies.end());
+                const size_t p95_index =
+                    (95 * m_multicast_measured_latencies.size() + 99) / 100 - 1;
+                m_multicast_p95_completion_ticks =
+                    m_multicast_measured_latencies[p95_index];
+            }
             m_multicast_measurement_ticks =
                 m_multicast_measurement_last_completion_tick -
                 m_multicast_measurement_first_injection_tick;
@@ -661,6 +719,8 @@ GarnetNetwork::regStats()
         .name(name() + ".multicast_measured_requests");
     m_multicast_measured_completion_ticks
         .name(name() + ".multicast_measured_completion_ticks");
+    m_multicast_p95_completion_ticks
+        .name(name() + ".multicast_p95_completion_ticks");
     m_multicast_measured_internal_link_flits
         .name(name() + ".multicast_measured_internal_link_flits");
     m_multicast_destination_latency_ticks

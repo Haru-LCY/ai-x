@@ -96,6 +96,15 @@ class GarnetSyntheticTraffic(ClockedObject):
     multicast_mode = Param.String("none", "multicast implementation mode")
     multicast_destinations = VectorParam.Int([], "multicast destination Routers")
     multicast_injection_gap = Param.Int(1, "cycles between multicast requests")
+    multicast_replay_release_cycles = VectorParam.Int(
+        [], "optional per-request replay release cycles"
+    )
+    multicast_replay_packet_flits = VectorParam.Int(
+        [], "optional per-request replay packet sizes in flits"
+    )
+    all_reduce_replay_release_cycles = VectorParam.Int(
+        [], "optional per-lane all-reduce replay release cycles"
+    )
     random_seed = Param.Unsigned(1, "per-tester deterministic random seed")
     hotspot_destination = Param.Int(0, "synthetic hotspot destination")
     hotspot_probability = Param.Float(0.5, "probability of hotspot traffic")

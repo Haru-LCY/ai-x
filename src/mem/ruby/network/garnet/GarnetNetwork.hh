@@ -84,6 +84,10 @@ class GarnetNetwork : public Network
     {
         return m_bypass_first_hops;
     }
+    const std::vector<int>& getBypassFirstHopDestinations() const
+    {
+        return m_bypass_first_hop_destinations;
+    }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
     bool collectiveTraffic(int vnet, int source_router) const
@@ -105,6 +109,11 @@ class GarnetNetwork : public Network
     }
     int multicastDestinationCount() const { return m_multicast_destination_count; }
     int multicastPacketFlits() const { return m_multicast_packet_flits; }
+    void setMulticastPacketFlits(int flits)
+    {
+        fatal_if(flits < 1, "Multicast packet must contain at least one flit");
+        m_multicast_packet_flits = flits;
+    }
     bool canInjectCollectiveRound(int collective_id) const;
     int nextNaiveMulticastRound();
 
@@ -214,6 +223,7 @@ class GarnetNetwork : public Network
     uint32_t m_buffers_per_data_vc;
     int m_routing_algorithm;
     std::vector<std::string> m_bypass_first_hops;
+    std::vector<int> m_bypass_first_hop_destinations;
     std::vector<int> m_bypass_link_ids;
     std::vector<int> m_bypass_link_spans;
     int m_synthetic_packet_flits;
@@ -290,6 +300,7 @@ class GarnetNetwork : public Network
     statistics::Scalar m_multicast_measurement_ticks;
     statistics::Scalar m_multicast_measured_requests;
     statistics::Scalar m_multicast_measured_completion_ticks;
+    statistics::Scalar m_multicast_p95_completion_ticks;
     statistics::Scalar m_multicast_measured_internal_link_flits;
     statistics::Scalar m_multicast_destination_latency_ticks;
     statistics::Formula m_multicast_average_destination_latency_ticks;
@@ -330,6 +341,7 @@ class GarnetNetwork : public Network
     Tick m_multicast_max_latency = 0;
     Tick m_multicast_measurement_first_injection_tick = 0;
     Tick m_multicast_measurement_last_completion_tick = 0;
+    std::vector<Tick> m_multicast_measured_latencies;
 
     bool
     isMeasurementRound(int collective_id) const

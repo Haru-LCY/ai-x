@@ -102,6 +102,9 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       currentMulticastDestination(-1),
       multicastRoundStarted(false),
       multicastInjectionGap(p.multicast_injection_gap),
+      multicastReplayReleaseCycles(p.multicast_replay_release_cycles),
+      multicastReplayPacketFlits(p.multicast_replay_packet_flits),
+      allReduceReplayReleaseCycles(p.all_reduce_replay_release_cycles),
       nextMulticastInjectionCycle(0),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
@@ -125,6 +128,38 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
              "Hotspot probability must lie in [0, 1]");
     fatal_if(collectiveMode && collectiveNetwork == nullptr,
              "Lab4 collective tester requires a Garnet network");
+    fatal_if(multicastReplayReleaseCycles.size() !=
+             multicastReplayPacketFlits.size(),
+             "Multicast replay release/packet vectors differ");
+    fatal_if(multicastReplayEnabled() && !collectiveMulticast,
+             "Multicast replay requires multicast mode");
+    fatal_if(allReduceReplayEnabled() && collectiveMulticast,
+             "All-reduce replay requires all-reduce mode");
+    fatal_if(multicastReplayEnabled() && allReduceReplayEnabled(),
+             "Multicast and all-reduce replay cannot be combined");
+    fatal_if(allReduceReplayEnabled() &&
+             allReduceReplayReleaseCycles.size() != collectiveRounds,
+             "All-reduce replay release vector differs from round count");
+    if (multicastReplayEnabled()) {
+        fatal_if(multicastReplayReleaseCycles.front() < 0,
+                 "Multicast replay release cycle must be non-negative");
+        for (size_t i = 0; i < multicastReplayReleaseCycles.size(); ++i) {
+            fatal_if(multicastReplayPacketFlits[i] < 1,
+                     "Multicast replay packet size must be positive");
+            if (i > 0)
+                fatal_if(multicastReplayReleaseCycles[i] <
+                         multicastReplayReleaseCycles[i - 1],
+                         "Multicast replay release cycles must be monotonic");
+        }
+    }
+    if (allReduceReplayEnabled()) {
+        fatal_if(allReduceReplayReleaseCycles.front() < 0,
+                 "All-reduce replay release cycle must be non-negative");
+        for (size_t i = 1; i < allReduceReplayReleaseCycles.size(); ++i)
+            fatal_if(allReduceReplayReleaseCycles[i] <
+                         allReduceReplayReleaseCycles[i - 1],
+                     "All-reduce replay release cycles must be monotonic");
+    }
     fatal_if(multicastMode == "naive_unicast" &&
              multicastDestinations.empty(),
              "Naive multicast requires at least one destination");
@@ -262,8 +297,14 @@ GarnetSyntheticTraffic::tick()
             }
         } else if (collectiveRound < collectiveRounds &&
                    curCycle() >= nextMulticastInjectionCycle &&
+                   (!replayEnabled() ||
+                    curCycle() >= Cycles(replayReleaseCycle(collectiveRound))) &&
                    collectiveNetwork->canInjectCollectiveRound(
                        collectiveRound)) {
+            if (multicastReplayEnabled()) {
+                collectiveNetwork->setMulticastPacketFlits(
+                    multicastReplayPacketFlits[collectiveRound]);
+            }
             generatePkt();
             ++collectiveRound;
             nextMulticastInjectionCycle = curCycle() +
@@ -320,7 +361,8 @@ void
 GarnetSyntheticTraffic::generatePkt()
 {
     int num_destinations = numDestinations;
-    int radix = (int) sqrt(num_destinations);
+    int radix = collectiveMode ? collectiveNetwork->getNumCols() :
+                                 (int) sqrt(num_destinations);
     unsigned destination = id;
     int dest_x = -1;
     int dest_y = -1;

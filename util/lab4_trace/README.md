@@ -40,11 +40,57 @@ The source trace retains exact measured sizes and times, and every replay file
 records both scale factors. Sensitivity runs may deliberately vary them, but
 results must never present scaled simulation traffic as native H100 traffic.
 
-Version 1 lowers only `broadcast`, whose root and destination semantics match
-the existing Topic 3 multicast mechanism. `all_reduce` remains in the source
-trace but is rejected as a replay operation until its reduction and
-distribution phases can be represented without changing semantics.
+Broadcast replay lowers payload chunks into variable-length tree multicast
+packets. All-reduce uses a separate, explicit scalar-lane contract because the
+implemented in-router reduction datapath accepts one flit per rank and lane.
+It is a true reduce-then-broadcast tree, not a unicast decomposition.
 
-The replay JSON is not yet consumed by Garnet. Adding that consumer is the
-next integration step; the source trace and compiler can be developed and
-audited independently of the bypass topology work.
+```sh
+$PY util/lab4_trace/compile_allreduce_replay.py \
+  traces/h100_8gpu_collectives.json \
+  --output traces/h100_8gpu_allreduce_replay.json \
+  --byte-scale 0.0009765625 --time-scale 0.0009765625
+```
+
+At these scales the checked-in trace yields 15 all-reduce events, 6,720
+scalar lanes, and 53,760 rank contribution flits. Lanes retain their source
+event's release eligibility but serialize through the one-active-lane router
+accumulator; this is a functional trace replay, not a wide/vector reduction
+throughput model.
+
+## Audit a compiled replay
+
+Before a replay is handed to a Garnet consumer, validate its request-level
+contract and independently recompute the flit total:
+
+```sh
+$PY util/lab4_trace/validate_replay.py traces/h100_8gpu_broadcast_replay.json
+# PASS: ... requests=30 total_work_flits=6720
+$PY util/lab4_trace/validate_replay.py traces/h100_8gpu_allreduce_replay.json
+# PASS: ... requests=15 total_work_flits=53760
+```
+
+The validator rejects duplicate IDs, non-monotonic release cycles, invalid
+source/destination sets, and payload/flit arithmetic mismatches.
+
+## Garnet replay smoke run
+
+The first consumer supports replay v1 files with one fixed source and
+destination set (the checked-in broadcast replay has this shape). It preserves
+per-request release cycles and packet flit counts:
+
+```sh
+$GEM5 -d /tmp/replay-run configs/example/garnet_synth_traffic.py \
+  --network=garnet --topology=Mesh_XY --num-cpus=4 --num-dirs=4 \
+  --mesh-rows=2 --routing-algorithm=1 \
+  --multicast-mode=tree_multicast \
+  --multicast-replay-file=/tmp/replay.json
+```
+
+The consumer intentionally rejects traces with changing source or destination
+sets; supporting those requires per-request destination masks in the network
+protocol rather than silently changing the collective semantics.
+
+Run the all-reduce replay with `--lab4-all-reduce` and
+`--all-reduce-replay-file=traces/h100_8gpu_allreduce_replay.json`. The strict
+paired runner is `tests/gem5/lab4/run_allreduce_trace_replay.py`.

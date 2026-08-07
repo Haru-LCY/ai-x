@@ -197,6 +197,7 @@ class Router : public BasicRouter, public Consumer
 
     int collectiveOutport(const std::string& direction) const;
     int collectiveChildId(const std::string& child_inport) const;
+    int collectiveOutportForChild(int child_id) const;
     void sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
                             flit *template_flit);
     void enqueueMulticastFlit(flit *packet_flit, int inport);

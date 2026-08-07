@@ -148,6 +148,9 @@ class GarnetSyntheticTraffic : public ClockedObject
     int currentMulticastDestination;
     bool multicastRoundStarted;
     int multicastInjectionGap;
+    std::vector<int> multicastReplayReleaseCycles;
+    std::vector<int> multicastReplayPacketFlits;
+    std::vector<int> allReduceReplayReleaseCycles;
     Cycles nextMulticastInjectionCycle;
 
     std::string trafficType; // string
@@ -174,6 +177,24 @@ class GarnetSyntheticTraffic : public ClockedObject
     bool inMeasuredSyntheticWindow() const;
 
     void doRetry();
+
+    bool multicastReplayEnabled() const
+    {
+        return !multicastReplayReleaseCycles.empty();
+    }
+    bool allReduceReplayEnabled() const
+    {
+        return !allReduceReplayReleaseCycles.empty();
+    }
+    bool replayEnabled() const
+    {
+        return multicastReplayEnabled() || allReduceReplayEnabled();
+    }
+    int replayReleaseCycle(int round) const
+    {
+        return multicastReplayEnabled() ? multicastReplayReleaseCycles[round] :
+                                          allReduceReplayReleaseCycles[round];
+    }
 
     friend class MemCompleteEvent;
 };

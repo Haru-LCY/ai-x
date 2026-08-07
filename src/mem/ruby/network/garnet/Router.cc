@@ -33,6 +33,7 @@
 #include "mem/ruby/network/garnet/Router.hh"
 
 #include <algorithm>
+#include <cstdio>
 
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/CreditLink.hh"
@@ -238,8 +239,36 @@ Router::collectiveChildId(const std::string& child_inport) const
         return (y + 1) * cols + x;
     if (child_inport == "South")
         return (y - 1) * cols + x;
+    int src = -1;
+    int dst = -1;
+    if (std::sscanf(child_inport.c_str(), "Bypass_%d_to_%d", &src, &dst) == 2 &&
+        src == m_id)
+        return dst;
     fatal("Invalid Lab4 child input direction %s at Router %d",
           child_inport, m_id);
+}
+
+int
+Router::collectiveOutportForChild(int child_id) const
+{
+    if (child_id == m_id)
+        return collectiveOutport("Local");
+    for (int i = 0; i < m_output_unit.size(); ++i) {
+        const auto& direction = m_output_unit[i]->get_direction();
+        int src = -1;
+        int dst = -1;
+        if (std::sscanf(direction.c_str(), "Bypass_%d_to_%d", &src, &dst) == 2 &&
+            src == m_id && dst == child_id)
+            return i;
+    }
+    const int cols = m_network_ptr->getNumCols();
+    const int x = m_id % cols;
+    const int y = m_id / cols;
+    const int child_x = child_id % cols;
+    const int child_y = child_id / cols;
+    const std::string direction = child_x > x ? "East" :
+        child_x < x ? "West" : child_y > y ? "North" : "South";
+    return collectiveOutport(direction);
 }
 
 void
@@ -309,8 +338,11 @@ Router::allocateMulticastBranches(flit *head_flit)
     const uint64_t mask = head_flit->get_multicast_destinations();
     if (m_network_ptr->multicastDestination(mask, m_id))
         destinations.push_back(m_id);
-    for (const auto& child_in : m_collective_child_inports) {
-        const int child = collectiveChildId(child_in);
+    for (const auto& output : m_output_unit) {
+        const auto& direction = output->get_direction();
+        if (direction == "Local")
+            continue;
+        const int child = collectiveChildId(direction);
         if (m_network_ptr->multicastChildNeeded(mask, m_id, child))
             destinations.push_back(child);
     }
@@ -319,34 +351,14 @@ Router::allocateMulticastBranches(flit *head_flit)
 
     const int vnet = head_flit->get_vnet();
     for (const int destination : destinations) {
-        const int cols = m_network_ptr->getNumCols();
-        const int x = m_id % cols;
-        const int y = m_id / cols;
-        const int dest_x = destination % cols;
-        const int dest_y = destination / cols;
-        std::string direction = "Local";
-        if (dest_x > x) direction = "East";
-        else if (dest_x < x) direction = "West";
-        else if (dest_y > y) direction = "North";
-        else if (dest_y < y) direction = "South";
-        const int outport = collectiveOutport(direction);
+        const int outport = collectiveOutportForChild(destination);
         if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet)) {
             m_network_ptr->recordMulticastCreditStall();
             return false;
         }
     }
     for (const int destination : destinations) {
-        const int cols = m_network_ptr->getNumCols();
-        const int x = m_id % cols;
-        const int y = m_id / cols;
-        const int dest_x = destination % cols;
-        const int dest_y = destination / cols;
-        std::string direction = "Local";
-        if (dest_x > x) direction = "East";
-        else if (dest_x < x) direction = "West";
-        else if (dest_y > y) direction = "North";
-        else if (dest_y < y) direction = "South";
-        const int outport = collectiveOutport(direction);
+        const int outport = collectiveOutportForChild(destination);
         const int outvc = m_output_unit[outport]->select_free_vc(vnet);
         fatal_if(outvc < 0, "Router %d lost multicast VC allocation", m_id);
         m_multicast_branches.push_back({outport, outvc, destination});

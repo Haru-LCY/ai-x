@@ -30,7 +30,7 @@ import m5
 from m5.objects import *
 from m5.defines import buildEnv
 from m5.util import addToPath
-import os, argparse, sys
+import os, argparse, sys, json
 import math
 
 addToPath("../")
@@ -156,6 +156,16 @@ parser.add_argument(
     default="none",
 )
 parser.add_argument("--multicast-background-rate", type=float, default=0.0)
+parser.add_argument(
+    "--multicast-replay-file",
+    default=None,
+    help="compiled Lab4 replay JSON (broadcast requests only)",
+)
+parser.add_argument(
+    "--all-reduce-replay-file",
+    default=None,
+    help="compiled scalar-lane in-network all-reduce replay JSON",
+)
 
 parser.add_argument(
     "--num-packets-max",
@@ -268,6 +278,92 @@ if multicast_requested:
 else:
     multicast_destinations = []
 
+multicast_replay_release_cycles = []
+multicast_replay_packet_flits = []
+all_reduce_replay_release_cycles = []
+if args.multicast_replay_file:
+    if not multicast_requested:
+        parser.error("--multicast-replay-file requires --multicast-mode")
+    try:
+        with open(args.multicast_replay_file, encoding="utf-8") as handle:
+            replay = json.load(handle)
+    except (OSError, ValueError) as error:
+        parser.error(f"cannot read multicast replay: {error}")
+    if replay.get("schema") != "lab4.garnet_collective_replay.v1":
+        parser.error("multicast replay has an unsupported schema")
+    requests = replay.get("requests", [])
+    if not requests:
+        parser.error("multicast replay contains no requests")
+    if replay.get("world_size") != args.num_cpus:
+        parser.error("replay world_size must equal --num-cpus")
+    replay_sources = {request.get("source_router") for request in requests}
+    replay_destinations = {
+        tuple(request.get("destination_routers", [])) for request in requests
+    }
+    if len(replay_sources) != 1 or len(replay_destinations) != 1:
+        parser.error("replay v1 requires one fixed source and destination set")
+    args.multicast_source = next(iter(replay_sources))
+    args.collective_root = args.multicast_source
+    multicast_destinations = list(next(iter(replay_destinations)))
+    if (
+        args.multicast_source < 0 or args.multicast_source >= args.num_cpus
+        or any(dest < 0 or dest >= args.num_cpus
+               for dest in multicast_destinations)
+    ):
+        parser.error("replay source/destination lies outside the Mesh")
+    if args.multicast_destinations not in ("all", ""):
+        parser.error("--multicast-destinations conflicts with replay destinations")
+    multicast_replay_release_cycles = [
+        int(request["release_cycle"]) for request in requests
+    ]
+    multicast_replay_packet_flits = [
+        int(request["packet_flits"]) for request in requests
+    ]
+    args.collective_rounds = len(requests)
+
+if args.all_reduce_replay_file:
+    if multicast_requested:
+        parser.error("--all-reduce-replay-file conflicts with multicast")
+    if not args.lab4_all_reduce:
+        parser.error("--all-reduce-replay-file requires --lab4-all-reduce")
+    try:
+        with open(args.all_reduce_replay_file, encoding="utf-8") as handle:
+            replay = json.load(handle)
+    except (OSError, ValueError) as error:
+        parser.error(f"cannot read all-reduce replay: {error}")
+    if replay.get("schema") != "lab4.garnet_allreduce_replay.v1":
+        parser.error("all-reduce replay has an unsupported schema")
+    if replay.get("world_size") != args.num_cpus:
+        parser.error("all-reduce replay world_size must equal --num-cpus")
+    rank_map = replay.get("rank_to_router")
+    if sorted(rank_map or []) != list(range(args.num_cpus)):
+        parser.error("all-reduce replay must map exactly onto all Mesh Routers")
+    requests = replay.get("requests", [])
+    if not requests:
+        parser.error("all-reduce replay contains no requests")
+    root = replay.get("reduction_root_router")
+    if not isinstance(root, int) or not 0 <= root < args.num_cpus:
+        parser.error("all-reduce replay root lies outside the Mesh")
+    args.collective_root = root
+    previous_release = -1
+    for request in requests:
+        if request.get("operation") != "all_reduce":
+            parser.error("all-reduce replay contains a non-all_reduce request")
+        release = request.get("release_cycle")
+        lanes = request.get("lane_rounds")
+        if (not isinstance(release, int) or release < previous_release or
+                not isinstance(lanes, int) or lanes < 1):
+            parser.error("all-reduce replay has invalid release/lane metadata")
+        if request.get("reduction_root_router") != root:
+            parser.error("all-reduce replay request root mismatch")
+        if request.get("participant_routers") != list(range(args.num_cpus)):
+            parser.error("all-reduce replay request must include every Router")
+        all_reduce_replay_release_cycles.extend([release] * lanes)
+        previous_release = release
+    if replay.get("total_lane_rounds") != len(all_reduce_replay_release_cycles):
+        parser.error("all-reduce replay total_lane_rounds mismatch")
+    args.collective_rounds = len(all_reduce_replay_release_cycles)
+
 collective_requested = args.lab4_all_reduce or multicast_requested
 if collective_requested and source_destinations:
     parser.error("--source-destinations conflicts with collective traffic")
@@ -344,6 +440,15 @@ for i in range(args.num_cpus):
         multicast_destinations=multicast_destinations,
         multicast_injection_gap=max(
             1, math.ceil(1.0 / args.multicast_injection_rate)
+        ),
+        multicast_replay_release_cycles=(
+            multicast_replay_release_cycles if is_multicast_source else []
+        ),
+        multicast_replay_packet_flits=(
+            multicast_replay_packet_flits if is_multicast_source else []
+        ),
+        all_reduce_replay_release_cycles=(
+            all_reduce_replay_release_cycles if args.lab4_all_reduce else []
         ),
         random_seed=(
             args.multicast_seed if multicast_requested else args.synthetic_seed

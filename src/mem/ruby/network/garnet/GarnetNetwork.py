@@ -49,6 +49,9 @@ class GarnetNetwork(RubyNetwork):
     bypass_first_hops = VectorParam.String(
         [], "source/destination indexed deterministic bypass first-hop ports"
     )
+    bypass_first_hop_destinations = VectorParam.Int(
+        [], "source/destination indexed deterministic bypass first-hop Routers"
+    )
     bypass_link_ids = VectorParam.Int([], "internal links classified as express")
     bypass_link_spans = VectorParam.Int(
         [], "Manhattan physical spans aligned with bypass_link_ids"
