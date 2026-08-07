@@ -19,3 +19,10 @@ case retains `sim.log`, `stats.txt`, and the standard gem5 configuration files.
 It fails if any round misses or duplicates a destination, if completion is not
 the exit cause, or if source, Router-generated, delivery, and reduction counts
 do not match the tree protocol.
+
+Run the M1 destination/subtree matrix with:
+
+```sh
+LD_LIBRARY_PATH=/path/to/python/lib \
+  python3 tests/gem5/lab4/run_multicast_matrix.py --jobs 8 --rounds 5
+```

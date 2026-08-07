@@ -85,6 +85,8 @@ parser.add_argument(
 
 parser.add_argument(
     "--collective-rounds",
+    "--multicast-rounds",
+    dest="collective_rounds",
     type=int,
     default=1,
     help="number of serialized Lab4 all-reduce rounds",
@@ -94,6 +96,39 @@ parser.add_argument(
     "--lab4-multicast",
     action="store_true",
     help="run the Lab4 tree multicast validation workload",
+)
+
+parser.add_argument(
+    "--multicast-mode",
+    choices=["naive_unicast", "tree_multicast"],
+    help="multicast implementation to run",
+)
+
+parser.add_argument(
+    "--multicast-destinations",
+    default="all",
+    help="all, a comma-separated Router list, or random:K",
+)
+
+parser.add_argument(
+    "--multicast-source",
+    type=int,
+    default=None,
+    help="source Router (defaults to --collective-root)",
+)
+
+parser.add_argument(
+    "--multicast-packet-flits",
+    type=int,
+    default=1,
+    help="multicast packet size in flits",
+)
+
+parser.add_argument(
+    "--multicast-seed",
+    type=int,
+    default=1,
+    help="seed used to construct deterministic destination sets",
 )
 
 parser.add_argument(
@@ -137,12 +172,61 @@ Ruby.define_options(parser)
 
 args = parser.parse_args()
 
-collective_requested = args.lab4_all_reduce or args.lab4_multicast
+if args.lab4_multicast:
+    if args.multicast_mode not in (None, "tree_multicast"):
+        parser.error("--lab4-multicast conflicts with --multicast-mode")
+    args.multicast_mode = "tree_multicast"
+
+multicast_requested = args.multicast_mode is not None
+if multicast_requested:
+    if args.lab4_all_reduce:
+        parser.error("multicast and --lab4-all-reduce are mutually exclusive")
+    if args.multicast_source is None:
+        args.multicast_source = args.collective_root
+    if not 0 <= args.multicast_source < args.num_cpus:
+        parser.error("--multicast-source must name an existing Router")
+    args.collective_root = args.multicast_source
+    args.lab4_multicast = args.multicast_mode == "tree_multicast"
+
+    if args.multicast_destinations == "all":
+        multicast_destinations = list(range(args.num_cpus))
+    elif args.multicast_destinations.startswith("random:"):
+        import random
+
+        try:
+            group_size = int(args.multicast_destinations.split(":", 1)[1])
+        except ValueError:
+            parser.error("random multicast destinations require random:K")
+        if not 1 <= group_size <= args.num_cpus:
+            parser.error("random multicast group size must be within the Mesh")
+        multicast_destinations = sorted(
+            random.Random(args.multicast_seed).sample(
+                range(args.num_cpus), group_size
+            )
+        )
+    else:
+        try:
+            multicast_destinations = sorted(
+                {int(item) for item in args.multicast_destinations.split(",")}
+            )
+        except ValueError:
+            parser.error("multicast destinations must be Router integers")
+        if not multicast_destinations:
+            parser.error("multicast destination set must not be empty")
+        if multicast_destinations[0] < 0 or multicast_destinations[-1] >= args.num_cpus:
+            parser.error("multicast destination lies outside the Mesh")
+else:
+    multicast_destinations = []
+
+collective_requested = args.lab4_all_reduce or multicast_requested
 if collective_requested:
     if args.collective_rounds < 1:
         parser.error("--collective-rounds must be positive")
-    # Scalar collectives operate on one HEAD_TAIL flit. Select a control
-    # vnet by default and reject the five-flit data vnet explicitly.
+    if args.multicast_packet_flits < 1:
+        parser.error("--multicast-packet-flits must be positive")
+    if multicast_requested and args.multicast_packet_flits != 1:
+        parser.error("M1 supports one-flit multicast packets; multi-flit is M4")
+    # M1 scalar collectives operate on one HEAD_TAIL flit.
     if args.inj_vnet == -1:
         args.inj_vnet = 0
     elif args.inj_vnet not in (0, 1):
@@ -162,8 +246,8 @@ cpus = [
         inj_vnet=args.inj_vnet,
         precision=args.precision,
         num_dest=args.num_dirs,
-        collective_mode=(args.lab4_all_reduce or args.lab4_multicast),
-        collective_multicast=args.lab4_multicast,
+        collective_mode=collective_requested,
+        collective_multicast=multicast_requested,
         collective_root=args.collective_root,
         collective_rounds=args.collective_rounds,
     )
@@ -182,10 +266,15 @@ system.clk_domain = SrcClockDomain(
 )
 
 Ruby.create_system(args, False, system)
-if args.lab4_all_reduce or args.lab4_multicast:
+if collective_requested:
     system.ruby.network.collective_mode = True
-    system.ruby.network.collective_multicast = args.lab4_multicast
+    system.ruby.network.collective_multicast = multicast_requested
     system.ruby.network.collective_rounds = args.collective_rounds
+    system.ruby.network.multicast_mode = args.multicast_mode or "none"
+    system.ruby.network.multicast_source = (
+        args.multicast_source if multicast_requested else args.collective_root
+    )
+    system.ruby.network.multicast_destinations = multicast_destinations
     for cpu in cpus:
         cpu.collective_network = system.ruby.network
 

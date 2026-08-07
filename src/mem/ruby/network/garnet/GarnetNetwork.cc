@@ -75,6 +75,8 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
     m_collective_rounds = p.collective_rounds;
+    m_multicast_mode = p.multicast_mode;
+    m_multicast_source = p.multicast_source;
     fatal_if(m_collective_rounds < 1,
              "Lab4 collective rounds must be positive");
     m_next_packet_id = 0;
@@ -102,6 +104,26 @@ GarnetNetwork::GarnetNetwork(const Params &p)
         router->init_net_ptr(this);
     }
     m_collective_delivered.assign(m_routers.size(), false);
+    m_multicast_destinations.assign(m_routers.size(), false);
+    fatal_if(m_multicast_mode != "none" &&
+             m_multicast_mode != "naive_unicast" &&
+             m_multicast_mode != "tree_multicast",
+             "Invalid multicast mode '%s'", m_multicast_mode.c_str());
+    fatal_if(m_collective_multicast && m_multicast_mode == "none",
+             "Collective multicast requires an explicit multicast mode");
+    fatal_if(m_multicast_mode != "none" &&
+             (m_multicast_source < 0 || m_multicast_source >= getNumRouters()),
+             "Invalid multicast source Router %d", m_multicast_source);
+    for (const int destination : p.multicast_destinations) {
+        fatal_if(destination < 0 || destination >= getNumRouters(),
+                 "Invalid multicast destination Router %d", destination);
+        fatal_if(m_multicast_destinations[destination],
+                 "Duplicate multicast destination Router %d", destination);
+        m_multicast_destinations[destination] = true;
+        ++m_multicast_destination_count;
+    }
+    fatal_if(m_multicast_mode != "none" && m_multicast_destination_count == 0,
+             "Multicast destination set must not be empty");
 
     // record the network interfaces
     for (std::vector<ClockedObject*>::const_iterator i = p.netifs.begin();
@@ -113,6 +135,41 @@ GarnetNetwork::GarnetNetwork(const Params &p)
 
     // Print Garnet version
     inform("Garnet version %s\n", garnetVersion);
+}
+
+bool
+GarnetNetwork::multicastDestination(int router_id) const
+{
+    return router_id >= 0 && router_id < m_multicast_destinations.size() &&
+           m_multicast_destinations[router_id];
+}
+
+bool
+GarnetNetwork::multicastChildNeeded(int router_id, int child_id) const
+{
+    fatal_if(!treeMulticast(), "Tree branch query outside tree multicast");
+    const int cols = m_num_cols;
+    const int root_x = m_multicast_source % cols;
+    const int root_y = m_multicast_source / cols;
+    for (int destination = 0;
+         destination < m_multicast_destinations.size(); ++destination) {
+        if (!multicastDestination(destination))
+            continue;
+        int node = destination;
+        while (node != m_multicast_source) {
+            const int x = node % cols;
+            const int y = node / cols;
+            int parent;
+            if (x != root_x)
+                parent = y * cols + x + (root_x > x ? 1 : -1);
+            else
+                parent = (y + (root_y > y ? 1 : -1)) * cols + x;
+            if (parent == router_id && node == child_id)
+                return true;
+            node = parent;
+        }
+    }
+    return false;
 }
 
 void
@@ -128,18 +185,28 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
     fatal_if(m_collective_delivered[dest_router],
              "Lab4 duplicate delivery for round %d at Router %d",
              collective_id, dest_router);
+    fatal_if(m_collective_multicast && !multicastDestination(dest_router),
+             "Lab4 unexpected multicast delivery for round %d at Router %d",
+             collective_id, dest_router);
 
     m_collective_delivered[dest_router] = true;
     ++m_collective_delivery_count;
     ++m_collective_deliveries;
-    if (m_collective_delivery_count == getNumRouters()) {
+    const int expected_deliveries = m_collective_multicast ?
+        m_multicast_destination_count : getNumRouters();
+    if (m_collective_delivery_count == expected_deliveries) {
         fatal_if(!m_collective_round_started,
                  "Lab4 round %d completed without a source injection",
                  collective_id);
         ++m_collective_rounds_completed;
         m_collective_completion_ticks += curTick() - m_collective_round_start;
-        inform("Lab4 collective round %d delivered to all %d routers\n",
-               collective_id, getNumRouters());
+        if (expected_deliveries == getNumRouters()) {
+            inform("Lab4 collective round %d delivered to all %d routers\n",
+                   collective_id, expected_deliveries);
+        } else {
+            inform("Lab4 collective round %d delivered to all %d "
+                   "destinations\n", collective_id, expected_deliveries);
+        }
         ++m_collective_delivery_id;
         m_collective_delivery_count = 0;
         std::fill(m_collective_delivered.begin(),

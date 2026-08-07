@@ -82,6 +82,12 @@ class GarnetNetwork : public Network
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
+    bool treeMulticast() const { return m_multicast_mode == "tree_multicast"; }
+    bool naiveMulticast() const { return m_multicast_mode == "naive_unicast"; }
+    int multicastSource() const { return m_multicast_source; }
+    bool multicastDestination(int router_id) const;
+    bool multicastChildNeeded(int router_id, int child_id) const;
+    int multicastDestinationCount() const { return m_multicast_destination_count; }
     bool canInjectCollectiveRound(int collective_id) const
     {
         return collective_id == m_collective_delivery_id;
@@ -179,6 +185,10 @@ class GarnetNetwork : public Network
     bool m_collective_mode;
     bool m_collective_multicast;
     int m_collective_rounds;
+    std::string m_multicast_mode;
+    int m_multicast_source;
+    std::vector<bool> m_multicast_destinations;
+    int m_multicast_destination_count = 0;
     bool m_enable_fault_model;
 
     // Statistical variables

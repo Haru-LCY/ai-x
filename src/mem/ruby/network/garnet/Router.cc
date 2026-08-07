@@ -302,12 +302,19 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
         fatal_if(op == CollectiveOp::Broadcast && m_collective_multicast,
                  "Router %d received broadcast in multicast mode", m_id);
 
-        // Broadcast and multicast share the same tree forwarding operation:
-        // deliver one local copy and replicate one copy to each child.
-        sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
-        for (const auto& child_in : m_collective_child_inports)
-            sendCollectiveFlit(t_flit->get_value(), op,
-                               collectiveChildId(child_in), t_flit);
+        // All-reduce broadcast reaches every Router. Multicast prunes local
+        // delivery and child branches against its configured destination set.
+        if (op == CollectiveOp::Broadcast ||
+            m_network_ptr->multicastDestination(m_id)) {
+            sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
+        }
+        for (const auto& child_in : m_collective_child_inports) {
+            const int child = collectiveChildId(child_in);
+            if (op == CollectiveOp::Broadcast ||
+                m_network_ptr->multicastChildNeeded(m_id, child)) {
+                sendCollectiveFlit(t_flit->get_value(), op, child, t_flit);
+            }
+        }
         getInputUnit(inport)->increment_credit(t_flit->get_vc(), true,
                                                 curTick());
         delete t_flit;

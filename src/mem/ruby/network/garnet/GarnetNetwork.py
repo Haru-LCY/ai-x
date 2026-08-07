@@ -58,6 +58,9 @@ class GarnetNetwork(RubyNetwork):
         False, "enable Lab4 tree multicast mode"
     )
     collective_rounds = Param.Int(1, "number of Lab4 collective rounds")
+    multicast_mode = Param.String("none", "none, naive_unicast, or tree_multicast")
+    multicast_source = Param.Int(0, "multicast source Router")
+    multicast_destinations = VectorParam.Int([], "multicast destination Routers")
 
 
 class GarnetNetworkInterface(ClockedObject):
