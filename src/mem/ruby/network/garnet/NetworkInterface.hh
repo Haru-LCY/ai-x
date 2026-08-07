@@ -285,6 +285,7 @@ class NetworkInterface : public ClockedObject, public Consumer
     // The flit buffers which will serve the Consumer
     std::vector<flitBuffer>  niOutVcs;
     std::vector<Tick> m_ni_out_vcs_enqueue_time;
+    int m_next_collective_id = 0;
 
     // The Message buffers that takes messages from the protocol
     std::vector<MessageBuffer *> inNode_ptr;

@@ -47,6 +47,14 @@ namespace ruby
 namespace garnet
 {
 
+enum class CollectiveOp : uint8_t
+{
+    None,
+    Reduce,
+    Broadcast,
+    Multicast,
+};
+
 class flit
 {
   public:
@@ -62,7 +70,9 @@ class flit
     // Lab4 In-Network All-Reduce: reduction payload carried by the flit.
     int64_t get_value() { return m_value; }
     int get_collective_id() { return m_collective_id; }
-    bool is_reduce() { return m_is_reduce; }
+    CollectiveOp get_collective_op() { return m_collective_op; }
+    bool is_collective() { return m_collective_op != CollectiveOp::None; }
+    bool is_reduce() { return m_collective_op == CollectiveOp::Reduce; }
 
     Tick get_enqueue_time() { return m_enqueue_time; }
     Tick get_dequeue_time() { return m_dequeue_time; }
@@ -83,7 +93,7 @@ class flit
     // Lab4 In-Network All-Reduce setters.
     void set_value(int64_t v) { m_value = v; }
     void set_collective_id(int cid) { m_collective_id = cid; }
-    void set_is_reduce(bool r) { m_is_reduce = r; }
+    void set_collective_op(CollectiveOp op) { m_collective_op = op; }
 
     void set_vc(int vc) { m_vc = vc; }
     void set_route(RouteInfo route) { m_route = route; }
@@ -146,7 +156,7 @@ class flit
     // (all non-collective traffic) behave exactly as before.
     int64_t m_value = 0;
     int m_collective_id = -1;
-    bool m_is_reduce = false;
+    CollectiveOp m_collective_op = CollectiveOp::None;
 };
 
 inline std::ostream&

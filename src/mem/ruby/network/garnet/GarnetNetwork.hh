@@ -82,6 +82,10 @@ class GarnetNetwork : public Network
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
+    bool canInjectCollectiveRound(int collective_id) const
+    {
+        return collective_id == m_collective_delivery_id;
+    }
 
     bool isFaultModelEnabled() const { return m_enable_fault_model; }
     FaultModel* fault_model;
@@ -158,6 +162,10 @@ class GarnetNetwork : public Network
 
     void update_traffic_distribution(RouteInfo route);
     int getNextPacketID() { return m_next_packet_id++; }
+    void recordCollectiveDelivery(int collective_id, int dest_router);
+    void recordCollectiveInjection(int collective_id);
+    void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
+    void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
 
   protected:
     // Configuration
@@ -170,6 +178,7 @@ class GarnetNetwork : public Network
     int m_routing_algorithm;
     bool m_collective_mode;
     bool m_collective_multicast;
+    int m_collective_rounds;
     bool m_enable_fault_model;
 
     // Statistical variables
@@ -204,6 +213,14 @@ class GarnetNetwork : public Network
     statistics::Scalar  m_total_hops;
     statistics::Formula m_avg_hops;
 
+    statistics::Scalar m_collective_rounds_completed;
+    statistics::Scalar m_collective_deliveries;
+    statistics::Scalar m_collective_source_flits;
+    statistics::Scalar m_collective_router_flits;
+    statistics::Scalar m_collective_reduce_merges;
+    statistics::Scalar m_collective_completion_ticks;
+    statistics::Formula m_average_collective_completion_ticks;
+
     std::vector<std::vector<statistics::Scalar *>> m_data_traffic_distribution;
     std::vector<std::vector<statistics::Scalar *>> m_ctrl_traffic_distribution;
 
@@ -218,6 +235,13 @@ class GarnetNetwork : public Network
     std::vector<CreditLink *> m_creditlinks; // All credit links in the network
     std::vector<NetworkInterface *> m_nis;   // All NI's in Network
     int m_next_packet_id; // static vairable for packet id allocation
+
+    // A scalar collective must eject exactly once at every Router.
+    int m_collective_delivery_id = 0;
+    int m_collective_delivery_count = 0;
+    std::vector<bool> m_collective_delivered;
+    bool m_collective_round_started = false;
+    Tick m_collective_round_start = 0;
 };
 
 inline std::ostream&

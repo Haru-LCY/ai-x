@@ -179,7 +179,7 @@ class Router : public BasicRouter, public Consumer
 
     int collectiveOutport(const std::string& direction) const;
     int collectiveChildId(const std::string& child_inport) const;
-    void sendCollectiveFlit(int64_t value, bool reduce, int dest_router,
+    void sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
                             flit *template_flit);
 
     RoutingUnit routingUnit;

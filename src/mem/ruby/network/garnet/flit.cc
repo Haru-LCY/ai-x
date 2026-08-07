@@ -90,7 +90,7 @@ flit::serialize(int ser_id, int parts, uint32_t bWidth)
     // Lab4: carry the reduction payload across (de)serialization.
     fl->set_value(m_value);
     fl->set_collective_id(m_collective_id);
-    fl->set_is_reduce(m_is_reduce);
+    fl->set_collective_op(m_collective_op);
     return fl;
 }
 
@@ -109,7 +109,7 @@ flit::deserialize(int des_id, int num_flits, uint32_t bWidth)
     // Lab4: carry the reduction payload across (de)serialization.
     fl->set_value(m_value);
     fl->set_collective_id(m_collective_id);
-    fl->set_is_reduce(m_is_reduce);
+    fl->set_collective_op(m_collective_op);
     return fl;
 }
 

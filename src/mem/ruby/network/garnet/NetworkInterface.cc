@@ -485,14 +485,16 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
                 fl->set_value(m_net_ptr->collectiveMulticast() ? 1 :
                               route.src_ni + 1);
-                fl->set_collective_id(0);
-                fl->set_is_reduce(!m_net_ptr->collectiveMulticast());
+                fl->set_collective_id(m_next_collective_id);
+                fl->set_collective_op(m_net_ptr->collectiveMulticast() ?
+                    CollectiveOp::Multicast : CollectiveOp::Reduce);
             } else {
                 // Preserve the legacy smoke check for ordinary traffic.
                 fl->set_value(route.src_ni);
             }
-            DPRINTF(RubyNetwork, "Lab4 inject: src_ni=%d value=%ld "
-                    "vnet=%d reduce=%d\n", route.src_ni,
+            DPRINTF(RubyNetwork, "Lab4 inject: round=%d src_ni=%d value=%ld "
+                    "vnet=%d reduce=%d\n", fl->get_collective_id(),
+                    route.src_ni,
                     (long)fl->get_value(), vnet, fl->is_reduce());
             niOutVcs[vc].insert(fl);
         }
@@ -500,6 +502,8 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_ni_out_vcs_enqueue_time[vc] = curTick();
         outVcState[vc].setState(ACTIVE_, curTick());
     }
+    if (m_net_ptr->collectiveMode())
+        ++m_next_collective_id;
     return true ;
 }
 

@@ -52,8 +52,11 @@ code = code_formatter()
 
 for source in args.files:
     src = os.path.basename(source)
-    with open(source, "r") as f:
+    # m5.main consumes the embedded documentation as info.README.  Preserve
+    # that public attribute while sourcing the repository's README.md file.
+    var = "README" if src == "README.md" else src
+    with open(source, "r", encoding="utf-8") as f:
         data = "".join(f)
-    code("${src} = ${{repr(data)}}")
+    code("${var} = ${{repr(data)}}")
 
 code.write(args.info_py)

@@ -37,6 +37,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import importlib
 import math
 import m5
 from m5.objects import *
@@ -120,8 +121,11 @@ def define_options(parser):
     )
 
     protocol = buildEnv["PROTOCOL"]
-    exec(f"from . import {protocol}")
-    eval(f"{protocol}.define_options(parser)")
+    # Names assigned through exec() are no longer reliably reflected in a
+    # function's optimized locals on newer Python versions.  Import the
+    # selected protocol explicitly instead.
+    protocol_module = importlib.import_module(f".{protocol}", __package__)
+    protocol_module.define_options(parser)
     Network.define_options(parser)
 
 
@@ -212,8 +216,11 @@ def create_topology(controllers, options):
     found in configs/topologies/BaseTopology.py
     This is a wrapper for the legacy topologies.
     """
-    exec(f"import topologies.{options.topology} as Topo")
-    topology = eval(f"Topo.{options.topology}(controllers)")
+    topology_module = importlib.import_module(
+        f"topologies.{options.topology}"
+    )
+    topology_class = getattr(topology_module, options.topology)
+    topology = topology_class(controllers)
     return topology
 
 
@@ -247,12 +254,12 @@ def create_system(
         cpus = system.cpu
 
     protocol = buildEnv["PROTOCOL"]
-    exec(f"from . import {protocol}")
+    protocol_module = importlib.import_module(f".{protocol}", __package__)
     try:
-        (cpu_sequencers, dir_cntrls, topology) = eval(
-            "%s.create_system(options, full_system, system, dma_ports,\
-                                    bootmem, ruby, cpus)"
-            % protocol
+        (cpu_sequencers, dir_cntrls, topology) = (
+            protocol_module.create_system(
+                options, full_system, system, dma_ports, bootmem, ruby, cpus
+            )
         )
     except:
         print(f"Error: could not create sytem for ruby protocol {protocol}")
@@ -311,7 +318,7 @@ def create_directories(options, bootmem, ruby_system, system):
         dir_cntrl.directory = RubyDirectoryMemory()
         dir_cntrl.ruby_system = ruby_system
 
-        exec("ruby_system.dir_cntrl%d = dir_cntrl" % i)
+        setattr(ruby_system, f"dir_cntrl{i}", dir_cntrl)
         dir_cntrl_nodes.append(dir_cntrl)
 
     if bootmem is not None:

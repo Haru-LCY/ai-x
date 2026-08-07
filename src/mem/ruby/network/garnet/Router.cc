@@ -239,7 +239,7 @@ Router::collectiveChildId(const std::string& child_inport) const
 }
 
 void
-Router::sendCollectiveFlit(int64_t value, bool reduce, int dest_router,
+Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
                             flit *template_flit)
 {
     const int cols = m_network_ptr->getNumCols();
@@ -275,13 +275,16 @@ Router::sendCollectiveFlit(int64_t value, bool reduce, int dest_router,
         m_bit_width, curTick());
     out_flit->set_value(value);
     out_flit->set_collective_id(template_flit->get_collective_id());
-    out_flit->set_is_reduce(reduce);
+    out_flit->set_collective_op(op);
+    m_network_ptr->recordCollectiveRouterFlit();
     output->decrement_credit(outvc);
     output->insert_flit(out_flit);
     DPRINTF(RubyNetwork,
-            "Lab4 collective send router=%d dest_router=%d reduce=%d value=%ld\
+            "Lab4 collective send round=%d router=%d dest_router=%d op=%d "
+            "value=%ld\
 ",
-            m_id, dest_router, reduce, (long)value);
+            template_flit->get_collective_id(), m_id, dest_router,
+            static_cast<int>(op), (long)value);
 }
 
 void
@@ -289,18 +292,29 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
 {
     fatal_if(!m_collective_enabled,
              "Lab4 flit reached Router %d without collective metadata", m_id);
-    if (m_collective_multicast) {
-        // A multicast flit is replicated along the precomputed tree.
-        // The local copy validates delivery at this router's NI.
-        sendCollectiveFlit(t_flit->get_value(), false, m_id, t_flit);
+    fatal_if(t_flit->get_size() != 1 || t_flit->get_type() != HEAD_TAIL_,
+             "Lab4 scalar collective at Router %d must be a single "
+             "HEAD_TAIL flit", m_id);
+    const CollectiveOp op = t_flit->get_collective_op();
+    if (op == CollectiveOp::Multicast || op == CollectiveOp::Broadcast) {
+        fatal_if(op == CollectiveOp::Multicast && !m_collective_multicast,
+                 "Router %d received multicast in all-reduce mode", m_id);
+        fatal_if(op == CollectiveOp::Broadcast && m_collective_multicast,
+                 "Router %d received broadcast in multicast mode", m_id);
+
+        // Broadcast and multicast share the same tree forwarding operation:
+        // deliver one local copy and replicate one copy to each child.
+        sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
         for (const auto& child_in : m_collective_child_inports)
-            sendCollectiveFlit(t_flit->get_value(), false,
+            sendCollectiveFlit(t_flit->get_value(), op,
                                collectiveChildId(child_in), t_flit);
         getInputUnit(inport)->increment_credit(t_flit->get_vc(), true,
                                                 curTick());
         delete t_flit;
         return;
     }
+    fatal_if(op != CollectiveOp::Reduce,
+             "Router %d received invalid Lab4 collective operation", m_id);
     if (!m_collective_active) {
         m_collective_active = true;
         m_collective_accum = 0;
@@ -319,10 +333,10 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
         const int64_t sum = m_collective_accum;
         if (m_collective_root) {
             // Include the root's local NI and every child in the broadcast.
-            sendCollectiveFlit(sum, false, m_id, t_flit);
+            sendCollectiveFlit(sum, CollectiveOp::Broadcast, m_id, t_flit);
             for (const auto& child_in : m_collective_child_inports)
-                sendCollectiveFlit(sum, false, collectiveChildId(child_in),
-                                    t_flit);
+                sendCollectiveFlit(sum, CollectiveOp::Broadcast,
+                                    collectiveChildId(child_in), t_flit);
         } else {
             const int cols = m_network_ptr->getNumCols();
             const int x = m_id % cols;
@@ -332,7 +346,7 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
             else if (m_collective_parent_outport == "West") parent = y * cols + x - 1;
             else if (m_collective_parent_outport == "North") parent = (y + 1) * cols + x;
             else if (m_collective_parent_outport == "South") parent = (y - 1) * cols + x;
-            sendCollectiveFlit(sum, true, parent, t_flit);
+            sendCollectiveFlit(sum, CollectiveOp::Reduce, parent, t_flit);
         }
         m_collective_active = false;
         m_collective_count = 0;
