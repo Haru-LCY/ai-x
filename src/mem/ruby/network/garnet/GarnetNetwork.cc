@@ -77,6 +77,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_collective_rounds = p.collective_rounds;
     m_multicast_mode = p.multicast_mode;
     m_multicast_source = p.multicast_source;
+    m_multicast_packet_flits = p.multicast_packet_flits;
     fatal_if(m_collective_rounds < 1,
              "Lab4 collective rounds must be positive");
     m_next_packet_id = 0;
@@ -116,6 +117,8 @@ GarnetNetwork::GarnetNetwork(const Params &p)
              "Invalid multicast source Router %d", m_multicast_source);
     fatal_if(m_multicast_mode != "none" && getNumRouters() > 64,
              "Multicast destination bitmap supports at most 64 Routers");
+    fatal_if(m_multicast_mode != "none" && m_multicast_packet_flits < 1,
+             "Multicast packet must contain at least one flit");
     for (const int destination : p.multicast_destinations) {
         fatal_if(destination < 0 || destination >= getNumRouters(),
                  "Invalid multicast destination Router %d", destination);
@@ -252,13 +255,13 @@ GarnetNetwork::recordMulticastLocalDelivery(int collective_id)
 }
 
 void
-GarnetNetwork::recordCollectiveInjection(int collective_id)
+GarnetNetwork::recordCollectiveInjection(int collective_id, int source_flits)
 {
     fatal_if(collective_id != m_collective_delivery_id,
              "Lab4 source injection for round %d while round %d is active",
              collective_id, m_collective_delivery_id);
     beginCollectiveRound(collective_id);
-    ++m_collective_source_flits;
+    m_collective_source_flits += source_flits;
     if (m_collective_multicast)
         ++m_multicast_physical_packets;
 }

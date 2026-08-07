@@ -224,8 +224,6 @@ if collective_requested:
         parser.error("--collective-rounds must be positive")
     if args.multicast_packet_flits < 1:
         parser.error("--multicast-packet-flits must be positive")
-    if multicast_requested and args.multicast_packet_flits != 1:
-        parser.error("M1 supports one-flit multicast packets; multi-flit is M4")
     # M1 scalar collectives operate on one HEAD_TAIL flit.
     if args.inj_vnet == -1:
         args.inj_vnet = 0
@@ -277,6 +275,7 @@ if collective_requested:
         args.multicast_source if multicast_requested else args.collective_root
     )
     system.ruby.network.multicast_destinations = multicast_destinations
+    system.ruby.network.multicast_packet_flits = args.multicast_packet_flits
     for cpu in cpus:
         cpu.collective_network = system.ruby.network
 

@@ -61,6 +61,7 @@ class GarnetNetwork(RubyNetwork):
     multicast_mode = Param.String("none", "none, naive_unicast, or tree_multicast")
     multicast_source = Param.Int(0, "multicast source Router")
     multicast_destinations = VectorParam.Int([], "multicast destination Routers")
+    multicast_packet_flits = Param.Int(1, "multicast packet size in flits")
 
 
 class GarnetNetworkInterface(ClockedObject):

@@ -120,6 +120,8 @@ Router::wakeup()
         m_output_unit[outport]->wakeup();
     }
 
+    processPendingMulticastFlit();
+
     // Switch Allocation
     switchAllocator.wakeup();
 
@@ -290,38 +292,160 @@ Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
 }
 
 void
+Router::enqueueMulticastFlit(flit *packet_flit, int inport)
+{
+    m_pending_multicast_flits.push_back({packet_flit, inport});
+    processPendingMulticastFlit();
+}
+
+bool
+Router::allocateMulticastBranches(flit *head_flit)
+{
+    fatal_if(!m_multicast_branches.empty(),
+             "Router %d allocated multicast branches twice", m_id);
+    std::vector<int> destinations;
+    const uint64_t mask = head_flit->get_multicast_destinations();
+    if (m_network_ptr->multicastDestination(mask, m_id))
+        destinations.push_back(m_id);
+    for (const auto& child_in : m_collective_child_inports) {
+        const int child = collectiveChildId(child_in);
+        if (m_network_ptr->multicastChildNeeded(mask, m_id, child))
+            destinations.push_back(child);
+    }
+    fatal_if(destinations.empty(),
+             "Router %d received multicast outside its pruned tree", m_id);
+
+    const int vnet = head_flit->get_vnet();
+    for (const int destination : destinations) {
+        const int cols = m_network_ptr->getNumCols();
+        const int x = m_id % cols;
+        const int y = m_id / cols;
+        const int dest_x = destination % cols;
+        const int dest_y = destination / cols;
+        std::string direction = "Local";
+        if (dest_x > x) direction = "East";
+        else if (dest_x < x) direction = "West";
+        else if (dest_y > y) direction = "North";
+        else if (dest_y < y) direction = "South";
+        const int outport = collectiveOutport(direction);
+        if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet))
+            return false;
+    }
+    for (const int destination : destinations) {
+        const int cols = m_network_ptr->getNumCols();
+        const int x = m_id % cols;
+        const int y = m_id / cols;
+        const int dest_x = destination % cols;
+        const int dest_y = destination / cols;
+        std::string direction = "Local";
+        if (dest_x > x) direction = "East";
+        else if (dest_x < x) direction = "West";
+        else if (dest_y > y) direction = "North";
+        else if (dest_y < y) direction = "South";
+        const int outport = collectiveOutport(direction);
+        const int outvc = m_output_unit[outport]->select_free_vc(vnet);
+        fatal_if(outvc < 0, "Router %d lost multicast VC allocation", m_id);
+        m_multicast_branches.push_back({outport, outvc, destination});
+    }
+    return true;
+}
+
+void
+Router::sendMulticastBranchFlit(const MulticastBranch& branch,
+                                flit *template_flit)
+{
+    RouteInfo route = template_flit->get_route();
+    route.src_ni = m_network_ptr->getNumRouters() + m_id;
+    route.src_router = m_id;
+    route.dest_ni = m_network_ptr->getNumRouters() + branch.destination;
+    route.dest_router = branch.destination;
+    route.net_dest.clear();
+    route.net_dest.add(MachineID(MachineType_Directory, branch.destination));
+    route.hops_traversed = -1;
+    flit *copy = new flit(m_network_ptr->getNextPacketID(),
+        template_flit->get_id(), branch.outvc, template_flit->get_vnet(),
+        route, template_flit->get_size(), template_flit->get_msg_ptr(),
+        template_flit->msgSize, m_bit_width, curTick());
+    copy->set_value(template_flit->get_value());
+    copy->set_collective_id(template_flit->get_collective_id());
+    copy->set_collective_op(CollectiveOp::Multicast);
+    copy->set_multicast_destinations(
+        template_flit->get_multicast_destinations());
+    m_network_ptr->recordCollectiveRouterFlit();
+    OutputUnit *output = m_output_unit[branch.outport].get();
+    output->decrement_credit(branch.outvc);
+    output->insert_flit(copy);
+}
+
+void
+Router::processPendingMulticastFlit()
+{
+    if (m_pending_multicast_flits.empty() ||
+        m_multicast_last_send == curTick())
+        return;
+    PendingMulticastFlit& pending = m_pending_multicast_flits.front();
+    flit *packet_flit = pending.packet_flit;
+    const bool is_head = packet_flit->get_type() == HEAD_ ||
+                         packet_flit->get_type() == HEAD_TAIL_;
+    const bool is_tail = packet_flit->get_type() == TAIL_ ||
+                         packet_flit->get_type() == HEAD_TAIL_;
+    if (is_head) {
+        if (m_multicast_branches.empty()) {
+            if (!allocateMulticastBranches(packet_flit))
+                return;
+            m_multicast_packet_id = packet_flit->get_collective_id();
+            m_multicast_next_flit = 0;
+        }
+    }
+    fatal_if(packet_flit->get_collective_id() != m_multicast_packet_id ||
+             packet_flit->get_id() != m_multicast_next_flit,
+             "Router %d received out-of-order multicast flit", m_id);
+    for (const auto& branch : m_multicast_branches) {
+        if (!m_output_unit[branch.outport]->has_credit(branch.outvc))
+            return;
+    }
+    for (const auto& branch : m_multicast_branches)
+        sendMulticastBranchFlit(branch, packet_flit);
+    getInputUnit(pending.inport)->increment_credit(
+        packet_flit->get_vc(), is_tail, curTick());
+    m_pending_multicast_flits.pop_front();
+    ++m_multicast_next_flit;
+    m_multicast_last_send = curTick();
+    delete packet_flit;
+    if (is_tail) {
+        m_multicast_branches.clear();
+        m_multicast_packet_id = -1;
+        m_multicast_next_flit = 0;
+    }
+    if (!m_pending_multicast_flits.empty())
+        schedule_wakeup(Cycles(1));
+}
+
+void
 Router::handleCollectiveFlit(flit *t_flit, int inport)
 {
     fatal_if(!m_collective_enabled,
              "Lab4 flit reached Router %d without collective metadata", m_id);
+    if (t_flit->get_collective_op() == CollectiveOp::Multicast) {
+        fatal_if(!m_collective_multicast,
+                 "Router %d received multicast in all-reduce mode", m_id);
+        enqueueMulticastFlit(t_flit, inport);
+        return;
+    }
     fatal_if(t_flit->get_size() != 1 || t_flit->get_type() != HEAD_TAIL_,
              "Lab4 scalar collective at Router %d must be a single "
              "HEAD_TAIL flit", m_id);
     const CollectiveOp op = t_flit->get_collective_op();
-    if (op == CollectiveOp::Multicast || op == CollectiveOp::Broadcast) {
-        fatal_if(op == CollectiveOp::Multicast && !m_collective_multicast,
-                 "Router %d received multicast in all-reduce mode", m_id);
-        fatal_if(op == CollectiveOp::Broadcast && m_collective_multicast,
+    if (op == CollectiveOp::Broadcast) {
+        fatal_if(m_collective_multicast,
                  "Router %d received broadcast in multicast mode", m_id);
 
         // All-reduce broadcast reaches every Router. Multicast prunes local
         // delivery and child branches against its configured destination set.
-        const uint64_t destinations =
-            t_flit->get_multicast_destinations();
-        fatal_if(op == CollectiveOp::Multicast && destinations == 0,
-                 "Router %d received multicast with an empty destination "
-                 "bitmap", m_id);
-        if (op == CollectiveOp::Broadcast ||
-            m_network_ptr->multicastDestination(destinations, m_id)) {
-            sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
-        }
+        sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
         for (const auto& child_in : m_collective_child_inports) {
             const int child = collectiveChildId(child_in);
-            if (op == CollectiveOp::Broadcast ||
-                m_network_ptr->multicastChildNeeded(
-                    destinations, m_id, child)) {
-                sendCollectiveFlit(t_flit->get_value(), op, child, t_flit);
-            }
+            sendCollectiveFlit(t_flit->get_value(), op, child, t_flit);
         }
         getInputUnit(inport)->increment_credit(t_flit->get_vc(), true,
                                                 curTick());

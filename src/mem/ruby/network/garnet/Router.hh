@@ -32,6 +32,7 @@
 #ifndef __MEM_RUBY_NETWORK_GARNET_0_ROUTER_HH__
 #define __MEM_RUBY_NETWORK_GARNET_0_ROUTER_HH__
 
+#include <deque>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -177,10 +178,32 @@ class Router : public BasicRouter, public Consumer
     int m_collective_id;
     bool m_collective_active;
 
+    struct MulticastBranch
+    {
+        int outport;
+        int outvc;
+        int destination;
+    };
+    struct PendingMulticastFlit
+    {
+        flit *packet_flit;
+        int inport;
+    };
+    std::vector<MulticastBranch> m_multicast_branches;
+    std::deque<PendingMulticastFlit> m_pending_multicast_flits;
+    int m_multicast_packet_id = -1;
+    int m_multicast_next_flit = 0;
+    Tick m_multicast_last_send = MaxTick;
+
     int collectiveOutport(const std::string& direction) const;
     int collectiveChildId(const std::string& child_inport) const;
     void sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
                             flit *template_flit);
+    void enqueueMulticastFlit(flit *packet_flit, int inport);
+    void processPendingMulticastFlit();
+    bool allocateMulticastBranches(flit *head_flit);
+    void sendMulticastBranchFlit(const MulticastBranch& branch,
+                                 flit *template_flit);
 
     RoutingUnit routingUnit;
     SwitchAllocator switchAllocator;

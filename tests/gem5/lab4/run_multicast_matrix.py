@@ -68,9 +68,9 @@ def parse_stats(path):
     return stats
 
 
-def run_case(gem5, output_root, rounds, seed, mode, case):
+def run_case(gem5, output_root, rounds, seed, packet_flits, mode, case):
     name, cpus, dirs, rows, source, spec = case
-    name = f"{mode}-{name}"
+    name = f"{mode}-{name}-f{packet_flits}"
     output = output_root / name
     members = destinations(spec, cpus, seed)
     command = [
@@ -82,6 +82,7 @@ def run_case(gem5, output_root, rounds, seed, mode, case):
         f"--multicast-source={source}",
         f"--multicast-destinations={spec}",
         f"--multicast-rounds={rounds}", f"--multicast-seed={seed}",
+        f"--multicast-packet-flits={packet_flits}",
     ]
     result = subprocess.run(
         command, cwd=REPO_ROOT, env=os.environ.copy(),
@@ -115,9 +116,10 @@ def run_case(gem5, output_root, rounds, seed, mode, case):
         "collective_rounds_completed": rounds,
         "collective_deliveries": rounds * len(members),
         "collective_source_flits": rounds
-        * (1 if is_tree else len(remote_members)),
+        * (1 if is_tree else len(remote_members)) * packet_flits,
         "collective_router_flits": rounds
         * (len(members) + tree_edges(cpus, rows, source, members))
+        * packet_flits
         if is_tree
         else 0,
         "collective_reduce_merges": 0,
@@ -141,9 +143,13 @@ def main():
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--jobs", type=int, default=8)
+    parser.add_argument(
+        "--packet-flits", type=int, nargs="+", default=[1]
+    )
     args = parser.parse_args()
-    if args.rounds < 1 or args.jobs < 1:
-        parser.error("--rounds and --jobs must be positive")
+    if (args.rounds < 1 or args.jobs < 1 or
+            any(packet_flits < 1 for packet_flits in args.packet_flits)):
+        parser.error("--rounds, --jobs, and --packet-flits must be positive")
     if not args.gem5.is_file():
         parser.error(f"gem5 binary does not exist: {args.gem5}")
 
@@ -158,8 +164,9 @@ def main():
         futures = [
             pool.submit(
                 run_case, args.gem5, output_root, args.rounds, args.seed,
-                mode, case
+                packet_flits, mode, case
             )
+            for packet_flits in args.packet_flits
             for mode in MODES
             for case in cases
         ]
@@ -171,9 +178,11 @@ def main():
             else:
                 print(f"PASS {name}")
     if failures:
-        print(f"{len(failures)}/{len(cases) * len(MODES)} cases failed")
+        total = len(cases) * len(MODES) * len(args.packet_flits)
+        print(f"{len(failures)}/{total} cases failed")
         return 1
-    print(f"PASS: all {len(cases) * len(MODES)} paired multicast cases")
+    total = len(cases) * len(MODES) * len(args.packet_flits)
+    print(f"PASS: all {total} paired multicast cases")
     return 0
 
 

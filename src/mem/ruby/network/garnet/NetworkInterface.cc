@@ -194,8 +194,12 @@ NetworkInterface::incrementStats(flit *t_flit)
                          m_net_ptr->multicastDestinationMask(),
                      "Lab4 multicast destination bitmap changed in transit");
         }
-        m_net_ptr->recordCollectiveDelivery(
-            t_flit->get_collective_id(), t_flit->get_route().dest_router);
+        if (t_flit->get_type() == TAIL_ ||
+            t_flit->get_type() == HEAD_TAIL_) {
+            m_net_ptr->recordCollectiveDelivery(
+                t_flit->get_collective_id(),
+                t_flit->get_route().dest_router);
+        }
     } else {
         // Legacy smoke check: ordinary traffic preserves its source value.
         DPRINTF(RubyNetwork, "Lab4 eject: src_ni=%d value=%ld dest_ni=%d\n",
@@ -269,7 +273,10 @@ NetworkInterface::wakeup()
             if (m_net_ptr->collectiveMode() &&
                 t_flit->get_collective_id() >= 0) {
                 assert(!t_flit->is_reduce());
-                Credit *cFlit = new Credit(t_flit->get_vc(), true, curTick());
+                const bool free_signal = t_flit->get_type() == TAIL_ ||
+                    t_flit->get_type() == HEAD_TAIL_;
+                Credit *cFlit = new Credit(
+                    t_flit->get_vc(), free_signal, curTick());
                 iPort->sendCredit(cFlit);
                 incrementStats(t_flit);
                 delete t_flit;
@@ -421,7 +428,10 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
     assert(oPort);
     int num_flits = (int)divCeil((float) m_net_ptr->MessageSizeType_to_int(
         net_msg_ptr->getMessageSize()), (float)oPort->bitWidth());
-    fatal_if(m_net_ptr->collectiveMode() && num_flits != 1,
+    if (m_net_ptr->collectiveMulticast())
+        num_flits = m_net_ptr->multicastPacketFlits();
+    fatal_if(m_net_ptr->collectiveMode() &&
+             !m_net_ptr->collectiveMulticast() && num_flits != 1,
              "Lab4 scalar collective at NI %d requires one flit, got %d "
              "on vnet %d", m_id, num_flits, vnet);
 
@@ -484,13 +494,15 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         const int collective_id = m_net_ptr->naiveMulticast() ?
             m_net_ptr->collectiveRoundId() : m_next_collective_id;
         if (m_net_ptr->collectiveMode())
-            m_net_ptr->recordCollectiveInjection(collective_id);
+            m_net_ptr->recordCollectiveInjection(collective_id, num_flits);
         for (int i = 0; i < num_flits; i++) {
             m_net_ptr->increment_injected_flits(vnet);
             flit *fl = new flit(packet_id,
                 i, vc, vnet, route, num_flits, new_msg_ptr,
-                m_net_ptr->MessageSizeType_to_int(
-                net_msg_ptr->getMessageSize()),
+                m_net_ptr->collectiveMulticast() ?
+                    num_flits * oPort->bitWidth() :
+                    m_net_ptr->MessageSizeType_to_int(
+                        net_msg_ptr->getMessageSize()),
                 oPort->bitWidth(), curTick());
 
             fl->set_src_delay(curTick() - msg_ptr->getTime());

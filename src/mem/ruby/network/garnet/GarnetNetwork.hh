@@ -94,6 +94,7 @@ class GarnetNetwork : public Network
         return m_multicast_destination_mask;
     }
     int multicastDestinationCount() const { return m_multicast_destination_count; }
+    int multicastPacketFlits() const { return m_multicast_packet_flits; }
     int collectiveRoundId() const { return m_collective_delivery_id; }
     bool canInjectCollectiveRound(int collective_id) const
     {
@@ -178,7 +179,7 @@ class GarnetNetwork : public Network
     void recordCollectiveDelivery(int collective_id, int dest_router);
     void beginCollectiveRound(int collective_id);
     void recordMulticastLocalDelivery(int collective_id);
-    void recordCollectiveInjection(int collective_id);
+    void recordCollectiveInjection(int collective_id, int source_flits = 1);
     void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
     void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
 
@@ -196,6 +197,7 @@ class GarnetNetwork : public Network
     int m_collective_rounds;
     std::string m_multicast_mode;
     int m_multicast_source;
+    int m_multicast_packet_flits;
     std::vector<bool> m_multicast_destinations;
     uint64_t m_multicast_destination_mask = 0;
     int m_multicast_destination_count = 0;
