@@ -49,9 +49,43 @@ def define_options(parser):
     )
     parser.add_argument(
         "--bypass-mode",
-        choices=["none"],
+        choices=["none", "diagonal", "stride"],
         default="none",
-        help="Mesh_Bypass link family (G1 supports the equivalent none mode)",
+        help="Mesh_Bypass express-link family",
+    )
+    parser.add_argument(
+        "--bypass-stride",
+        type=int,
+        default=2,
+        help="physical span of stride express links",
+    )
+    parser.add_argument(
+        "--bypass-link-budget",
+        type=int,
+        default=0,
+        help="maximum undirected express links (0 uses the full placement)",
+    )
+    parser.add_argument(
+        "--bypass-placement",
+        default="checkerboard",
+        help="checkerboard, symmetric, or file:/path/to/links.json",
+    )
+    parser.add_argument(
+        "--bypass-wire-model",
+        choices=["optimistic", "distance_scaled"],
+        default="optimistic",
+        help="express-link latency model",
+    )
+    parser.add_argument(
+        "--bypass-link-latency",
+        type=int,
+        default=0,
+        help="express base latency (0 inherits --link-latency)",
+    )
+    parser.add_argument(
+        "--bypass-topology-dump",
+        default="",
+        help="optional path for a stable topology/cost JSON dump",
     )
     parser.add_argument(
         "--collective-root",
