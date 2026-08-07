@@ -48,6 +48,12 @@ def define_options(parser):
         help="the number of rows in the mesh topology",
     )
     parser.add_argument(
+        "--bypass-mode",
+        choices=["none"],
+        default="none",
+        help="Mesh_Bypass link family (G1 supports the equivalent none mode)",
+    )
+    parser.add_argument(
         "--collective-root",
         type=int,
         default=0,
