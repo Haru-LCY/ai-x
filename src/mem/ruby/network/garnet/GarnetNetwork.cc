@@ -73,6 +73,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_buffers_per_ctrl_vc = p.buffers_per_ctrl_vc;
     m_routing_algorithm = p.routing_algorithm;
     m_bypass_first_hops = p.bypass_first_hops;
+    m_bypass_link_ids = p.bypass_link_ids;
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
     m_collective_rounds = p.collective_rounds;
@@ -800,6 +801,10 @@ GarnetNetwork::regStats()
         .name(name() + ".ext_out_link_utilization");
     m_total_int_link_utilization
         .name(name() + ".int_link_utilization");
+    m_ordinary_internal_link_flits
+        .name(name() + ".ordinary_internal_link_flits");
+    m_express_internal_link_flits
+        .name(name() + ".express_internal_link_flits");
     m_average_link_utilization
         .name(name() + ".avg_link_utilization");
     m_average_vc_load
@@ -845,8 +850,17 @@ GarnetNetwork::collateStats()
             m_total_ext_in_link_utilization += activity;
         else if (type == EXT_OUT_)
             m_total_ext_out_link_utilization += activity;
-        else if (type == INT_)
+        else if (type == INT_) {
             m_total_int_link_utilization += activity;
+            const bool is_bypass =
+                std::find(m_bypass_link_ids.begin(), m_bypass_link_ids.end(),
+                          m_networklinks[i]->get_id()) !=
+                m_bypass_link_ids.end();
+            if (is_bypass)
+                m_express_internal_link_flits += activity;
+            else
+                m_ordinary_internal_link_flits += activity;
+        }
 
         m_average_link_utilization +=
             (double(activity) / time_delta);

@@ -110,6 +110,7 @@ class Mesh_Bypass(Mesh_XY):
         }
         routing_oracle = build_oracle(oracle_input)
         network.bypass_first_hops = routing_oracle["first_hops"]
+        network.bypass_link_ids = [record["link_id"] for record in express_records]
 
         if options.bypass_topology_dump:
             self._dump_topology(

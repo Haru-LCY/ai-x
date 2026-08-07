@@ -64,6 +64,26 @@ def g3_cases():
     ]
 
 
+def g4_cases():
+    fixed = REPO_ROOT / "tests" / "gem5" / "lab4" / "bypass_cases" / "fixed_4x4.json"
+    return [
+        ("none-4x4-0to15", 16, 16, 4, "none", "checkerboard", 0, 15,
+         [0, 1, 2, 3, 7, 11, 15]),
+        ("diagonal-3x3-0to8", 9, 16, 3, "diagonal", "checkerboard", 0, 8,
+         [0, 4, 5, 8]),
+        ("diagonal-3x3-8to0", 9, 16, 3, "diagonal", "checkerboard", 8, 0,
+         [8, 4, 3, 0]),
+        ("diagonal-3x3-no-shortcut", 9, 16, 3, "diagonal", "checkerboard",
+         0, 1, [0, 1]),
+        ("stride2-4x4-0to3", 16, 16, 4, "stride", "symmetric", 0, 3,
+         [0, 2, 3]),
+        ("stride2-4x4-3to0", 16, 16, 4, "stride", "symmetric", 3, 0,
+         [3, 1, 0]),
+        ("fixed-4x4-0to15", 16, 16, 4, "diagonal", f"file:{fixed}", 0, 15,
+         [0, 10, 11, 15]),
+    ]
+
+
 def router_id(path):
     return int(path.rsplit("routers", 1)[1])
 
@@ -434,6 +454,79 @@ def run_g3_case(gem5, output_root, case):
     return name, errors, evidence
 
 
+def run_g4_case(gem5, output_root, case):
+    name, cpus, dirs, rows, mode, placement, source, destination, expected_path = case
+    output = output_root / name
+    output.mkdir(parents=True, exist_ok=False)
+    dump_path = output / "topology.json"
+    command = [
+        str(gem5), "-d", str(output), str(CONFIG),
+        "--network=garnet", "--topology=Mesh_Bypass",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
+        "--routing-algorithm=2", f"--bypass-mode={mode}",
+        f"--bypass-placement={placement}",
+        f"--bypass-topology-dump={dump_path}",
+        f"--single-sender-id={source}", f"--single-dest-id={destination}",
+        "--num-packets-max=1", "--inj-vnet=0", "--injectionrate=1",
+        "--sim-cycles=10000",
+    ]
+    result = subprocess.run(
+        command, cwd=REPO_ROOT, env=os.environ.copy(), stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, check=False,
+    )
+    (output / "command.json").write_text(
+        json.dumps(command, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "sim.log").write_text(result.stdout, encoding="utf-8")
+    errors = []
+    if result.returncode != 0:
+        errors.append(f"gem5 returned {result.returncode}")
+    for required in (output / "config.json", output / "stats.txt", dump_path):
+        if not required.is_file():
+            errors.append(f"missing {required.name}")
+    if errors:
+        return name, errors, None
+
+    topology = json.loads(dump_path.read_text(encoding="utf-8"))
+    oracle = build_oracle(topology)
+    route = next(
+        item for item in oracle["routes"]
+        if item["source"] == source and item["destination"] == destination
+    )
+    if route["path"] != expected_path:
+        errors.append(f"oracle path {route['path']} != {expected_path}")
+    expected_express = sum(
+        channel.startswith("Bypass_") for channel in route["channels"]
+    )
+    expected_ordinary = len(route["channels"]) - expected_express
+    stats = parse_scalar_stats(output / "stats.txt")
+    prefix = "system.ruby.network."
+    expected_stats = {
+        "packets_injected::total": 1,
+        "packets_received::total": 1,
+        "flits_injected::total": 1,
+        "flits_received::total": 1,
+        "average_hops": len(route["channels"]),
+        "ordinary_internal_link_flits": expected_ordinary,
+        "express_internal_link_flits": expected_express,
+    }
+    actual_stats = {}
+    for stat, wanted in expected_stats.items():
+        actual = stats.get(prefix + stat)
+        actual_stats[stat] = actual
+        if actual != wanted:
+            errors.append(f"{stat}: expected {wanted}, got {actual}")
+    evidence = {
+        "case": name,
+        "source": source,
+        "destination": destination,
+        "oracle_path": route["path"],
+        "oracle_channels": route["channels"],
+        "measured": actual_stats,
+    }
+    return name, errors, evidence
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -443,7 +536,9 @@ def main():
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--jobs", type=int, default=3)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--gate", choices=["G1", "G2", "G3"], default="G1")
+    parser.add_argument(
+        "--gate", choices=["G1", "G2", "G3", "G4"], default="G1"
+    )
     args = parser.parse_args()
     if args.rounds < 1 or args.jobs < 1:
         parser.error("--rounds and --jobs must be positive")
@@ -458,11 +553,13 @@ def main():
         "G1": cases,
         "G2": g2_cases,
         "G3": g3_cases,
+        "G4": g4_cases,
     }[args.gate]()
     worker = {
         "G1": run_pair,
         "G2": run_g2_case,
         "G3": run_g3_case,
+        "G4": run_g4_case,
     }[args.gate]
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [
@@ -487,11 +584,14 @@ def main():
                         f"wire={evidence['total_express_manhattan_wire_length']}, "
                         f"credit_links={evidence['credit_links_checked']}"
                         if args.gate == "G2" else
-                        f"pairs={evidence['all_pairs']}, "
-                        f"bypass_pairs={evidence['bypass_pairs']}, "
-                        f"channels={evidence['channels']}, "
-                        f"dependencies={evidence['dependencies']}, "
-                        f"dag={evidence['dag']}"))
+                        (f"pairs={evidence['all_pairs']}, "
+                         f"bypass_pairs={evidence['bypass_pairs']}, "
+                         f"channels={evidence['channels']}, "
+                         f"dependencies={evidence['dependencies']}, "
+                         f"dag={evidence['dag']}"
+                         if args.gate == "G3" else
+                         f"path={evidence['oracle_path']}, "
+                         f"measured={evidence['measured']}")))
                 )
     results.sort(key=lambda item: item["case"])
     (output_root / f"{args.gate.lower()}-summary.json").write_text(
@@ -507,6 +607,7 @@ def main():
         "G1": "baseline-equivalence pairs",
         "G2": "link-construction cases",
         "G3": "route/dependency audits",
+        "G4": "single-flit route/traversal cases",
     }[args.gate]
     print(f"PASS: all {len(results)} {args.gate} {label}")
     return 0
