@@ -72,6 +72,10 @@ class flit
     int64_t get_value() { return m_value; }
     int get_collective_id() { return m_collective_id; }
     CollectiveOp get_collective_op() { return m_collective_op; }
+    uint64_t get_multicast_destinations() const
+    {
+        return m_multicast_destinations;
+    }
     bool is_collective() { return m_collective_op != CollectiveOp::None; }
     bool is_reduce() { return m_collective_op == CollectiveOp::Reduce; }
 
@@ -95,6 +99,10 @@ class flit
     void set_value(int64_t v) { m_value = v; }
     void set_collective_id(int cid) { m_collective_id = cid; }
     void set_collective_op(CollectiveOp op) { m_collective_op = op; }
+    void set_multicast_destinations(uint64_t destinations)
+    {
+        m_multicast_destinations = destinations;
+    }
 
     void set_vc(int vc) { m_vc = vc; }
     void set_route(RouteInfo route) { m_route = route; }
@@ -158,6 +166,7 @@ class flit
     int64_t m_value = 0;
     int m_collective_id = -1;
     CollectiveOp m_collective_op = CollectiveOp::None;
+    uint64_t m_multicast_destinations = 0;
 };
 
 inline std::ostream&

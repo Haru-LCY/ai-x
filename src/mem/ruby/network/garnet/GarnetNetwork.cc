@@ -114,12 +114,15 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     fatal_if(m_multicast_mode != "none" &&
              (m_multicast_source < 0 || m_multicast_source >= getNumRouters()),
              "Invalid multicast source Router %d", m_multicast_source);
+    fatal_if(m_multicast_mode != "none" && getNumRouters() > 64,
+             "Multicast destination bitmap supports at most 64 Routers");
     for (const int destination : p.multicast_destinations) {
         fatal_if(destination < 0 || destination >= getNumRouters(),
                  "Invalid multicast destination Router %d", destination);
         fatal_if(m_multicast_destinations[destination],
                  "Duplicate multicast destination Router %d", destination);
         m_multicast_destinations[destination] = true;
+        m_multicast_destination_mask |= uint64_t(1) << destination;
         ++m_multicast_destination_count;
     }
     fatal_if(m_multicast_mode != "none" && m_multicast_destination_count == 0,
@@ -145,7 +148,16 @@ GarnetNetwork::multicastDestination(int router_id) const
 }
 
 bool
-GarnetNetwork::multicastChildNeeded(int router_id, int child_id) const
+GarnetNetwork::multicastDestination(uint64_t destinations,
+                                    int router_id) const
+{
+    return router_id >= 0 && router_id < 64 &&
+           (destinations & (uint64_t(1) << router_id));
+}
+
+bool
+GarnetNetwork::multicastChildNeeded(uint64_t destinations, int router_id,
+                                    int child_id) const
 {
     fatal_if(!treeMulticast(), "Tree branch query outside tree multicast");
     const int cols = m_num_cols;
@@ -153,7 +165,7 @@ GarnetNetwork::multicastChildNeeded(int router_id, int child_id) const
     const int root_y = m_multicast_source / cols;
     for (int destination = 0;
          destination < m_multicast_destinations.size(); ++destination) {
-        if (!multicastDestination(destination))
+        if (!multicastDestination(destinations, destination))
             continue;
         int node = destination;
         while (node != m_multicast_source) {

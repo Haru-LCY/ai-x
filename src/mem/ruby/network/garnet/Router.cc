@@ -276,6 +276,8 @@ Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
     out_flit->set_value(value);
     out_flit->set_collective_id(template_flit->get_collective_id());
     out_flit->set_collective_op(op);
+    out_flit->set_multicast_destinations(
+        template_flit->get_multicast_destinations());
     m_network_ptr->recordCollectiveRouterFlit();
     output->decrement_credit(outvc);
     output->insert_flit(out_flit);
@@ -304,14 +306,20 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
 
         // All-reduce broadcast reaches every Router. Multicast prunes local
         // delivery and child branches against its configured destination set.
+        const uint64_t destinations =
+            t_flit->get_multicast_destinations();
+        fatal_if(op == CollectiveOp::Multicast && destinations == 0,
+                 "Router %d received multicast with an empty destination "
+                 "bitmap", m_id);
         if (op == CollectiveOp::Broadcast ||
-            m_network_ptr->multicastDestination(m_id)) {
+            m_network_ptr->multicastDestination(destinations, m_id)) {
             sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
         }
         for (const auto& child_in : m_collective_child_inports) {
             const int child = collectiveChildId(child_in);
             if (op == CollectiveOp::Broadcast ||
-                m_network_ptr->multicastChildNeeded(m_id, child)) {
+                m_network_ptr->multicastChildNeeded(
+                    destinations, m_id, child)) {
                 sendCollectiveFlit(t_flit->get_value(), op, child, t_flit);
             }
         }

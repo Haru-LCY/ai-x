@@ -149,6 +149,10 @@ def main():
 
     output_root = Path(tempfile.mkdtemp(prefix="lab4-multicast-matrix-"))
     print(f"artifacts: {output_root}")
+    cases = list(CASES)
+    for mask in range(1, 1 << 4):
+        spec = ",".join(str(router) for router in range(4) if mask & (1 << router))
+        cases.append((f"2x2-mask-{mask:02x}", 4, 4, 2, 0, spec))
     failures = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [
@@ -157,7 +161,7 @@ def main():
                 mode, case
             )
             for mode in MODES
-            for case in CASES
+            for case in cases
         ]
         for future in concurrent.futures.as_completed(futures):
             name, errors = future.result()
@@ -167,9 +171,9 @@ def main():
             else:
                 print(f"PASS {name}")
     if failures:
-        print(f"{len(failures)}/{len(CASES) * len(MODES)} cases failed")
+        print(f"{len(failures)}/{len(cases) * len(MODES)} cases failed")
         return 1
-    print(f"PASS: all {len(CASES) * len(MODES)} paired multicast cases")
+    print(f"PASS: all {len(cases) * len(MODES)} paired multicast cases")
     return 0
 
 

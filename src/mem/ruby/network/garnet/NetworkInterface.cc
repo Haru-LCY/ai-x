@@ -189,6 +189,11 @@ NetworkInterface::incrementStats(flit *t_flit)
                "Lab4: reduce flit must not eject at a network interface");
         assert(t_flit->get_value() == expected &&
                "Lab4: broadcast result is incorrect");
+        if (m_net_ptr->collectiveMulticast()) {
+            fatal_if(t_flit->get_multicast_destinations() !=
+                         m_net_ptr->multicastDestinationMask(),
+                     "Lab4 multicast destination bitmap changed in transit");
+        }
         m_net_ptr->recordCollectiveDelivery(
             t_flit->get_collective_id(), t_flit->get_route().dest_router);
     } else {
@@ -501,6 +506,10 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 } else {
                     fl->set_collective_op(m_net_ptr->collectiveMulticast() ?
                         CollectiveOp::Multicast : CollectiveOp::Reduce);
+                }
+                if (m_net_ptr->collectiveMulticast()) {
+                    fl->set_multicast_destinations(
+                        m_net_ptr->multicastDestinationMask());
                 }
             } else {
                 // Preserve the legacy smoke check for ordinary traffic.

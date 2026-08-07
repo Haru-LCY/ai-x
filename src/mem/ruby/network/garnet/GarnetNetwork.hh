@@ -86,7 +86,13 @@ class GarnetNetwork : public Network
     bool naiveMulticast() const { return m_multicast_mode == "naive_unicast"; }
     int multicastSource() const { return m_multicast_source; }
     bool multicastDestination(int router_id) const;
-    bool multicastChildNeeded(int router_id, int child_id) const;
+    bool multicastDestination(uint64_t destinations, int router_id) const;
+    bool multicastChildNeeded(uint64_t destinations, int router_id,
+                              int child_id) const;
+    uint64_t multicastDestinationMask() const
+    {
+        return m_multicast_destination_mask;
+    }
     int multicastDestinationCount() const { return m_multicast_destination_count; }
     int collectiveRoundId() const { return m_collective_delivery_id; }
     bool canInjectCollectiveRound(int collective_id) const
@@ -191,6 +197,7 @@ class GarnetNetwork : public Network
     std::string m_multicast_mode;
     int m_multicast_source;
     std::vector<bool> m_multicast_destinations;
+    uint64_t m_multicast_destination_mask = 0;
     int m_multicast_destination_count = 0;
     bool m_enable_fault_model;
 
