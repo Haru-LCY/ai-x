@@ -74,6 +74,10 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_routing_algorithm = p.routing_algorithm;
     m_bypass_first_hops = p.bypass_first_hops;
     m_bypass_link_ids = p.bypass_link_ids;
+    m_bypass_link_spans = p.bypass_link_spans;
+    fatal_if(m_bypass_link_ids.size() != m_bypass_link_spans.size(),
+             "Bypass link id/span vectors differ: %d != %d",
+             (int)m_bypass_link_ids.size(), (int)m_bypass_link_spans.size());
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
     m_collective_rounds = p.collective_rounds;
@@ -805,6 +809,12 @@ GarnetNetwork::regStats()
         .name(name() + ".ordinary_internal_link_flits");
     m_express_internal_link_flits
         .name(name() + ".express_internal_link_flits");
+    m_router_traversals
+        .name(name() + ".router_traversals");
+    m_physical_wire_flit_distance
+        .name(name() + ".physical_wire_flit_distance");
+    m_physical_hops_skipped
+        .name(name() + ".physical_hops_skipped");
     m_average_link_utilization
         .name(name() + ".avg_link_utilization");
     m_average_vc_load
@@ -852,14 +862,20 @@ GarnetNetwork::collateStats()
             m_total_ext_out_link_utilization += activity;
         else if (type == INT_) {
             m_total_int_link_utilization += activity;
-            const bool is_bypass =
+            m_router_traversals += activity;
+            const auto bypass =
                 std::find(m_bypass_link_ids.begin(), m_bypass_link_ids.end(),
-                          m_networklinks[i]->get_id()) !=
-                m_bypass_link_ids.end();
-            if (is_bypass)
+                          m_networklinks[i]->get_id());
+            if (bypass != m_bypass_link_ids.end()) {
+                const int index = bypass - m_bypass_link_ids.begin();
+                const int span = m_bypass_link_spans[index];
                 m_express_internal_link_flits += activity;
-            else
+                m_physical_wire_flit_distance += activity * span;
+                m_physical_hops_skipped += activity * (span - 1);
+            } else {
                 m_ordinary_internal_link_flits += activity;
+                m_physical_wire_flit_distance += activity;
+            }
         }
 
         m_average_link_utilization +=

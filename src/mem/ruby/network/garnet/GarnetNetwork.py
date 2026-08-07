@@ -50,6 +50,9 @@ class GarnetNetwork(RubyNetwork):
         [], "source/destination indexed deterministic bypass first-hop ports"
     )
     bypass_link_ids = VectorParam.Int([], "internal links classified as express")
+    bypass_link_spans = VectorParam.Int(
+        [], "Manhattan physical spans aligned with bypass_link_ids"
+    )
     enable_fault_model = Param.Bool(False, "enable network fault model")
     fault_model = Param.FaultModel(NULL, "network fault model")
     garnet_deadlock_threshold = Param.UInt32(

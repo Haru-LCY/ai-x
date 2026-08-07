@@ -104,6 +104,23 @@ def g5_cases():
     return cases
 
 
+def g6_cases():
+    fixed = REPO_ROOT / "tests" / "gem5" / "lab4" / "bypass_cases" / "fixed_4x4.json"
+    return [
+        ("plain-4x4", 16, 16, 4, "none", "checkerboard", "optimistic", 0, 15),
+        ("diagonal-optimistic", 9, 16, 3, "diagonal", "checkerboard",
+         "optimistic", 0, 8),
+        ("diagonal-scaled", 9, 16, 3, "diagonal", "checkerboard",
+         "distance_scaled", 0, 8),
+        ("stride-optimistic", 16, 16, 4, "stride", "symmetric",
+         "optimistic", 0, 3),
+        ("stride-scaled", 16, 16, 4, "stride", "symmetric",
+         "distance_scaled", 0, 3),
+        ("fixed-span4-scaled", 16, 16, 4, "diagonal", f"file:{fixed}",
+         "distance_scaled", 0, 15),
+    ]
+
+
 def router_id(path):
     return int(path.rsplit("routers", 1)[1])
 
@@ -773,6 +790,90 @@ def run_g5_contention_case(gem5, output_root, case):
     return name, errors, evidence
 
 
+def run_g6_case(gem5, output_root, case):
+    (name, cpus, dirs, rows, mode, placement, wire_model,
+     source, destination) = case
+    output = output_root / name
+    output.mkdir(parents=True, exist_ok=False)
+    dump_path = output / "topology.json"
+    command = [
+        str(gem5), "-d", str(output), str(CONFIG),
+        "--network=garnet", "--topology=Mesh_Bypass",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
+        "--routing-algorithm=2", f"--bypass-mode={mode}",
+        f"--bypass-placement={placement}", f"--bypass-wire-model={wire_model}",
+        f"--bypass-topology-dump={dump_path}",
+        f"--single-sender-id={source}", f"--single-dest-id={destination}",
+        "--num-packets-max=1", "--inj-vnet=0", "--injectionrate=1",
+        "--sim-cycles=10000",
+    ]
+    result = subprocess.run(
+        command, cwd=REPO_ROOT, env=os.environ.copy(), stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, check=False,
+    )
+    (output / "command.json").write_text(
+        json.dumps(command, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "sim.log").write_text(result.stdout, encoding="utf-8")
+    errors = []
+    if result.returncode != 0:
+        errors.append(f"gem5 returned {result.returncode}")
+    for required in (output / "stats.txt", dump_path):
+        if not required.is_file():
+            errors.append(f"missing {required.name}")
+    if errors:
+        return name, errors, None
+
+    topology = json.loads(dump_path.read_text(encoding="utf-8"))
+    oracle = build_oracle(topology)
+    route = next(
+        item for item in oracle["routes"]
+        if item["source"] == source and item["destination"] == destination
+    )
+    spans = {link["name"]: link["physical_span"] for link in topology["express_links"]}
+    express_channels = [
+        channel for channel in route["channels"] if channel.startswith("Bypass_")
+    ]
+    express_hops = len(express_channels)
+    ordinary_hops = len(route["channels"]) - express_hops
+    wire_distance = ordinary_hops + sum(spans[channel] for channel in express_channels)
+    skipped = wire_distance - len(route["channels"])
+    extra_latency_cycles = skipped if wire_model == "distance_scaled" else 0
+    # The default Ruby clock is 2 GHz (500 ticks/cycle). Each ordinary hop has
+    # one Router plus one link cycle, and NI injection/ejection add 3 cycles.
+    # A scaled link adds exactly span-1 link cycles without extra Router work.
+    expected_latency = (
+        2 * len(route["channels"]) + 3 + extra_latency_cycles
+    ) * 500
+    expected = {
+        "average_hops": len(route["channels"]),
+        "ordinary_internal_link_flits": ordinary_hops,
+        "express_internal_link_flits": express_hops,
+        "router_traversals": len(route["channels"]),
+        "physical_wire_flit_distance": wire_distance,
+        "physical_hops_skipped": skipped,
+        "average_packet_network_latency": expected_latency,
+        "packets_injected::total": 1,
+        "packets_received::total": 1,
+    }
+    stats = parse_scalar_stats(output / "stats.txt")
+    prefix = "system.ruby.network."
+    measured = {}
+    for stat, wanted in expected.items():
+        actual = stats.get(prefix + stat)
+        measured[stat] = actual
+        if actual != wanted:
+            errors.append(f"{stat}: expected {wanted}, got {actual}")
+    evidence = {
+        "case": name,
+        "wire_model": wire_model,
+        "path": route["path"],
+        "channels": route["channels"],
+        "measured": measured,
+    }
+    return name, errors, evidence
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -783,7 +884,8 @@ def main():
     parser.add_argument("--jobs", type=int, default=3)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
-        "--gate", choices=["G1", "G2", "G3", "G4", "G5"], default="G1"
+        "--gate", choices=["G1", "G2", "G3", "G4", "G5", "G6"],
+        default="G1",
     )
     args = parser.parse_args()
     if args.rounds < 1 or args.jobs < 1:
@@ -801,6 +903,7 @@ def main():
         "G3": g3_cases,
         "G4": g4_cases,
         "G5": g5_cases,
+        "G6": g6_cases,
     }[args.gate]()
     worker = {
         "G1": run_pair,
@@ -808,6 +911,7 @@ def main():
         "G3": run_g3_case,
         "G4": run_g4_case,
         "G5": run_g5_case,
+        "G6": run_g6_case,
     }[args.gate]
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         if args.gate in ("G1", "G5"):
@@ -845,6 +949,10 @@ def main():
                          (f"path={evidence['oracle_path']}, "
                           f"measured={evidence['measured']}"
                           if args.gate == "G4" else
+                          (f"model={evidence['wire_model']}, "
+                           f"path={evidence['path']}, "
+                           f"measured={evidence['measured']}"
+                           if args.gate == "G6" else
                           (f"sources={evidence['sources']}, "
                            f"packets_per_source={evidence['packets_per_source']}, "
                            f"stalled_sources="
@@ -853,7 +961,7 @@ def main():
                            f"rounds={evidence['rounds']}, "
                            f"flits={evidence['packet_flits']}, "
                            f"restricted={evidence['restricted']}, "
-                           f"path={evidence['path']}")))))
+                           f"path={evidence['path']}"))))))
                 )
     results.sort(key=lambda item: item["case"])
     (output_root / f"{args.gate.lower()}-summary.json").write_text(
@@ -871,6 +979,7 @@ def main():
         "G3": "route/dependency audits",
         "G4": "single-flit route/traversal cases",
         "G5": "multi-flit/backpressure cases",
+        "G6": "hand-calculated statistics cases",
     }[args.gate]
     print(f"PASS: all {len(results)} {args.gate} {label}")
     return 0

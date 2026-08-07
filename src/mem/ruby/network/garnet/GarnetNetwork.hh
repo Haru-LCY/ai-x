@@ -208,6 +208,7 @@ class GarnetNetwork : public Network
     int m_routing_algorithm;
     std::vector<std::string> m_bypass_first_hops;
     std::vector<int> m_bypass_link_ids;
+    std::vector<int> m_bypass_link_spans;
     bool m_collective_mode;
     bool m_collective_multicast;
     int m_collective_rounds;
@@ -253,6 +254,9 @@ class GarnetNetwork : public Network
     statistics::Scalar m_total_int_link_utilization;
     statistics::Scalar m_ordinary_internal_link_flits;
     statistics::Scalar m_express_internal_link_flits;
+    statistics::Scalar m_router_traversals;
+    statistics::Scalar m_physical_wire_flit_distance;
+    statistics::Scalar m_physical_hops_skipped;
     statistics::Scalar m_average_link_utilization;
     statistics::Vector m_average_vc_load;
 
