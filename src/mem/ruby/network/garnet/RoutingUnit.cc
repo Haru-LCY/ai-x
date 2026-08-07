@@ -267,7 +267,31 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                                  int inport,
                                  PortDirection inport_dirn)
 {
-    panic("%s placeholder executed", __FUNCTION__);
+    const int routers = m_router->get_net_ptr()->getNumRouters();
+    const auto& first_hops = m_router->get_net_ptr()->getBypassFirstHops();
+    fatal_if(first_hops.size() != routers * routers,
+             "Custom bypass routing requires %d first-hop entries; got %d",
+             routers * routers, (int)first_hops.size());
+    fatal_if(route.src_router < 0 || route.src_router >= routers ||
+             route.dest_router < 0 || route.dest_router >= routers,
+             "Invalid bypass route %d -> %d", route.src_router,
+             route.dest_router);
+
+    if (m_router->get_id() == route.src_router) {
+        const PortDirection& direction =
+            first_hops[route.src_router * routers + route.dest_router];
+        if (direction != "XY") {
+            const auto outport = m_outports_dirn2idx.find(direction);
+            fatal_if(outport == m_outports_dirn2idx.end(),
+                     "Bypass route %d -> %d requests missing port %s",
+                     route.src_router, route.dest_router, direction.c_str());
+            return outport->second;
+        }
+    }
+    // The offline oracle proves the source-express/XY channel ordering.  An
+    // express input direction is intentionally not one of XY's traditional
+    // compass inports, so use XY only for its deterministic coordinate step.
+    return outportComputeXY(route, inport, "Local");
 }
 
 } // namespace garnet

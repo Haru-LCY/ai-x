@@ -72,6 +72,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_buffers_per_data_vc = p.buffers_per_data_vc;
     m_buffers_per_ctrl_vc = p.buffers_per_ctrl_vc;
     m_routing_algorithm = p.routing_algorithm;
+    m_bypass_first_hops = p.bypass_first_hops;
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
     m_collective_rounds = p.collective_rounds;

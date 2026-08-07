@@ -80,6 +80,10 @@ class GarnetNetwork : public Network
     uint32_t getBuffersPerDataVC() { return m_buffers_per_data_vc; }
     uint32_t getBuffersPerCtrlVC() { return m_buffers_per_ctrl_vc; }
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
+    const std::vector<std::string>& getBypassFirstHops() const
+    {
+        return m_bypass_first_hops;
+    }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
     bool collectiveTraffic(int vnet, int source_router) const
@@ -202,6 +206,7 @@ class GarnetNetwork : public Network
     uint32_t m_buffers_per_ctrl_vc;
     uint32_t m_buffers_per_data_vc;
     int m_routing_algorithm;
+    std::vector<std::string> m_bypass_first_hops;
     bool m_collective_mode;
     bool m_collective_multicast;
     int m_collective_rounds;

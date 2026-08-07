@@ -11,6 +11,7 @@ the runnable baseline untouched.
 import json
 from pathlib import Path
 
+from topologies.bypass_oracle import build_oracle
 from topologies.Mesh_XY import Mesh_XY
 
 
@@ -102,6 +103,14 @@ class Mesh_Bypass(Mesh_XY):
         proxy = _ExpressLinkNetworkProxy(network, append_express_links)
         super().makeTopology(options, proxy, IntLink, ExtLink, Router)
 
+        oracle_input = {
+            "columns": columns,
+            "rows": rows,
+            "express_links": express_records,
+        }
+        routing_oracle = build_oracle(oracle_input)
+        network.bypass_first_hops = routing_oracle["first_hops"]
+
         if options.bypass_topology_dump:
             self._dump_topology(
                 options,
@@ -109,6 +118,7 @@ class Mesh_Bypass(Mesh_XY):
                 rows,
                 candidates,
                 express_records,
+                routing_oracle,
             )
 
     @staticmethod
@@ -175,7 +185,9 @@ class Mesh_Bypass(Mesh_XY):
         return sorted(links)
 
     @staticmethod
-    def _dump_topology(options, columns, rows, links, express_records):
+    def _dump_topology(
+        options, columns, rows, links, express_records, routing_oracle
+    ):
         ordinary_undirected = rows * (columns - 1) + columns * (rows - 1)
         radix = [0] * (columns * rows)
         for y in range(rows):
@@ -206,6 +218,7 @@ class Mesh_Bypass(Mesh_XY):
             "maximum_router_radix": max(radix),
             "average_router_radix": sum(radix) / len(radix),
             "express_links": express_records,
+            "routing_oracle": routing_oracle,
         }
         path = Path(options.bypass_topology_dump)
         path.parent.mkdir(parents=True, exist_ok=True)

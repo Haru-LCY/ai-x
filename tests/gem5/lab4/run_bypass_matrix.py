@@ -14,11 +14,17 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONFIG = REPO_ROOT / "configs" / "example" / "garnet_synth_traffic.py"
+sys.path.insert(0, str(REPO_ROOT / "configs"))
+
+from topologies.bypass_oracle import build_oracle  # noqa: E402
+
+
 STAT_RE = re.compile(r"^(system\.ruby\.network\.\S+)\s+([0-9.eE+-]+)\s")
 
 
@@ -44,6 +50,17 @@ def g2_cases():
          "distance_scaled", 1, [(0, 10, 4, 4), (5, 15, 4, 4)]),
         ("diagonal-4x4-budget3", 16, 16, 4, "diagonal", "checkerboard", 2, 3,
          "optimistic", 1, None),
+    ]
+
+
+def g3_cases():
+    fixed = REPO_ROOT / "tests" / "gem5" / "lab4" / "bypass_cases" / "fixed_4x4.json"
+    return [
+        ("none-2x2", 4, 4, 2, "none", "checkerboard", 2, 0),
+        ("diagonal-2x2", 4, 4, 2, "diagonal", "checkerboard", 2, 2),
+        ("diagonal-3x3", 9, 16, 3, "diagonal", "checkerboard", 2, 20),
+        ("stride2-4x4", 16, 16, 4, "stride", "symmetric", 2, 156),
+        ("fixed-4x4", 16, 16, 4, "diagonal", f"file:{fixed}", 2, 22),
     ]
 
 
@@ -329,6 +346,94 @@ def run_g2_case(gem5, output_root, case):
     return name, errors, evidence
 
 
+def run_g3_case(gem5, output_root, case):
+    name, cpus, dirs, rows, mode, placement, stride, expected_bypass_pairs = case
+    output = output_root / name
+    output.mkdir(parents=True, exist_ok=False)
+    dump_path = output / "topology.json"
+    command = [
+        str(gem5), "-d", str(output), str(CONFIG),
+        "--network=garnet", "--topology=Mesh_Bypass",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
+        "--routing-algorithm=2", f"--bypass-mode={mode}",
+        f"--bypass-placement={placement}", f"--bypass-stride={stride}",
+        f"--bypass-topology-dump={dump_path}",
+        "--sim-cycles=20", "--num-packets-max=1", "--inj-vnet=0",
+    ]
+    result = subprocess.run(
+        command, cwd=REPO_ROOT, env=os.environ.copy(), stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, check=False,
+    )
+    (output / "command.json").write_text(
+        json.dumps(command, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "sim.log").write_text(result.stdout, encoding="utf-8")
+    errors = []
+    if result.returncode != 0:
+        errors.append(f"gem5 returned {result.returncode}")
+    if "because Network Tester completed simCycles" not in result.stdout:
+        errors.append("custom-routing configuration did not cleanly instantiate")
+    for required in (output / "config.json", dump_path):
+        if not required.is_file():
+            errors.append(f"missing {required.name}")
+    if errors:
+        return name, errors, None
+
+    topology = json.loads(dump_path.read_text(encoding="utf-8"))
+    rebuilt = build_oracle(topology)
+    embedded = topology.get("routing_oracle")
+    if embedded != rebuilt:
+        errors.append("embedded oracle differs from independent rebuild")
+    config = json.loads((output / "config.json").read_text(encoding="utf-8"))
+    configured_hops = config["system"]["ruby"]["network"]["bypass_first_hops"]
+    if configured_hops != rebuilt["first_hops"]:
+        errors.append("C++ first-hop parameter differs from audited oracle")
+    routes = rebuilt["routes"]
+    if len(routes) != cpus * cpus:
+        errors.append(f"route count mismatch: {len(routes)} != {cpus * cpus}")
+    pairs = {(route["source"], route["destination"]) for route in routes}
+    if len(pairs) != cpus * cpus:
+        errors.append("route table is not deterministic and complete")
+    for route in routes:
+        if route["path"][-1] != route["destination"]:
+            errors.append(
+                f"route does not terminate: "
+                f"{route['source']}->{route['destination']}"
+            )
+        if len(route["path"]) != len(set(route["path"])):
+            errors.append(f"route loops: {route['source']}->{route['destination']}")
+        rank = route.get("remaining_route_rank", [])
+        if any(left <= right for left, right in zip(rank, rank[1:])):
+            errors.append(
+                f"route rank is not decreasing: "
+                f"{route['source']}->{route['destination']}"
+            )
+    if rebuilt["bypass_pairs"] != expected_bypass_pairs:
+        errors.append(
+            f"bypass pair count {rebuilt['bypass_pairs']} != {expected_bypass_pairs}"
+        )
+    dependency = rebuilt["channel_dependency"]
+    if not dependency["dag"]:
+        errors.append("channel dependency graph is not a DAG")
+    if len(dependency["topological_order"]) != dependency["channels"]:
+        errors.append("channel topological order is incomplete")
+    oracle_path = output / "route-oracle.json"
+    oracle_path.write_text(
+        json.dumps(rebuilt, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    evidence = {
+        "case": name,
+        "all_pairs": rebuilt["all_pairs"],
+        "nonlocal_pairs": rebuilt["nonlocal_pairs"],
+        "bypass_pairs": rebuilt["bypass_pairs"],
+        "channels": dependency["channels"],
+        "dependencies": dependency["dependencies"],
+        "dag": dependency["dag"],
+        "deterministic_routes": len(pairs),
+    }
+    return name, errors, evidence
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -338,7 +443,7 @@ def main():
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--jobs", type=int, default=3)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--gate", choices=["G1", "G2"], default="G1")
+    parser.add_argument("--gate", choices=["G1", "G2", "G3"], default="G1")
     args = parser.parse_args()
     if args.rounds < 1 or args.jobs < 1:
         parser.error("--rounds and --jobs must be positive")
@@ -349,8 +454,16 @@ def main():
     output_root.mkdir(parents=True, exist_ok=True)
     print(f"artifacts: {output_root}")
     results = []
-    selected_cases = cases() if args.gate == "G1" else g2_cases()
-    worker = run_pair if args.gate == "G1" else run_g2_case
+    selected_cases = {
+        "G1": cases,
+        "G2": g2_cases,
+        "G3": g3_cases,
+    }[args.gate]()
+    worker = {
+        "G1": run_pair,
+        "G2": run_g2_case,
+        "G3": run_g3_case,
+    }[args.gate]
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [
             (pool.submit(worker, args.gem5, output_root, args.rounds, case)
@@ -370,9 +483,15 @@ def main():
                        f"uni_int_links={evidence['unidirectional_internal_links']}, "
                        f"compared_stats={len(evidence['stats'])}"
                        if args.gate == "G1" else
-                       f"express_bidir={evidence['express_undirected_links']}, "
-                       f"wire={evidence['total_express_manhattan_wire_length']}, "
-                       f"credit_links={evidence['credit_links_checked']}")
+                       (f"express_bidir={evidence['express_undirected_links']}, "
+                        f"wire={evidence['total_express_manhattan_wire_length']}, "
+                        f"credit_links={evidence['credit_links_checked']}"
+                        if args.gate == "G2" else
+                        f"pairs={evidence['all_pairs']}, "
+                        f"bypass_pairs={evidence['bypass_pairs']}, "
+                        f"channels={evidence['channels']}, "
+                        f"dependencies={evidence['dependencies']}, "
+                        f"dag={evidence['dag']}"))
                 )
     results.sort(key=lambda item: item["case"])
     (output_root / f"{args.gate.lower()}-summary.json").write_text(
@@ -384,11 +503,11 @@ def main():
             f"FAIL: {len(failures)}/{len(results)} {args.gate} cases failed"
         )
         return 1
-    label = (
-        "baseline-equivalence pairs"
-        if args.gate == "G1"
-        else "link-construction cases"
-    )
+    label = {
+        "G1": "baseline-equivalence pairs",
+        "G2": "link-construction cases",
+        "G3": "route/dependency audits",
+    }[args.gate]
     print(f"PASS: all {len(results)} {args.gate} {label}")
     return 0
 
