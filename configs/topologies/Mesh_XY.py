@@ -141,10 +141,13 @@ class Mesh_XY(SimpleTopology):
             )
             link_count += 1
 
-        # Connect the remainding nodes to router 0.  These should only be
-        # DMA nodes.
+        # Connect remainder nodes to router 0.  Garnet standalone synthetic
+        # runs may intentionally use more directory controllers than
+        # routers (for example, 16 directories for a 3x3/9-router mesh) so
+        # the memory interleaving count remains a power of two.  Extra
+        # directories are harmless and share router 0.
         for (i, node) in enumerate(remainder_nodes):
-            assert node.type == "DMA_Controller"
+            assert node.type in ("DMA_Controller", "Directory_Controller")
             assert i < remainder
             ext_links.append(
                 ExtLink(

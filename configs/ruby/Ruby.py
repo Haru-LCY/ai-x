@@ -162,11 +162,16 @@ def setup_memory_controllers(system, ruby, dir_cntrls, options):
         dir_ranges = []
         for r in system.mem_ranges:
             mem_type = ObjectList.mem_list.get(options.mem_type)
+            # Non-power-of-two directory counts (e.g. 3x3 Lab4 with 9
+            # directories) need enough interleaving bits to represent the
+            # highest directory index.  The legacy floor(log2(N)) formula
+            # rejects index N-1 before the synthetic network can start.
+            dir_intlv_bits = int(math.ceil(math.log(options.num_dirs, 2)))
             dram_intf = MemConfig.create_mem_intf(
                 mem_type,
                 r,
                 index,
-                int(math.log(options.num_dirs, 2)),
+                dir_intlv_bits,
                 intlv_size,
                 options.xor_low_bit,
             )

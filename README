@@ -175,7 +175,7 @@ auto_env=/volume/haru/cxiao03/work/env-gem5
 
 ### 9.2 Current status and next blocker
 
-Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×2、root=0、100 轮串行 collective 测试：仿真正常结束，`TEST_RC=0`，没有 hang 或断言失败。下一步是扩展不同 root/网络规模，并建立公平 baseline。
+Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×2、root=0、100 轮串行 collective 测试：仿真正常结束，`TEST_RC=0`，没有 hang 或断言失败。3×3、root=0/4/8 的单轮测试以及 root=4 的 100 轮测试也已通过。下一步是建立公平 baseline，并继续覆盖 4×4 的多轮和性能统计。
 
 ### 9.3 Build pitfalls and recovery
 
@@ -183,6 +183,7 @@ Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×
 2. **混用 Python 版本导致 pybind 链接失败**：系统 Python 头文件/库与 gem5 虚拟环境不一致时，会出现 Python 3.12 头文件和 Python 3.10 库混用。必须统一使用 `/volume/haru/cxiao03/work/env-gem5/bin/python3`、对应的 `python3-config`，并设置 `LD_LIBRARY_PATH=/volume/haru/cxiao03/work/env-gem5/lib`。
 3. **旧 build 目录混杂**：曾有不同配置生成物共存，造成 ABI/链接结果不可靠。旧目录已保存在 `build/NULL_mixed_backup_20260806`，当前有效目标是 `build/NULL/gem5.opt`。
 4. **远端 CPU 配额**：容器虽然报告 128 个 CPU，但 cgroup 实际只分配约 1 个 CPU；因此全量 gem5 编译使用 `-j4` 仍会被限流，耗时可达几十分钟。编译过程使用 `nohup` 后台运行，SSH 断开不会中断。
+5. **非 2 次幂 directory 配置**：gem5 默认 memory interleave 逻辑要求 directory 数量为 2 的幂。3×3 Mesh 仍使用 9 个 Router，但 synthetic Garnet 测试配置 16 个 directory controllers；前 9 个 directory 对应 9 个 Router，多余 directory 由 Mesh_XY 挂到 Router0。collective 的 Router 数量和树语义仍由 `--num-cpus=9 --mesh-rows=3` 决定。
 
 ### 9.4 Verification artifacts
 
@@ -190,6 +191,8 @@ Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×
 - `lab4_collective_2x2_fix.log`：方向修复后的测试日志；其中 `TEST_RC=134` 记录了旧注入值导致的 `6 != 10` 断言失败。
 - `lab4_collective_2x2_valuefix.log`：修正注入值后的 Stage 1 成功日志，`TEST_RC=0`。
 - `lab4_collective_2x2_100.log`：2×2、root=0、100 轮串行稳定性测试，`TEST_RC=0`。
+- `lab4_scalar_3x3_dirs16_summary.log`：3×3、root=0/4/8 单轮测试，全部 `RC=0`。
+- `lab4_scalar_3x3_r4_100_verify`：3×3、root=4、100 轮稳定性测试，`RC=0`。
 - `lab4_smoke.log` 和 `m5out_lab4_smoke/`：普通 Garnet smoke，证明基础 traffic 仍可运行，但不等于 all-reduce 已验收。
 
 ### 9.5 Remaining minimum-work items
