@@ -181,13 +181,16 @@ NetworkInterface::incrementStats(flit *t_flit)
         const int64_t expected = m_net_ptr->collectiveMulticast() ? 1 :
             (int64_t)n * (n + 1) / 2;
         DPRINTF(RubyNetwork,
-                "Lab4 eject: dest_ni=%d value=%ld expected=%ld reduce=%d\n",
+                "Lab4 eject: round=%d dest_ni=%d value=%ld expected=%ld "
+                "reduce=%d\n", t_flit->get_collective_id(),
                 t_flit->get_route().dest_ni, (long)t_flit->get_value(),
                 (long)expected, t_flit->is_reduce());
         assert(!t_flit->is_reduce() &&
                "Lab4: reduce flit must not eject at a network interface");
         assert(t_flit->get_value() == expected &&
                "Lab4: broadcast result is incorrect");
+        m_net_ptr->recordCollectiveDelivery(
+            t_flit->get_collective_id(), t_flit->get_route().dest_router);
     } else {
         // Legacy smoke check: ordinary traffic preserves its source value.
         DPRINTF(RubyNetwork, "Lab4 eject: src_ni=%d value=%ld dest_ni=%d\n",
@@ -413,6 +416,9 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
     assert(oPort);
     int num_flits = (int)divCeil((float) m_net_ptr->MessageSizeType_to_int(
         net_msg_ptr->getMessageSize()), (float)oPort->bitWidth());
+    fatal_if(m_net_ptr->collectiveMode() && num_flits != 1,
+             "Lab4 scalar collective at NI %d requires one flit, got %d "
+             "on vnet %d", m_id, num_flits, vnet);
 
     DPRINTF(RubyNetwork, "Message Size:%d vnet:%d bitWidth:%d\n",
         m_net_ptr->MessageSizeType_to_int(net_msg_ptr->getMessageSize()),
@@ -470,6 +476,8 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_net_ptr->increment_injected_packets(vnet);
         m_net_ptr->update_traffic_distribution(route);
         int packet_id = m_net_ptr->getNextPacketID();
+        if (m_net_ptr->collectiveMode())
+            m_net_ptr->recordCollectiveInjection(m_next_collective_id);
         for (int i = 0; i < num_flits; i++) {
             m_net_ptr->increment_injected_flits(vnet);
             flit *fl = new flit(packet_id,

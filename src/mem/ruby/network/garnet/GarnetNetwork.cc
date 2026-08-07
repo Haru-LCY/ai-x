@@ -31,6 +31,7 @@
 
 #include "mem/ruby/network/garnet/GarnetNetwork.hh"
 
+#include <algorithm>
 #include <cassert>
 
 #include "base/cast.hh"
@@ -45,6 +46,7 @@
 #include "mem/ruby/network/garnet/NetworkLink.hh"
 #include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/system/RubySystem.hh"
+#include "sim/sim_exit.hh"
 
 namespace gem5
 {
@@ -72,6 +74,9 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_routing_algorithm = p.routing_algorithm;
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
+    m_collective_rounds = p.collective_rounds;
+    fatal_if(m_collective_rounds < 1,
+             "Lab4 collective rounds must be positive");
     m_next_packet_id = 0;
 
     m_enable_fault_model = p.enable_fault_model;
@@ -96,6 +101,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
         // initialize the router's network pointers
         router->init_net_ptr(this);
     }
+    m_collective_delivered.assign(m_routers.size(), false);
 
     // record the network interfaces
     for (std::vector<ClockedObject*>::const_iterator i = p.netifs.begin();
@@ -107,6 +113,54 @@ GarnetNetwork::GarnetNetwork(const Params &p)
 
     // Print Garnet version
     inform("Garnet version %s\n", garnetVersion);
+}
+
+void
+GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
+{
+    fatal_if(!m_collective_mode,
+             "Lab4 delivery recorded while collective mode is disabled");
+    fatal_if(collective_id != m_collective_delivery_id,
+             "Lab4 delivery for round %d while validating round %d",
+             collective_id, m_collective_delivery_id);
+    fatal_if(dest_router < 0 || dest_router >= getNumRouters(),
+             "Lab4 delivery has invalid destination Router %d", dest_router);
+    fatal_if(m_collective_delivered[dest_router],
+             "Lab4 duplicate delivery for round %d at Router %d",
+             collective_id, dest_router);
+
+    m_collective_delivered[dest_router] = true;
+    ++m_collective_delivery_count;
+    ++m_collective_deliveries;
+    if (m_collective_delivery_count == getNumRouters()) {
+        fatal_if(!m_collective_round_started,
+                 "Lab4 round %d completed without a source injection",
+                 collective_id);
+        ++m_collective_rounds_completed;
+        m_collective_completion_ticks += curTick() - m_collective_round_start;
+        inform("Lab4 collective round %d delivered to all %d routers\n",
+               collective_id, getNumRouters());
+        ++m_collective_delivery_id;
+        m_collective_delivery_count = 0;
+        std::fill(m_collective_delivered.begin(),
+                  m_collective_delivered.end(), false);
+        m_collective_round_started = false;
+        if (m_collective_delivery_id == m_collective_rounds)
+            exitSimLoop("Lab4 collective completed");
+    }
+}
+
+void
+GarnetNetwork::recordCollectiveInjection(int collective_id)
+{
+    fatal_if(collective_id != m_collective_delivery_id,
+             "Lab4 source injection for round %d while round %d is active",
+             collective_id, m_collective_delivery_id);
+    if (!m_collective_round_started) {
+        m_collective_round_started = true;
+        m_collective_round_start = curTick();
+    }
+    ++m_collective_source_flits;
 }
 
 void

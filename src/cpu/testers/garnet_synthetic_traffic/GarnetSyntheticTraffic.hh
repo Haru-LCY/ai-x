@@ -43,6 +43,14 @@
 namespace gem5
 {
 
+namespace ruby
+{
+namespace garnet
+{
+class GarnetNetwork;
+}
+}
+
 enum TrafficType {BIT_COMPLEMENT_ = 0,
                   BIT_REVERSE_ = 1,
                   BIT_ROTATION_ = 2,
@@ -129,7 +137,7 @@ class GarnetSyntheticTraffic : public ClockedObject
     int collectiveRoot;
     int collectiveRounds;
     int collectiveRound;
-    Tick collectivePeriod;
+    ruby::garnet::GarnetNetwork *collectiveNetwork;
 
     std::string trafficType; // string
     TrafficType traffic; // enum from string

@@ -137,6 +137,20 @@ Ruby.define_options(parser)
 
 args = parser.parse_args()
 
+collective_requested = args.lab4_all_reduce or args.lab4_multicast
+if collective_requested:
+    if args.collective_rounds < 1:
+        parser.error("--collective-rounds must be positive")
+    # Scalar collectives operate on one HEAD_TAIL flit. Select a control
+    # vnet by default and reject the five-flit data vnet explicitly.
+    if args.inj_vnet == -1:
+        args.inj_vnet = 0
+    elif args.inj_vnet not in (0, 1):
+        parser.error(
+            "Lab4 scalar collectives require a single-flit vnet "
+            "(--inj-vnet=0 or --inj-vnet=1)"
+        )
+
 cpus = [
     GarnetSyntheticTraffic(
         num_packets_max=args.num_packets_max,
@@ -171,6 +185,9 @@ Ruby.create_system(args, False, system)
 if args.lab4_all_reduce or args.lab4_multicast:
     system.ruby.network.collective_mode = True
     system.ruby.network.collective_multicast = args.lab4_multicast
+    system.ruby.network.collective_rounds = args.collective_rounds
+    for cpu in cpus:
+        cpu.collective_network = system.ruby.network
 
 # Create a seperate clock domain for Ruby
 system.ruby.clk_domain = SrcClockDomain(

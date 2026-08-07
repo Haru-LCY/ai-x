@@ -57,6 +57,7 @@ class GarnetNetwork(RubyNetwork):
     collective_multicast = Param.Bool(
         False, "enable Lab4 tree multicast mode"
     )
+    collective_rounds = Param.Int(1, "number of Lab4 collective rounds")
 
 
 class GarnetNetworkInterface(ClockedObject):

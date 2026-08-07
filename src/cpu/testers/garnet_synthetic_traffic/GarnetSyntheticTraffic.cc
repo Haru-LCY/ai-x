@@ -42,6 +42,7 @@
 #include "mem/packet.hh"
 #include "mem/port.hh"
 #include "mem/request.hh"
+#include "mem/ruby/network/garnet/GarnetNetwork.hh"
 #include "sim/sim_events.hh"
 #include "sim/stats.hh"
 #include "sim/system.hh"
@@ -92,8 +93,7 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       collectiveRoot(p.collective_root),
       collectiveRounds(std::max(1, p.collective_rounds)),
       collectiveRound(0),
-      collectivePeriod(std::max<Tick>(1, p.sim_cycles /
-                                      std::max(1, p.collective_rounds))),
+      collectiveNetwork(p.collective_network),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
       injVnet(p.inj_vnet),
@@ -101,6 +101,8 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       responseLimit(p.response_limit),
       requestorId(p.system->getRequestorId(this))
 {
+    fatal_if(collectiveMode && collectiveNetwork == nullptr,
+             "Lab4 collective tester requires a Garnet network");
     // set up counters
     noResponseCycles = 0;
     schedule(tickEvent, 0);
@@ -170,7 +172,8 @@ GarnetSyntheticTraffic::tick()
         if (collectiveMulticast && id != collectiveRoot) {
             // Only the root injects the one-to-many multicast message.
         } else if (collectiveRound < collectiveRounds &&
-            curTick() >= collectiveRound * collectivePeriod) {
+                   collectiveNetwork->canInjectCollectiveRound(
+                       collectiveRound)) {
             generatePkt();
             ++collectiveRound;
         }
