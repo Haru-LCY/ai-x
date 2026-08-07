@@ -1,0 +1,15 @@
+Real-collective trace replay snapshot
+Date: 2026-08-07 UTC
+Integrated implementation commit: 2fb5abde72
+Source trace: traces/h100_8gpu_collectives.json
+Source SHA-256: c65857924f2a4be0958124a480d60e4f402df5684e5a9b04b7e44427d4933afd
+Broadcast replay SHA-256: 7745c3f0f2b282c42e062998159e5d1ef21e9af032ac96f394c3e133d5b2a87f
+All-reduce replay SHA-256: ebd8386732b93e38c9be462fa48e66d16f46a29e42a9b457e5db5ba76dcbadad
+Capture: executed 8x NVIDIA H100 80GB HBM3 NCCL collective microbenchmark
+Software metadata: PyTorch 2.8.0+cu128, CUDA 12.8, NCCL 2.27.3
+Scaling: byte_scale=1/1024, time_scale=1/1024, flit_bytes=16
+Broadcast gate artifact: /tmp/lab4-t3-final-p95
+T4 gate artifact: /tmp/lab4-t4-final-r2
+T3/T4 acceptance runs recorded base revision b7045e41e0 and dirty worktrees; do not represent them as clean-revision runs.
+Broadcast semantics: variable-length tree multicast packets.
+All-reduce semantics: independent serialized scalar lanes, each executing Router reduce then tree broadcast; not vector reduction hardware.

@@ -18,7 +18,14 @@ M1--M5 are implemented and gated by automated regression:
   CSV/JSON comparison output.
 
 The implementation remains intentionally limited to at most 64 Routers per
-multicast destination bitmap. Bypass is not part of this milestone.
+multicast destination bitmap. Bypass was outside this milestone, but its later
+G1--G10 implementation and multicast interaction are now complete; see
+`bypass.md`, `report/bypass_g9.md`, and `report/bypass_g10.md`.
+
+Final accepted evidence: 208/208 paired correctness cases and 162/162 paired
+performance cases (324 raw runs). The performance snapshot reports 39.2% mean
+internal-link traffic reduction and 3.59x median completion-latency speedup,
+while retaining 10/162 negative throughput cases.
 
 ## 1. Goal and completion boundary
 
@@ -307,4 +314,6 @@ Multicast 只有同时满足以下条件才算完成：
 - 报告同时给出绝对值、speedup、traffic reduction、硬件/状态开销和限制；
 - README 与实际参数、测试命令、当前完成边界一致。
 
-满足以上 Definition of Done 后，再创建独立 `bypass.md` 和 bypass 实现计划。
+以上 Definition of Done 已满足。随后创建并完成了独立 `bypass.md` 的
+G1--G10；真实 H100 broadcast replay 又以 30/30 requests、6,720 flits
+验证了 trace consumer。完整数据和限制见 `report/multicast_report.pdf`。

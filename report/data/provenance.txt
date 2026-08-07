@@ -1,0 +1,10 @@
+Multicast result snapshot
+Date: 2026-08-07 UTC
+Source commit: d14545edcb
+Binary: build/Garnet_standalone/gem5.opt
+Correctness result: 208/208 paired cases passed
+Correctness artifacts at audit time: /tmp/lab4-multicast-matrix-3rtr51nd
+Performance result: 162/162 paired cases passed (324 raw runs)
+Performance artifacts at audit time: /tmp/lab4-multicast-perf-ua9uempg
+Performance command: python3 tests/gem5/lab4/run_multicast_performance.py --jobs 32
+Correctness command: python3 tests/gem5/lab4/run_multicast_matrix.py --jobs 32 --rounds 10 --packet-flits 1 4 16 64

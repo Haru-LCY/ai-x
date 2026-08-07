@@ -1,0 +1,5 @@
+scope,design,completed,logical_work,source_flits,reduce_merges,deliveries,router_flits,measurement_ticks,p95_ticks,express_flits,wire_flit_distance
+broadcast,Mesh_XY,1,30,6720,0,210,NA,17047500,643500,0,47040
+broadcast,cost_aware_Mesh_Bypass,1,30,6720,0,210,NA,17047500,643500,0,47040
+all_reduce_scalar_lanes,Mesh_XY,1,6720,53760,53760,53760,147840,80638000,10000,0,94080
+all_reduce_scalar_lanes,Mesh_Bypass,1,6720,53760,53760,53760,147840,80638000,10000,0,94080
