@@ -250,6 +250,8 @@ cpus = [
         collective_multicast=multicast_requested,
         collective_root=args.collective_root,
         collective_rounds=args.collective_rounds,
+        multicast_mode=args.multicast_mode or "none",
+        multicast_destinations=multicast_destinations,
     )
     for i in range(args.num_cpus)
 ]

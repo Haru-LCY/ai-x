@@ -138,6 +138,11 @@ class GarnetSyntheticTraffic : public ClockedObject
     int collectiveRounds;
     int collectiveRound;
     ruby::garnet::GarnetNetwork *collectiveNetwork;
+    std::string multicastMode;
+    std::vector<int> multicastDestinations;
+    unsigned multicastDestinationIndex;
+    int currentMulticastDestination;
+    bool multicastRoundStarted;
 
     std::string trafficType; // string
     TrafficType traffic; // enum from string

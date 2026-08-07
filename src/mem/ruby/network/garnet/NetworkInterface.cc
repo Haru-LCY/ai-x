@@ -476,8 +476,10 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_net_ptr->increment_injected_packets(vnet);
         m_net_ptr->update_traffic_distribution(route);
         int packet_id = m_net_ptr->getNextPacketID();
+        const int collective_id = m_net_ptr->naiveMulticast() ?
+            m_net_ptr->collectiveRoundId() : m_next_collective_id;
         if (m_net_ptr->collectiveMode())
-            m_net_ptr->recordCollectiveInjection(m_next_collective_id);
+            m_net_ptr->recordCollectiveInjection(collective_id);
         for (int i = 0; i < num_flits; i++) {
             m_net_ptr->increment_injected_flits(vnet);
             flit *fl = new flit(packet_id,
@@ -493,9 +495,13 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
                 fl->set_value(m_net_ptr->collectiveMulticast() ? 1 :
                               route.src_ni + 1);
-                fl->set_collective_id(m_next_collective_id);
-                fl->set_collective_op(m_net_ptr->collectiveMulticast() ?
-                    CollectiveOp::Multicast : CollectiveOp::Reduce);
+                fl->set_collective_id(collective_id);
+                if (m_net_ptr->naiveMulticast()) {
+                    fl->set_collective_op(CollectiveOp::MulticastUnicast);
+                } else {
+                    fl->set_collective_op(m_net_ptr->collectiveMulticast() ?
+                        CollectiveOp::Multicast : CollectiveOp::Reduce);
+                }
             } else {
                 // Preserve the legacy smoke check for ordinary traffic.
                 fl->set_value(route.src_ni);
@@ -510,7 +516,7 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         m_ni_out_vcs_enqueue_time[vc] = curTick();
         outVcState[vc].setState(ACTIVE_, curTick());
     }
-    if (m_net_ptr->collectiveMode())
+    if (m_net_ptr->collectiveMode() && !m_net_ptr->naiveMulticast())
         ++m_next_collective_id;
     return true ;
 }

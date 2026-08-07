@@ -21,7 +21,11 @@ CASES = (
     ("3x3-center-column", 9, 16, 3, 4, "1,7"),
     ("3x3-corner-mixed", 9, 16, 3, 0, "0,2,4,8"),
     ("3x3-random", 9, 16, 3, 8, "random:5"),
+    ("4x4-local", 16, 16, 4, 5, "5"),
+    ("4x4-sparse", 16, 16, 4, 0, "3,5,10,15"),
+    ("4x4-random", 16, 16, 4, 15, "random:12"),
 )
+MODES = ("tree_multicast", "naive_unicast")
 
 
 def destinations(spec, cpus, seed):
@@ -64,8 +68,9 @@ def parse_stats(path):
     return stats
 
 
-def run_case(gem5, output_root, rounds, seed, case):
+def run_case(gem5, output_root, rounds, seed, mode, case):
     name, cpus, dirs, rows, source, spec = case
+    name = f"{mode}-{name}"
     output = output_root / name
     members = destinations(spec, cpus, seed)
     command = [
@@ -73,7 +78,7 @@ def run_case(gem5, output_root, rounds, seed, case):
         "--network=garnet", "--topology=Mesh_XY",
         f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
         "--routing-algorithm=1", "--sim-cycles=10000000",
-        "--multicast-mode=tree_multicast",
+        f"--multicast-mode={mode}",
         f"--multicast-source={source}",
         f"--multicast-destinations={spec}",
         f"--multicast-rounds={rounds}", f"--multicast-seed={seed}",
@@ -104,13 +109,21 @@ def run_case(gem5, output_root, rounds, seed, case):
         return name, errors
     stats = parse_stats(stats_path)
     prefix = "system.ruby.network."
+    remote_members = [member for member in members if member != source]
+    is_tree = mode == "tree_multicast"
     expected = {
         "collective_rounds_completed": rounds,
         "collective_deliveries": rounds * len(members),
-        "collective_source_flits": rounds,
+        "collective_source_flits": rounds
+        * (1 if is_tree else len(remote_members)),
         "collective_router_flits": rounds
-        * (len(members) + tree_edges(cpus, rows, source, members)),
+        * (len(members) + tree_edges(cpus, rows, source, members))
+        if is_tree
+        else 0,
         "collective_reduce_merges": 0,
+        "multicast_logical_requests": rounds,
+        "multicast_physical_packets": rounds
+        * (1 if is_tree else len(remote_members)),
     }
     for stat, wanted in expected.items():
         actual = stats.get(prefix + stat)
@@ -140,8 +153,10 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [
             pool.submit(
-                run_case, args.gem5, output_root, args.rounds, args.seed, case
+                run_case, args.gem5, output_root, args.rounds, args.seed,
+                mode, case
             )
+            for mode in MODES
             for case in CASES
         ]
         for future in concurrent.futures.as_completed(futures):
@@ -152,9 +167,9 @@ def main():
             else:
                 print(f"PASS {name}")
     if failures:
-        print(f"{len(failures)}/{len(CASES)} cases failed")
+        print(f"{len(failures)}/{len(CASES) * len(MODES)} cases failed")
         return 1
-    print(f"PASS: all {len(CASES)} M1 multicast cases")
+    print(f"PASS: all {len(CASES) * len(MODES)} paired multicast cases")
     return 0
 
 

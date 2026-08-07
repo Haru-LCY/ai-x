@@ -84,3 +84,5 @@ class GarnetSyntheticTraffic(ClockedObject):
     collective_network = Param.GarnetNetwork(
         NULL, "Garnet network coordinating collective round completion"
     )
+    multicast_mode = Param.String("none", "multicast implementation mode")
+    multicast_destinations = VectorParam.Int([], "multicast destination Routers")

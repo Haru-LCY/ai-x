@@ -94,6 +94,11 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       collectiveRounds(std::max(1, p.collective_rounds)),
       collectiveRound(0),
       collectiveNetwork(p.collective_network),
+      multicastMode(p.multicast_mode),
+      multicastDestinations(p.multicast_destinations),
+      multicastDestinationIndex(0),
+      currentMulticastDestination(-1),
+      multicastRoundStarted(false),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
       injVnet(p.inj_vnet),
@@ -103,6 +108,9 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
 {
     fatal_if(collectiveMode && collectiveNetwork == nullptr,
              "Lab4 collective tester requires a Garnet network");
+    fatal_if(multicastMode == "naive_unicast" &&
+             multicastDestinations.empty(),
+             "Naive multicast requires at least one destination");
     // set up counters
     noResponseCycles = 0;
     schedule(tickEvent, 0);
@@ -171,6 +179,39 @@ GarnetSyntheticTraffic::tick()
     if (collectiveMode) {
         if (collectiveMulticast && id != collectiveRoot) {
             // Only the root injects the one-to-many multicast message.
+        } else if (multicastMode == "naive_unicast") {
+            if (collectiveRound < collectiveRounds) {
+                if (!multicastRoundStarted &&
+                    collectiveNetwork->canInjectCollectiveRound(
+                        collectiveRound)) {
+                    multicastRoundStarted = true;
+                    collectiveNetwork->beginCollectiveRound(collectiveRound);
+                    if (collectiveNetwork->multicastDestination(id))
+                        collectiveNetwork->recordMulticastLocalDelivery(
+                            collectiveRound);
+                }
+                while (multicastDestinationIndex <
+                           multicastDestinations.size() &&
+                       multicastDestinations[multicastDestinationIndex] ==
+                           id) {
+                    ++multicastDestinationIndex;
+                }
+                if (multicastRoundStarted &&
+                    multicastDestinationIndex <
+                        multicastDestinations.size() && retryPkt == nullptr) {
+                    currentMulticastDestination =
+                        multicastDestinations[multicastDestinationIndex++];
+                    generatePkt();
+                } else if (multicastRoundStarted &&
+                           multicastDestinationIndex ==
+                               multicastDestinations.size() &&
+                           collectiveNetwork->canInjectCollectiveRound(
+                               collectiveRound + 1)) {
+                    ++collectiveRound;
+                    multicastDestinationIndex = 0;
+                    multicastRoundStarted = false;
+                }
+            }
         } else if (collectiveRound < collectiveRounds &&
                    collectiveNetwork->canInjectCollectiveRound(
                        collectiveRound)) {
@@ -211,7 +252,9 @@ GarnetSyntheticTraffic::generatePkt()
     int src_x = id%radix;
     int src_y = id/radix;
 
-    if (collectiveMode) {
+    if (multicastMode == "naive_unicast") {
+        destination = currentMulticastDestination;
+    } else if (collectiveMode) {
         int root_x = collectiveRoot % radix;
         int root_y = collectiveRoot / radix;
         int x = src_x;

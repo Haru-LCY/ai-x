@@ -53,6 +53,7 @@ enum class CollectiveOp : uint8_t
     Reduce,
     Broadcast,
     Multicast,
+    MulticastUnicast,
 };
 
 class flit

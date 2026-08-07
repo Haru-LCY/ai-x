@@ -90,7 +90,9 @@ InputUnit::wakeup()
         // Lab4 collective flits are consumed by the Router state machine
         // before entering a normal input VC. The state machine returns the
         // upstream credit and emits only the required tree-forwarded flits.
-        if (m_router->collectiveEnabled() && t_flit->is_collective()) {
+        if (m_router->collectiveEnabled() && t_flit->is_collective() &&
+            t_flit->get_collective_op() !=
+                CollectiveOp::MulticastUnicast) {
             m_router->handleCollectiveFlit(t_flit, m_id);
             return;
         }

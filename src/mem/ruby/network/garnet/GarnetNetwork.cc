@@ -218,16 +218,37 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
 }
 
 void
+GarnetNetwork::beginCollectiveRound(int collective_id)
+{
+    fatal_if(collective_id != m_collective_delivery_id,
+             "Lab4 attempted to start round %d while round %d is active",
+             collective_id, m_collective_delivery_id);
+    if (!m_collective_round_started) {
+        m_collective_round_started = true;
+        m_collective_round_start = curTick();
+        if (m_collective_multicast)
+            ++m_multicast_logical_requests;
+    }
+}
+
+void
+GarnetNetwork::recordMulticastLocalDelivery(int collective_id)
+{
+    fatal_if(!naiveMulticast(),
+             "Local multicast completion is only valid for naive unicast");
+    recordCollectiveDelivery(collective_id, m_multicast_source);
+}
+
+void
 GarnetNetwork::recordCollectiveInjection(int collective_id)
 {
     fatal_if(collective_id != m_collective_delivery_id,
              "Lab4 source injection for round %d while round %d is active",
              collective_id, m_collective_delivery_id);
-    if (!m_collective_round_started) {
-        m_collective_round_started = true;
-        m_collective_round_start = curTick();
-    }
+    beginCollectiveRound(collective_id);
     ++m_collective_source_flits;
+    if (m_collective_multicast)
+        ++m_multicast_physical_packets;
 }
 
 void
@@ -525,6 +546,10 @@ GarnetNetwork::regStats()
         .name(name() + ".average_collective_completion_ticks");
     m_average_collective_completion_ticks =
         m_collective_completion_ticks / m_collective_rounds_completed;
+    m_multicast_logical_requests
+        .name(name() + ".multicast_logical_requests");
+    m_multicast_physical_packets
+        .name(name() + ".multicast_physical_packets");
 
     // Packets
     m_packets_received

@@ -88,6 +88,7 @@ class GarnetNetwork : public Network
     bool multicastDestination(int router_id) const;
     bool multicastChildNeeded(int router_id, int child_id) const;
     int multicastDestinationCount() const { return m_multicast_destination_count; }
+    int collectiveRoundId() const { return m_collective_delivery_id; }
     bool canInjectCollectiveRound(int collective_id) const
     {
         return collective_id == m_collective_delivery_id;
@@ -169,6 +170,8 @@ class GarnetNetwork : public Network
     void update_traffic_distribution(RouteInfo route);
     int getNextPacketID() { return m_next_packet_id++; }
     void recordCollectiveDelivery(int collective_id, int dest_router);
+    void beginCollectiveRound(int collective_id);
+    void recordMulticastLocalDelivery(int collective_id);
     void recordCollectiveInjection(int collective_id);
     void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
     void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
@@ -230,6 +233,8 @@ class GarnetNetwork : public Network
     statistics::Scalar m_collective_reduce_merges;
     statistics::Scalar m_collective_completion_ticks;
     statistics::Formula m_average_collective_completion_ticks;
+    statistics::Scalar m_multicast_logical_requests;
+    statistics::Scalar m_multicast_physical_packets;
 
     std::vector<std::vector<statistics::Scalar *>> m_data_traffic_distribution;
     std::vector<std::vector<statistics::Scalar *>> m_ctrl_traffic_distribution;
