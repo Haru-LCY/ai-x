@@ -125,6 +125,7 @@ class GarnetSyntheticTraffic : public ClockedObject
     int singleSender;
     int singleDest;
     bool collectiveMode;
+    bool collectiveMulticast;
     int collectiveRoot;
     int collectiveRounds;
     int collectiveRound;

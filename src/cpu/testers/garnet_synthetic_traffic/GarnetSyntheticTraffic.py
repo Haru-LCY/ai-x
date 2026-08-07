@@ -75,6 +75,7 @@ class GarnetSyntheticTraffic(ClockedObject):
     )
     test = RequestPort("Port to the memory system to test")
     system = Param.System(Parent.any, "System we belong to")
-    collective_mode = Param.Bool(False, "enable Lab4 all-reduce traffic")
+    collective_mode = Param.Bool(False, "enable Lab4 collective traffic")
+    collective_multicast = Param.Bool(False, "enable Lab4 multicast traffic")
     collective_root = Param.Int(0, "Lab4 all-reduce root router")
     collective_rounds = Param.Int(1, "number of serialized Lab4 all-reduce rounds")

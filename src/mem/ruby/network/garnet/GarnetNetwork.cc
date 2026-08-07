@@ -71,6 +71,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_buffers_per_ctrl_vc = p.buffers_per_ctrl_vc;
     m_routing_algorithm = p.routing_algorithm;
     m_collective_mode = p.collective_mode;
+    m_collective_multicast = p.collective_multicast;
     m_next_packet_id = 0;
 
     m_enable_fault_model = p.enable_fault_model;

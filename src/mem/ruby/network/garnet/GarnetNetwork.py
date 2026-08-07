@@ -54,6 +54,9 @@ class GarnetNetwork(RubyNetwork):
     collective_mode = Param.Bool(
         False, "enable Lab4 collective flit handling"
     )
+    collective_multicast = Param.Bool(
+        False, "enable Lab4 tree multicast mode"
+    )
 
 
 class GarnetNetworkInterface(ClockedObject):

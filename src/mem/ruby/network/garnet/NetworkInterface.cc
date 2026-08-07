@@ -178,7 +178,8 @@ NetworkInterface::incrementStats(flit *t_flit)
 
     if (m_net_ptr->collectiveMode() && t_flit->get_collective_id() >= 0) {
         const int n = m_net_ptr->getNumRouters();
-        const int64_t expected = (int64_t)n * (n + 1) / 2;
+        const int64_t expected = m_net_ptr->collectiveMulticast() ? 1 :
+            (int64_t)n * (n + 1) / 2;
         DPRINTF(RubyNetwork,
                 "Lab4 eject: dest_ni=%d value=%ld expected=%ld reduce=%d\n",
                 t_flit->get_route().dest_ni, (long)t_flit->get_value(),
@@ -482,9 +483,10 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
                 // Stage 1 collective contribution is f(src) = src_ni + 1,
                 // so an N-node run has the deterministic expected sum
                 // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
-                fl->set_value(route.src_ni + 1);
+                fl->set_value(m_net_ptr->collectiveMulticast() ? 1 :
+                              route.src_ni + 1);
                 fl->set_collective_id(0);
-                fl->set_is_reduce(true);
+                fl->set_is_reduce(!m_net_ptr->collectiveMulticast());
             } else {
                 // Preserve the legacy smoke check for ordinary traffic.
                 fl->set_value(route.src_ni);

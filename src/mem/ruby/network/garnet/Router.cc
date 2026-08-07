@@ -54,6 +54,7 @@ Router::Router(const Params &p)
     m_num_vcs(m_virtual_networks * m_vc_per_vnet), m_bit_width(p.width),
     m_network_ptr(nullptr), m_collective_root(p.collective_root),
     m_collective_enabled(p.collective_enabled),
+    m_collective_multicast(p.collective_multicast),
     m_collective_parent_outport(p.collective_parent_outport),
     m_collective_child_inports(p.collective_child_inports),
     m_collective_expected_fanin(p.collective_expected_fanin),
@@ -75,6 +76,9 @@ Router::init()
     crossbarSwitch.init();
 
     if (!m_collective_enabled)
+        return;
+
+    if (m_collective_multicast)
         return;
 
     fatal_if(m_collective_root && !m_collective_parent_outport.empty(),
@@ -285,6 +289,18 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
 {
     fatal_if(!m_collective_enabled,
              "Lab4 flit reached Router %d without collective metadata", m_id);
+    if (m_collective_multicast) {
+        // A multicast flit is replicated along the precomputed tree.
+        // The local copy validates delivery at this router's NI.
+        sendCollectiveFlit(t_flit->get_value(), false, m_id, t_flit);
+        for (const auto& child_in : m_collective_child_inports)
+            sendCollectiveFlit(t_flit->get_value(), false,
+                               collectiveChildId(child_in), t_flit);
+        getInputUnit(inport)->increment_credit(t_flit->get_vc(), true,
+                                                curTick());
+        delete t_flit;
+        return;
+    }
     if (!m_collective_active) {
         m_collective_active = true;
         m_collective_accum = 0;

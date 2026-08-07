@@ -43,6 +43,7 @@ class BasicRouter(ClockedObject):
     # shared Mesh_XY topology instantiate either simple or Garnet routers.
     collective_root = Param.Bool(False, "Lab4 all-reduce tree root")
     collective_enabled = Param.Bool(False, "Whether Lab4 collective tree metadata is configured")
+    collective_multicast = Param.Bool(False, "Lab4 tree multicast mode")
     collective_parent_outport = Param.String(
         "", "Lab4 tree direction toward the root; empty at root"
     )

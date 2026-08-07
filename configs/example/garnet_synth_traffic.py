@@ -91,6 +91,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--lab4-multicast",
+    action="store_true",
+    help="run the Lab4 tree multicast validation workload",
+)
+
+parser.add_argument(
     "--num-packets-max",
     type=int,
     default=-1,
@@ -142,7 +148,8 @@ cpus = [
         inj_vnet=args.inj_vnet,
         precision=args.precision,
         num_dest=args.num_dirs,
-        collective_mode=args.lab4_all_reduce,
+        collective_mode=(args.lab4_all_reduce or args.lab4_multicast),
+        collective_multicast=args.lab4_multicast,
         collective_root=args.collective_root,
         collective_rounds=args.collective_rounds,
     )
@@ -161,8 +168,9 @@ system.clk_domain = SrcClockDomain(
 )
 
 Ruby.create_system(args, False, system)
-if args.lab4_all_reduce:
+if args.lab4_all_reduce or args.lab4_multicast:
     system.ruby.network.collective_mode = True
+    system.ruby.network.collective_multicast = args.lab4_multicast
 
 # Create a seperate clock domain for Ruby
 system.ruby.clk_domain = SrcClockDomain(

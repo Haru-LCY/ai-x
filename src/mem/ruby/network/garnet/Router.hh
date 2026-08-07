@@ -168,6 +168,7 @@ class Router : public BasicRouter, public Consumer
     // Lab4 all-reduce convergence-tree metadata, computed by Mesh_XY.py.
     bool m_collective_root;
     bool m_collective_enabled;
+    bool m_collective_multicast;
     std::string m_collective_parent_outport;
     std::vector<std::string> m_collective_child_inports;
     uint32_t m_collective_expected_fanin;

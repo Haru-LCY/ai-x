@@ -88,6 +88,7 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       singleSender(p.single_sender),
       singleDest(p.single_dest),
       collectiveMode(p.collective_mode),
+      collectiveMulticast(p.collective_multicast),
       collectiveRoot(p.collective_root),
       collectiveRounds(std::max(1, p.collective_rounds)),
       collectiveRound(0),
@@ -166,7 +167,9 @@ GarnetSyntheticTraffic::tick()
 
     // always generatePkt unless fixedPkts or singleSender is enabled
     if (collectiveMode) {
-        if (collectiveRound < collectiveRounds &&
+        if (collectiveMulticast && id != collectiveRoot) {
+            // Only the root injects the one-to-many multicast message.
+        } else if (collectiveRound < collectiveRounds &&
             curTick() >= collectiveRound * collectivePeriod) {
             generatePkt();
             ++collectiveRound;

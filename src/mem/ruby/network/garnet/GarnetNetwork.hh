@@ -81,6 +81,7 @@ class GarnetNetwork : public Network
     uint32_t getBuffersPerCtrlVC() { return m_buffers_per_ctrl_vc; }
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
     bool collectiveMode() const { return m_collective_mode; }
+    bool collectiveMulticast() const { return m_collective_multicast; }
 
     bool isFaultModelEnabled() const { return m_enable_fault_model; }
     FaultModel* fault_model;
@@ -168,6 +169,7 @@ class GarnetNetwork : public Network
     uint32_t m_buffers_per_data_vc;
     int m_routing_algorithm;
     bool m_collective_mode;
+    bool m_collective_multicast;
     bool m_enable_fault_model;
 
     // Statistical variables

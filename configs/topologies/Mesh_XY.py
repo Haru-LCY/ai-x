@@ -103,7 +103,9 @@ class Mesh_XY(SimpleTopology):
             Router(
                 router_id=i,
                 latency=router_latency,
-                collective_enabled=True,
+                collective_enabled=(getattr(options, "lab4_all_reduce", False) or
+                                     getattr(options, "lab4_multicast", False)),
+                collective_multicast=getattr(options, "lab4_multicast", False),
                 collective_root=(i == root_id),
                 collective_parent_outport=parents[i],
                 collective_child_inports=sorted(child_inports[i]),

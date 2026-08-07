@@ -2,23 +2,25 @@
 
 ## 1. Introduction
 
-本项目基于 gem5 Garnet，实现 Mesh 网络上的 in-network all-reduce。目标是让每个 node 注入一个标量贡献，由网络中的 Router 沿 XY 路由诱导的收敛树完成部分归约，再由 root 沿同一棵树广播全局结果。
+本项目基于 gem5 Garnet，研究 Mesh NoC 中面向分布式 AI 通信的 in-network collective communication。核心设计是让 Mesh Router 参与 AllReduce：各 node 注入局部贡献，Router 沿 XY 路由诱导的 convergence tree 进行部分归约，root 再沿树广播全局结果。
 
-项目采用一个可证明、可复现的保底版本作为第一阶段目标：single-flit、标量、串行单 collective。只有这个闭环在小规模网络上正确运行后，才进入多轮、更多 root、baseline 对比和 stretch 功能。
+项目采用分阶段路线：先用 single-flit scalar AllReduce 验证协议正确性和 credit 稳定性，再扩展到 tensor chunks、独立 multicast 和 bypass/express links，最后用统一 baseline 评估通信量、完成周期和延迟。
 
-当前代码库是 `/volume/haru/cxiao03/work/gem5-lab4` 的 `lab4` 分支。`Lab4_project/` 是配套的设计规范、计划和独立树校验工具，不是 gem5 主代码库。
+项目可定位为 Topic 4（与 interconnection 相关的其他项目），同时 multicast 和 bypass 扩展也覆盖 Topic 3 的 microarchitecture 方向。当前代码库是 `/volume/haru/cxiao03/work/gem5-lab4` 的 `lab4` 分支。`Lab4_project/` 是配套的设计规范、计划和验收文档，不是 gem5 主代码库。
 
 ## 2. Project highlights
 
-当前工作的主要亮点和目标如下：
+项目的研究叙事是：现代分布式 AI 训练受到 collective communication 开销限制；one-to-many traffic 产生重复复制，远距离节点之间的多跳传输增加 latency 和拥塞。因此项目研究 Router-level reduction、tree multicast/broadcast 和 bypass link 如何共同优化 Mesh NoC 上的 AI-style collectives。
 
-- **Deterministic convergence tree**：根据 `Mesh_XY` 的 XY 路由和 `--collective-root`，离线计算每个 Router 的 parent、children 和 expected fan-in。
-- **Payload-carrying flit**：为 flit 增加 `value`、`collective_id`、`is_reduce` 字段，为后续 reduce/broadcast 协议保留稳定的数据通道。
-- **In-network reduction**：最终版本将在 Router 内合并子树贡献，减少向 root 的重复传输。
-- **Tree broadcast**：root 得到全局 sum 后沿反向树传播，使每个 node 收到相同结果。
-- **Fair evaluation**：最终比较 naive unicast、ring 和 tree 三种方案的完整通信量、完成周期和延迟，而不是只比较 reduce 阶段。
+当前已实现或正在推进的主要亮点：
 
-注意：前两项已经有代码；后面的 reduction、broadcast 和公平实验仍在实现中，不能把当前 smoke 结果当作 all-reduce 正确性结果。
+- **Deterministic convergence tree**：根据 `Mesh_XY` 的 XY 路由和 `--collective-root`，预计算每个 Router 的 parent、children 和 expected fan-in。
+- **In-network reduction**：Router 对 scalar collective flit 做累加，非 root 只向 parent 发送一个 merged flit。
+- **Tree broadcast**：root 得到全局 sum 后沿同一棵树传播，使每个 node 收到相同结果。
+- **Independent multicast mode**：新增 `--lab4-multicast`，root-only injection，并沿树复制 flit；2×2 和 3×3 多轮回归已通过。
+- **Fair evaluation plan**：最终比较 naive unicast、ring 和 tree，并统计完整 reduce + broadcast 流程，而不是只比较单个阶段。
+
+当前 scalar AllReduce 已完成主要功能正确性和规模/root 扩展，但 baseline 和性能论证尚未完成；不能把单轮正确性等同于最终性能结论。
 
 ## 3. Architecture
 
@@ -59,66 +61,56 @@ child Routers ── merged flit ──► parent Routers ──► root
 
 ## 4. Implementation status
 
-### 4.1 Implemented now
+### 4.1 Completed
 
-- `configs/network/Network.py`：加入 `--collective-root`。
-- `configs/topologies/Mesh_XY.py`：计算 parent/children/fan-in，并向 Router 下发 collective 元数据。
-- `src/mem/ruby/network/BasicRouter.py`：增加 collective 参数；`collective_enabled` 使普通拓扑不受 Lab4 元数据校验影响。
-- `src/mem/ruby/network/garnet/Router.{cc,hh}`：保存并校验树元数据。
-- `src/mem/ruby/network/garnet/flit.{cc,hh}`：增加并保持 `value`、`collective_id`、`is_reduce`。
-- `src/mem/ruby/network/garnet/NetworkInterface.cc`：注入时写入 `value = src_ni`，eject 时断言 value 传输不变。
-- `configs/topologies/Ring.py`：加入 Ring 拓扑骨架，供后续 baseline 使用。
+- `Mesh_XY.py`：计算并下发 parent/children/fan-in tree metadata；支持 2×2、3×3、4×4 Mesh 和多个 root。
+- Garnet flit：增加并传递 `value`、`collective_id`、`is_reduce`。
+- Router：实现串行 scalar reduction state (`accum/count/active`)、merged flit 上行和 tree broadcast。
+- NetworkInterface：注入 deterministic contribution，eject 时校验最终结果。
+- Traffic generator：支持 `--collective-rounds`；新增 `--lab4-multicast` root-only tree multicast workload。
+- 正确性验证：2×2 100 轮、3×3 多 root 单轮、3×3 root=4 100 轮、4×4 多 root 单轮均有成功记录。
+- 设计文档：`Lab4_project/BASELINE_SPEC.md`、`Lab4_project/todo.md`、`Lab4_project/scalar.md`。
 
-### 4.2 Not implemented yet
+### 4.2 Current work
 
-以下部分是当前开发主线：
+- 完成 multicast 改动后的新 binary 编译和 2×2/3×3 多轮回归测试；
+- 补齐 3×3/4×4 多 root 的更大轮次 scalar 验收；
+- 实现 naive unicast AllReduce 和 ring baseline；
+- 统一三种方案的输入、退出条件和性能统计。
 
-1. traffic generator 的 all-reduce 输入格式、轮次和结束条件；
-2. Router reduction state machine；
-3. 本地贡献与子节点贡献的统一 fan-in；
-4. merged flit 的 parent 路由；
-5. root sum 断言和 broadcast；
-6. 所有 node 的结果校验与网络 drain 检查；
-7. 100 轮串行稳定性测试；
-8. naive/ring/tree 的统一性能统计。
+### 4.3 Not yet claimed
 
-## 5. Verification and evaluation plan
+当前尚未声称完成 tensor-level distributed training、完整 PyTorch/LLM 训练、bypass 性能收益或三种 baseline 的最终对比。
 
-### Stage 0 — Baseline
+## 5. Phased roadmap and acceptance criteria
 
-- 运行独立树校验：2×2、3×3、4×4 的所有 root；
-- 固定编译和仿真命令；
-- 确认当前环境实际生成、可加载的 `build/NULL/gem5.opt`。
+### Phase 1 — Scalar protocol correctness
 
-### Stage 1 — Minimal correctness
+single-flit、scalar、串行单 collective。验证 Router reduction、fan-in、tree broadcast、credit 回收和正常退出。理论结果为 `sum = N * (N + 1) / 2`。
 
-验收范围为 2×2、root=0、single-flit、单轮。每个 node 的贡献设为 `src_id + 1`，理论结果为：
+### Phase 2 — Scalar stability and scale
 
-```text
-sum = 1 + 2 + ... + N = N * (N + 1) / 2
-```
+运行至少 100 轮，覆盖 2×2、3×3、4×4 Mesh，以及角落、边缘和中心 root。所有 node 每轮都必须收到相同 sum，且不能 hang 或留下残留 flit/credit。
 
-必须同时满足：root 的 sum 正确、每个 node 的 broadcast 值正确、仿真正常退出、没有 assertion failure。
+### Phase 3 — Fair scalar baselines
 
-### Stage 2 — Stability
+实现并统一比较 naive unicast AllReduce、ring AllReduce 和 tree in-network AllReduce。三种方案必须使用相同的 Mesh、root、`f(src)`、轮数和退出条件，并记录 completion cycles、total flits、average hops、network latency 和 queueing latency。
 
-对同一 2×2 配置运行至少 100 轮串行 collective，验证 consume credit、broadcast clone credit、无残留 flit 和无 hang。
+### Phase 4 — Tensor-chunk extension
 
-### Stage 3 — Scale and root
+将 scalar 扩展为 multi-flit/vector element-wise AllReduce，测试不同消息大小和 flit 数量，验证 Router reduction 与 credit/backpressure 在大消息下的行为。
 
-扩展到 3×3、4×4，并覆盖角落、边缘和中心 root；记录完成周期、平均 flit latency、network latency 和 queueing latency。
+### Phase 5 — Topic-oriented microarchitectural extensions
 
-### Stage 4 — Fair baselines
+实现并评估独立 multicast，以及 bypass/express links。Multicast 解决重复 one-to-many traffic，bypass 解决远距离多跳 traffic。每个扩展都必须有 baseline、正确性测试和定量结果。
 
-统一以下变量：网络规模、root、`f(src)`、轮数、注入格式和终止条件。对 naive unicast、ring、tree 统计：
+### Phase 6 — Final evaluation and report
 
-- reduce traffic、broadcast traffic、total flits；
-- completion cycles、average latency、network latency、queueing latency；
-- 三种方案的最终 sum 是否一致。
+完成实验矩阵、架构图、算法伪代码、理论通信量、实测结果、失败场景、限制说明和可复现实验命令，最终报告与代码状态保持一致。
 
-### Stage 5/6 — Stretch and report
+### Current acceptance boundary
 
-至少选择一项 stretch（多 flit/vector reduction、多个 collective、独立 multicast、bypass/express link 或更大规模实验），并补齐架构图、理论通信量、实测数据、限制说明和展示材料。
+Scalar 阶段的详细逐项验收见 `Lab4_project/scalar.md`。目前 Phase 1 已完成，Phase 2 已基本完成，Phase 3 尚未完成；Phase 4--6 尚未作为完成项声明。
 
 ## 6. Reproduction
 
@@ -151,7 +143,7 @@ auto_env=/volume/haru/cxiao03/work/env-gem5
 
 ## 7. Development constraints
 
-- Stage 1 通过之前不扩展到并发 collective、vector reduction、adaptive routing、bypass 或性能优化；
+- 只有 scalar correctness 和稳定性验收通过后，才进入 tensor、multicast 性能、bypass 或其他 stretch；
 - 每次协议改动都要保留独立正确性测试；
 - `lab4_smoke.log` 和 `m5out_lab4_smoke/` 是运行产物，不应作为源码提交；
 - 性能比较必须包含完整 reduce + broadcast 流程；
@@ -175,7 +167,7 @@ auto_env=/volume/haru/cxiao03/work/env-gem5
 
 ### 9.2 Current status and next blocker
 
-Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×2、root=0、100 轮串行 collective 测试：仿真正常结束，`TEST_RC=0`，没有 hang 或断言失败。3×3、root=0/4/8 的单轮测试以及 root=4 的 100 轮测试也已通过。下一步是建立公平 baseline，并继续覆盖 4×4 的多轮和性能统计。
+Phase 1 已通过，Phase 2 已基本完成：已增加 `--collective-rounds`，完成 2×2 root=0 的 100 轮测试、3×3 root=0/4/8 单轮测试、3×3 root=4 的 100 轮测试，以及 4×4 多 root 单轮测试。当前下一步是补齐多轮矩阵并建立公平 baseline。
 
 ### 9.3 Build pitfalls and recovery
 
@@ -197,5 +189,6 @@ Stage 1 已通过。已增加 `--collective-rounds` 轮次控制，并完成 2×
 
 ### 9.5 Remaining minimum-work items
 
-1. 扩展到其他 root/规模，并覆盖 3×3、4×4 的正确性和稳定性；
-2. 实现 naive/ring/tree 的统一 baseline 统计。
+1. 补齐 3×3/4×4 多 root 的更大轮次 scalar 验收；
+2. 实现 naive/ring/tree 的统一 baseline 统计；
+3. 再进入 tensor chunks、multicast 性能和 bypass。
