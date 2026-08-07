@@ -330,6 +330,7 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
     getInputUnit(inport)->increment_credit(t_flit->get_vc(), true, curTick());
 
     if (m_collective_count == m_collective_expected_fanin) {
+        m_network_ptr->recordCollectiveReduceMerge();
         const int64_t sum = m_collective_accum;
         if (m_collective_root) {
             // Include the root's local NI and every child in the broadcast.

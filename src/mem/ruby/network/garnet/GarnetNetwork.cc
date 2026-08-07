@@ -442,6 +442,23 @@ GarnetNetwork::regStats()
 {
     Network::regStats();
 
+    m_collective_rounds_completed
+        .name(name() + ".collective_rounds_completed");
+    m_collective_deliveries
+        .name(name() + ".collective_deliveries");
+    m_collective_source_flits
+        .name(name() + ".collective_source_flits");
+    m_collective_router_flits
+        .name(name() + ".collective_router_flits");
+    m_collective_reduce_merges
+        .name(name() + ".collective_reduce_merges");
+    m_collective_completion_ticks
+        .name(name() + ".collective_completion_ticks");
+    m_average_collective_completion_ticks
+        .name(name() + ".average_collective_completion_ticks");
+    m_average_collective_completion_ticks =
+        m_collective_completion_ticks / m_collective_rounds_completed;
+
     // Packets
     m_packets_received
         .init(m_virtual_networks)
