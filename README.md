@@ -182,6 +182,8 @@ LD_LIBRARY_PATH=/path/to/python/lib \
 - `tests/gem5/lab4/README.md`：回归使用说明。
 - `multicast.md`：multicast contract、实现阶段与完成状态。
 - `bypass.md`：bypass baseline、架构、验收和性能实验规划。
+- `TENSOR_ALLREDUCE_HANDOFF.md`：面向下一位合作者的 tensor all-reduce
+  目标、当前基线、代码入口和 H0--H6 严格验收计划。
 
 ## 9. Current status (2026-08-07)
 
