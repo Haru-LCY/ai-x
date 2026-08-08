@@ -168,6 +168,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--collective-tensor",
+    action="store_true",
+    help="enable Lab4 tensor (multi-flit) in-network all-reduce",
+)
+
+parser.add_argument(
     "--num-packets-max",
     type=int,
     default=-1,
@@ -281,6 +287,8 @@ else:
 multicast_replay_release_cycles = []
 multicast_replay_packet_flits = []
 all_reduce_replay_release_cycles = []
+all_reduce_tensor_replay_release_cycles = []
+all_reduce_tensor_replay_lane_counts = []
 if args.multicast_replay_file:
     if not multicast_requested:
         parser.error("--multicast-replay-file requires --multicast-mode")
@@ -332,37 +340,75 @@ if args.all_reduce_replay_file:
     except (OSError, ValueError) as error:
         parser.error(f"cannot read all-reduce replay: {error}")
     if replay.get("schema") != "lab4.garnet_allreduce_replay.v1":
-        parser.error("all-reduce replay has an unsupported schema")
-    if replay.get("world_size") != args.num_cpus:
-        parser.error("all-reduce replay world_size must equal --num-cpus")
-    rank_map = replay.get("rank_to_router")
-    if sorted(rank_map or []) != list(range(args.num_cpus)):
-        parser.error("all-reduce replay must map exactly onto all Mesh Routers")
-    requests = replay.get("requests", [])
-    if not requests:
-        parser.error("all-reduce replay contains no requests")
-    root = replay.get("reduction_root_router")
-    if not isinstance(root, int) or not 0 <= root < args.num_cpus:
-        parser.error("all-reduce replay root lies outside the Mesh")
-    args.collective_root = root
-    previous_release = -1
-    for request in requests:
-        if request.get("operation") != "all_reduce":
-            parser.error("all-reduce replay contains a non-all_reduce request")
-        release = request.get("release_cycle")
-        lanes = request.get("lane_rounds")
-        if (not isinstance(release, int) or release < previous_release or
-                not isinstance(lanes, int) or lanes < 1):
-            parser.error("all-reduce replay has invalid release/lane metadata")
-        if request.get("reduction_root_router") != root:
-            parser.error("all-reduce replay request root mismatch")
-        if request.get("participant_routers") != list(range(args.num_cpus)):
-            parser.error("all-reduce replay request must include every Router")
-        all_reduce_replay_release_cycles.extend([release] * lanes)
-        previous_release = release
-    if replay.get("total_lane_rounds") != len(all_reduce_replay_release_cycles):
-        parser.error("all-reduce replay total_lane_rounds mismatch")
-    args.collective_rounds = len(all_reduce_replay_release_cycles)
+        if replay.get("schema") != "lab4.garnet_tensor_allreduce_replay.v1":
+            parser.error("all-reduce replay has an unsupported schema")
+        if not args.collective_tensor:
+            parser.error("tensor all-reduce replay requires --collective-tensor")
+        if replay.get("world_size") != args.num_cpus:
+            parser.error("all-reduce replay world_size must equal --num-cpus")
+        rank_map = replay.get("rank_to_router")
+        if sorted(rank_map or []) != list(range(args.num_cpus)):
+            parser.error("all-reduce replay must map exactly onto all Mesh Routers")
+        requests = replay.get("requests", [])
+        if not requests:
+            parser.error("all-reduce replay contains no requests")
+        root = replay.get("reduction_root_router")
+        if not isinstance(root, int) or not 0 <= root < args.num_cpus:
+            parser.error("all-reduce replay root lies outside the Mesh")
+        args.collective_root = root
+        previous_release = -1
+        for request in requests:
+            if request.get("operation") != "all_reduce":
+                parser.error("all-reduce replay contains a non-all_reduce request")
+            release = request.get("release_cycle")
+            lanes = request.get("tensor_flits")
+            if (not isinstance(release, int) or release < previous_release or
+                    not isinstance(lanes, int) or lanes < 1):
+                parser.error("all-reduce replay has invalid release/lane metadata")
+            if request.get("reduction_root_router") != root:
+                parser.error("all-reduce replay request root mismatch")
+            if request.get("participant_routers") != list(range(args.num_cpus)):
+                parser.error("all-reduce replay request must include every Router")
+            all_reduce_tensor_replay_release_cycles.append(release)
+            all_reduce_tensor_replay_lane_counts.append(lanes)
+            previous_release = release
+        if replay.get("total_tensor_flits") != sum(
+                all_reduce_tensor_replay_lane_counts):
+            parser.error("all-reduce replay total_tensor_flits mismatch")
+        args.collective_rounds = len(all_reduce_tensor_replay_release_cycles)
+    else:
+        if args.collective_tensor:
+            parser.error("--collective-tensor requires a tensor replay file")
+        if replay.get("world_size") != args.num_cpus:
+            parser.error("all-reduce replay world_size must equal --num-cpus")
+        rank_map = replay.get("rank_to_router")
+        if sorted(rank_map or []) != list(range(args.num_cpus)):
+            parser.error("all-reduce replay must map exactly onto all Mesh Routers")
+        requests = replay.get("requests", [])
+        if not requests:
+            parser.error("all-reduce replay contains no requests")
+        root = replay.get("reduction_root_router")
+        if not isinstance(root, int) or not 0 <= root < args.num_cpus:
+            parser.error("all-reduce replay root lies outside the Mesh")
+        args.collective_root = root
+        previous_release = -1
+        for request in requests:
+            if request.get("operation") != "all_reduce":
+                parser.error("all-reduce replay contains a non-all_reduce request")
+            release = request.get("release_cycle")
+            lanes = request.get("lane_rounds")
+            if (not isinstance(release, int) or release < previous_release or
+                    not isinstance(lanes, int) or lanes < 1):
+                parser.error("all-reduce replay has invalid release/lane metadata")
+            if request.get("reduction_root_router") != root:
+                parser.error("all-reduce replay request root mismatch")
+            if request.get("participant_routers") != list(range(args.num_cpus)):
+                parser.error("all-reduce replay request must include every Router")
+            all_reduce_replay_release_cycles.extend([release] * lanes)
+            previous_release = release
+        if replay.get("total_lane_rounds") != len(all_reduce_replay_release_cycles):
+            parser.error("all-reduce replay total_lane_rounds mismatch")
+        args.collective_rounds = len(all_reduce_replay_release_cycles)
 
 collective_requested = args.lab4_all_reduce or multicast_requested
 if collective_requested and source_destinations:
@@ -450,6 +496,14 @@ for i in range(args.num_cpus):
         all_reduce_replay_release_cycles=(
             all_reduce_replay_release_cycles if args.lab4_all_reduce else []
         ),
+        all_reduce_tensor_replay_release_cycles=(
+            all_reduce_tensor_replay_release_cycles
+            if args.lab4_all_reduce else []
+        ),
+        all_reduce_tensor_replay_lane_counts=(
+            all_reduce_tensor_replay_lane_counts
+            if args.lab4_all_reduce else []
+        ),
         random_seed=(
             args.multicast_seed if multicast_requested else args.synthetic_seed
         ),
@@ -472,6 +526,7 @@ Ruby.create_system(args, False, system)
 if collective_requested:
     system.ruby.network.collective_mode = True
     system.ruby.network.collective_multicast = multicast_requested
+    system.ruby.network.collective_tensor = args.collective_tensor
     system.ruby.network.collective_rounds = args.collective_rounds
     system.ruby.network.multicast_mode = args.multicast_mode or "none"
     system.ruby.network.multicast_source = (

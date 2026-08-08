@@ -180,8 +180,15 @@ NetworkInterface::incrementStats(flit *t_flit)
 
     if (m_net_ptr->collectiveMode() && t_flit->get_collective_id() >= 0) {
         const int n = m_net_ptr->getNumRouters();
-        const int64_t expected = m_net_ptr->collectiveMulticast() ? 1 :
-            (int64_t)n * (n + 1) / 2;
+        int64_t expected;
+        if (m_net_ptr->collectiveMulticast()) {
+            expected = 1;
+        } else if (m_net_ptr->collectiveTensor()) {
+            expected = (int64_t)1000 * n * (n + 1) / 2 +
+                       (int64_t)n * t_flit->get_lane_id();
+        } else {
+            expected = (int64_t)n * (n + 1) / 2;
+        }
         DPRINTF(RubyNetwork,
                 "Lab4 eject: round=%d dest_ni=%d value=%ld expected=%ld "
                 "reduce=%d\n", t_flit->get_collective_id(),
@@ -200,7 +207,8 @@ NetworkInterface::incrementStats(flit *t_flit)
             t_flit->get_type() == HEAD_TAIL_) {
             m_net_ptr->recordCollectiveDelivery(
                 t_flit->get_collective_id(),
-                t_flit->get_route().dest_router);
+                t_flit->get_route().dest_router,
+                t_flit->get_lane_id());
         }
     } else {
         // Legacy smoke check: ordinary traffic preserves its source value.
@@ -436,8 +444,11 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         num_flits = m_net_ptr->syntheticPacketFlits();
     if (collective_message && m_net_ptr->collectiveMulticast())
         num_flits = m_net_ptr->multicastPacketFlits();
+    if (collective_message && m_net_ptr->collectiveTensor())
+        num_flits = m_net_ptr->multicastPacketFlits();
     fatal_if(collective_message &&
-             !m_net_ptr->collectiveMulticast() && num_flits != 1,
+             !m_net_ptr->collectiveMulticast() &&
+             !m_net_ptr->collectiveTensor() && num_flits != 1,
              "Lab4 scalar collective at NI %d requires one flit, got %d "
              "on vnet %d", m_id, num_flits, vnet);
 
@@ -514,11 +525,23 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
 
             fl->set_src_delay(curTick() - msg_ptr->getTime());
             if (collective_message) {
-                // Stage 1 collective contribution is f(src) = src_ni + 1,
-                // so an N-node run has the deterministic expected sum
-                // N * (N + 1) / 2. Ordinary smoke traffic keeps src_ni.
-                fl->set_value(m_net_ptr->collectiveMulticast() ? 1 :
-                              route.src_ni + 1);
+                // Stage 1 collective contribution:
+                //  scalar:  f(src) = src_ni + 1
+                //  tensor:  f(src, lane) = (src_ni + 1) * 1000 + lane
+                // so an N-node run has the deterministic expected lane sum
+                // 1000 * N * (N + 1) / 2 + N * lane.
+                int64_t value;
+                int lane = -1;
+                if (m_net_ptr->collectiveMulticast()) {
+                    value = 1;
+                } else if (m_net_ptr->collectiveTensor()) {
+                    lane = m_net_ptr->collectivePacketLaneStart() + i;
+                    value = (int64_t)(route.src_ni + 1) * 1000 + lane;
+                } else {
+                    value = route.src_ni + 1;
+                }
+                fl->set_value(value);
+                fl->set_lane_id(lane);
                 fl->set_collective_id(collective_id);
                 if (m_net_ptr->naiveMulticast()) {
                     fl->set_collective_op(CollectiveOp::MulticastUnicast);

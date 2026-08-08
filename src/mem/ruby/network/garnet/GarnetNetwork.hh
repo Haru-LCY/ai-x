@@ -33,6 +33,8 @@
 #define __MEM_RUBY_NETWORK_GARNET_0_GARNETNETWORK_HH__
 
 #include <iostream>
+#include <set>
+#include <utility>
 #include <vector>
 
 #include "mem/ruby/network/Network.hh"
@@ -90,6 +92,7 @@ class GarnetNetwork : public Network
     }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
+    bool collectiveTensor() const { return m_collective_tensor; }
     bool collectiveTraffic(int vnet, int source_router) const
     {
         return m_collective_mode && vnet == m_collective_vnet &&
@@ -109,6 +112,16 @@ class GarnetNetwork : public Network
     }
     int multicastDestinationCount() const { return m_multicast_destination_count; }
     int multicastPacketFlits() const { return m_multicast_packet_flits; }
+    int collectivePacketLaneStart() const
+    {
+        return m_collective_packet_lane_start;
+    }
+    void setCollectivePacketLaneStart(int start)
+    {
+        fatal_if(start < 0,
+                 "Collective packet lane start must be non-negative");
+        m_collective_packet_lane_start = start;
+    }
     void setMulticastPacketFlits(int flits)
     {
         fatal_if(flits < 1, "Multicast packet must contain at least one flit");
@@ -199,7 +212,9 @@ class GarnetNetwork : public Network
 
     void update_traffic_distribution(RouteInfo route);
     int getNextPacketID() { return m_next_packet_id++; }
-    void recordCollectiveDelivery(int collective_id, int dest_router);
+    void recordCollectiveDelivery(int collective_id, int dest_router,
+                                  int lane = -1);
+    void setCollectiveRoundTensorLanes(int collective_id, int lanes);
     void beginCollectiveRound(int collective_id);
     void recordMulticastLocalDelivery(int collective_id);
     void recordCollectiveInjection(int collective_id, int source_flits = 1);
@@ -229,10 +244,12 @@ class GarnetNetwork : public Network
     int m_synthetic_packet_flits;
     bool m_collective_mode;
     bool m_collective_multicast;
+    bool m_collective_tensor;
     int m_collective_rounds;
     std::string m_multicast_mode;
     int m_multicast_source;
     int m_multicast_packet_flits;
+    int m_collective_packet_lane_start = 0;
     int m_collective_vnet;
     std::string m_multicast_workload;
     int m_multicast_max_outstanding;
@@ -290,6 +307,11 @@ class GarnetNetwork : public Network
     statistics::Scalar m_collective_reduce_merges;
     statistics::Scalar m_collective_completion_ticks;
     statistics::Formula m_average_collective_completion_ticks;
+    statistics::Scalar m_collective_tensor_requests_completed;
+    statistics::Scalar m_collective_tensor_lanes_delivered;
+    statistics::Scalar m_collective_tensor_p50_completion_ticks;
+    statistics::Scalar m_collective_tensor_p95_completion_ticks;
+    statistics::Scalar m_collective_tensor_p99_completion_ticks;
     statistics::Scalar m_multicast_logical_requests;
     statistics::Scalar m_multicast_physical_packets;
     statistics::Scalar m_multicast_internal_link_flits;
@@ -328,6 +350,10 @@ class GarnetNetwork : public Network
         Tick start_tick = 0;
         int delivery_count = 0;
         std::vector<bool> delivered;
+        // Lab4 tensor all-reduce: per-(dest, lane) delivery tracking.
+        int tensor_lanes = 0;
+        int tensor_deliveries = 0;
+        std::set<std::pair<int, int>> tensor_delivered;
     };
     std::vector<CollectiveRoundState> m_collective_round_states;
     int m_collective_next_injection_id = 0;
@@ -342,6 +368,7 @@ class GarnetNetwork : public Network
     Tick m_multicast_measurement_first_injection_tick = 0;
     Tick m_multicast_measurement_last_completion_tick = 0;
     std::vector<Tick> m_multicast_measured_latencies;
+    std::vector<Tick> m_tensor_request_latencies;
 
     bool
     isMeasurementRound(int collective_id) const

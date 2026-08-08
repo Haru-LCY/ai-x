@@ -91,6 +91,7 @@ flit::serialize(int ser_id, int parts, uint32_t bWidth)
     fl->set_value(m_value);
     fl->set_collective_id(m_collective_id);
     fl->set_collective_op(m_collective_op);
+    fl->set_lane_id(m_lane_id);
     fl->set_multicast_destinations(m_multicast_destinations);
     return fl;
 }
@@ -111,6 +112,7 @@ flit::deserialize(int des_id, int num_flits, uint32_t bWidth)
     fl->set_value(m_value);
     fl->set_collective_id(m_collective_id);
     fl->set_collective_op(m_collective_op);
+    fl->set_lane_id(m_lane_id);
     fl->set_multicast_destinations(m_multicast_destinations);
     return fl;
 }

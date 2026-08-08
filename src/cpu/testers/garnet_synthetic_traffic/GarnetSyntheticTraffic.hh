@@ -151,6 +151,8 @@ class GarnetSyntheticTraffic : public ClockedObject
     std::vector<int> multicastReplayReleaseCycles;
     std::vector<int> multicastReplayPacketFlits;
     std::vector<int> allReduceReplayReleaseCycles;
+    std::vector<int> allReduceTensorReplayReleaseCycles;
+    std::vector<int> allReduceTensorReplayLaneCounts;
     Cycles nextMulticastInjectionCycle;
 
     std::string trafficType; // string
@@ -186,14 +188,22 @@ class GarnetSyntheticTraffic : public ClockedObject
     {
         return !allReduceReplayReleaseCycles.empty();
     }
+    bool allReduceTensorReplayEnabled() const
+    {
+        return !allReduceTensorReplayReleaseCycles.empty();
+    }
     bool replayEnabled() const
     {
-        return multicastReplayEnabled() || allReduceReplayEnabled();
+        return multicastReplayEnabled() || allReduceReplayEnabled() ||
+               allReduceTensorReplayEnabled();
     }
     int replayReleaseCycle(int round) const
     {
-        return multicastReplayEnabled() ? multicastReplayReleaseCycles[round] :
-                                          allReduceReplayReleaseCycles[round];
+        if (multicastReplayEnabled())
+            return multicastReplayReleaseCycles[round];
+        if (allReduceTensorReplayEnabled())
+            return allReduceTensorReplayReleaseCycles[round];
+        return allReduceReplayReleaseCycles[round];
     }
 
     friend class MemCompleteEvent;

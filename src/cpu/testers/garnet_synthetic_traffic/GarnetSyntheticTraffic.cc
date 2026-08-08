@@ -105,6 +105,10 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       multicastReplayReleaseCycles(p.multicast_replay_release_cycles),
       multicastReplayPacketFlits(p.multicast_replay_packet_flits),
       allReduceReplayReleaseCycles(p.all_reduce_replay_release_cycles),
+      allReduceTensorReplayReleaseCycles(
+          p.all_reduce_tensor_replay_release_cycles),
+      allReduceTensorReplayLaneCounts(
+          p.all_reduce_tensor_replay_lane_counts),
       nextMulticastInjectionCycle(0),
       trafficType(p.traffic_type),
       injRate(p.inj_rate),
@@ -137,9 +141,18 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
              "All-reduce replay requires all-reduce mode");
     fatal_if(multicastReplayEnabled() && allReduceReplayEnabled(),
              "Multicast and all-reduce replay cannot be combined");
+    fatal_if(allReduceTensorReplayEnabled() && collectiveMulticast,
+             "Tensor all-reduce replay requires all-reduce mode");
+    fatal_if(allReduceTensorReplayEnabled() &&
+             (allReduceReplayEnabled() || multicastReplayEnabled()),
+             "Tensor replay cannot be combined with scalar/multicast replay");
     fatal_if(allReduceReplayEnabled() &&
              allReduceReplayReleaseCycles.size() != collectiveRounds,
              "All-reduce replay release vector differs from round count");
+    fatal_if(allReduceTensorReplayEnabled() &&
+             (allReduceTensorReplayReleaseCycles.size() != collectiveRounds ||
+              allReduceTensorReplayLaneCounts.size() != collectiveRounds),
+             "Tensor all-reduce replay vectors differ from round count");
     if (multicastReplayEnabled()) {
         fatal_if(multicastReplayReleaseCycles.front() < 0,
                  "Multicast replay release cycle must be non-negative");
@@ -159,6 +172,19 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
             fatal_if(allReduceReplayReleaseCycles[i] <
                          allReduceReplayReleaseCycles[i - 1],
                      "All-reduce replay release cycles must be monotonic");
+    }
+    if (allReduceTensorReplayEnabled()) {
+        fatal_if(allReduceTensorReplayReleaseCycles.front() < 0,
+                 "Tensor all-reduce replay release cycle must be "
+                 "non-negative");
+        for (size_t i = 0; i < allReduceTensorReplayLaneCounts.size(); ++i) {
+            fatal_if(allReduceTensorReplayLaneCounts[i] < 1,
+                     "Tensor all-reduce replay lane count must be positive");
+            if (i > 0)
+                fatal_if(allReduceTensorReplayReleaseCycles[i] <
+                         allReduceTensorReplayReleaseCycles[i - 1],
+                         "Tensor replay release cycles must be monotonic");
+        }
     }
     fatal_if(multicastMode == "naive_unicast" &&
              multicastDestinations.empty(),
@@ -304,6 +330,14 @@ GarnetSyntheticTraffic::tick()
             if (multicastReplayEnabled()) {
                 collectiveNetwork->setMulticastPacketFlits(
                     multicastReplayPacketFlits[collectiveRound]);
+            }
+            if (allReduceTensorReplayEnabled()) {
+                collectiveNetwork->setCollectiveRoundTensorLanes(
+                    collectiveRound,
+                    allReduceTensorReplayLaneCounts[collectiveRound]);
+                collectiveNetwork->setMulticastPacketFlits(
+                    allReduceTensorReplayLaneCounts[collectiveRound]);
+                collectiveNetwork->setCollectivePacketLaneStart(0);
             }
             generatePkt();
             ++collectiveRound;

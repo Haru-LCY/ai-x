@@ -105,6 +105,12 @@ class GarnetSyntheticTraffic(ClockedObject):
     all_reduce_replay_release_cycles = VectorParam.Int(
         [], "optional per-lane all-reduce replay release cycles"
     )
+    all_reduce_tensor_replay_release_cycles = VectorParam.Int(
+        [], "optional per-request tensor all-reduce replay release cycles"
+    )
+    all_reduce_tensor_replay_lane_counts = VectorParam.Int(
+        [], "optional per-request tensor all-reduce lane counts"
+    )
     random_seed = Param.Unsigned(1, "per-tester deterministic random seed")
     hotspot_destination = Param.Int(0, "synthetic hotspot destination")
     hotspot_probability = Param.Float(0.5, "probability of hotspot traffic")
