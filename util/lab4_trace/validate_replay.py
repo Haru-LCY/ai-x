@@ -9,7 +9,11 @@ import json
 import math
 from pathlib import Path
 
-from trace_schema import ALLREDUCE_REPLAY_SCHEMA, REPLAY_SCHEMA
+from trace_schema import (
+    ALLREDUCE_REPLAY_SCHEMA,
+    REPLAY_SCHEMA,
+    TENSOR_ALLREDUCE_REPLAY_SCHEMA,
+)
 
 
 class ReplayValidationError(ValueError):
@@ -155,6 +159,138 @@ def validate_allreduce_replay(replay):
     return dict(replay)
 
 
+def validate_tensor_allreduce_replay(replay):
+    """Validate the tensor (multi-flit) all-reduce replay contract.
+
+    A logical all-reduce event is one request carrying tensor_flits lanes,
+    split into chunks. Each flit is one 64-bit reduction lane, so every chunk
+    payload must be a whole number of flits. Chunks must exactly tile the
+    tensor (contiguous lane_start, payloads summing to scaled_event_bytes).
+    """
+
+    _require(isinstance(replay, dict), "replay root must be an object")
+    _require(
+        replay.get("schema") == TENSOR_ALLREDUCE_REPLAY_SCHEMA,
+        f"schema must be {TENSOR_ALLREDUCE_REPLAY_SCHEMA}",
+    )
+    world_size = replay.get("world_size")
+    _require(isinstance(world_size, int) and world_size > 1,
+             "world_size must be an integer greater than one")
+    flit_bytes = replay.get("flit_bytes")
+    _require(isinstance(flit_bytes, int) and flit_bytes > 0,
+             "flit_bytes must be positive")
+    chunk_bytes = replay.get("chunk_bytes")
+    _require(isinstance(chunk_bytes, int) and chunk_bytes > 0,
+             "chunk_bytes must be positive")
+    _require(chunk_bytes % flit_bytes == 0,
+             "chunk_bytes must be a multiple of flit_bytes")
+    for field in ("byte_scale", "time_scale"):
+        value = replay.get(field)
+        _require(isinstance(value, (int, float)) and 0 < value <= 1,
+                 f"{field} must be in (0, 1]")
+    rank_map = replay.get("rank_to_router")
+    _require(isinstance(rank_map, list) and len(rank_map) == world_size,
+             "rank_to_router must contain one entry per rank")
+    _require(all(isinstance(router, int) and router >= 0 for router in rank_map),
+             "rank_to_router must contain non-negative integers")
+    _require(len(set(rank_map)) == len(rank_map),
+             "rank_to_router must contain distinct Router ids")
+    root = replay.get("reduction_root_router")
+    _require(root in rank_map, "reduction_root_router must be a mapped Router")
+    requests = replay.get("requests")
+    _require(isinstance(requests, list) and requests,
+             "requests must be a nonempty list")
+    _require(replay.get("request_count") == len(requests),
+             "request_count does not match requests length")
+
+    identifiers = set()
+    chunk_ids = set()
+    previous_release = -1
+    total_bytes = 0
+    total_flits = 0
+    total_chunks = 0
+    expected_participants = sorted(rank_map)
+    for index, request in enumerate(requests):
+        prefix = f"request[{index}]"
+        identifier = request.get("id")
+        _require(isinstance(identifier, str) and identifier,
+                 f"{prefix}.id must be nonempty")
+        _require(identifier not in identifiers, f"duplicate request id {identifier}")
+        identifiers.add(identifier)
+        _require(request.get("operation") == "all_reduce",
+                 f"{prefix}.operation must be all_reduce")
+        _require(request.get("participant_routers") == expected_participants,
+                 f"{prefix}.participant_routers must contain the full mapped world")
+        _require(request.get("reduction_root_router") == root,
+                 f"{prefix}.reduction_root_router differs from replay root")
+        release = request.get("release_cycle")
+        _require(isinstance(release, int) and release >= previous_release,
+                 f"{prefix}.release_cycle must be non-negative and monotonic")
+        previous_release = release
+        scaled_bytes = request.get("scaled_event_bytes")
+        tensor_flits = request.get("tensor_flits")
+        _require(isinstance(scaled_bytes, int) and scaled_bytes > 0,
+                 f"{prefix}.scaled_event_bytes must be positive")
+        _require(scaled_bytes % flit_bytes == 0,
+                 f"{prefix}.scaled_event_bytes must be a whole number of flits")
+        _require(tensor_flits == scaled_bytes // flit_bytes,
+                 f"{prefix}.tensor_flits does not match scaled bytes")
+        chunks = request.get("chunks")
+        _require(isinstance(chunks, list) and chunks,
+                 f"{prefix}.chunks must be a nonempty list")
+        expected_lane_start = 0
+        chunk_bytes_sum = 0
+        chunk_lanes = 0
+        for chunk_index, chunk in enumerate(chunks):
+            chunk_prefix = f"{prefix}.chunks[{chunk_index}]"
+            chunk_id = chunk.get("chunk_id")
+            _require(isinstance(chunk_id, str) and chunk_id,
+                     f"{chunk_prefix}.chunk_id must be nonempty")
+            _require(chunk_id not in chunk_ids,
+                     f"duplicate chunk id {chunk_id}")
+            chunk_ids.add(chunk_id)
+            payload = chunk.get("payload_bytes")
+            packet_flits = chunk.get("packet_flits")
+            lane_start = chunk.get("lane_start")
+            lane_count = chunk.get("lane_count")
+            _require(isinstance(payload, int) and payload > 0,
+                     f"{chunk_prefix}.payload_bytes must be positive")
+            _require(payload % flit_bytes == 0,
+                     f"{chunk_prefix}.payload_bytes is not a whole number of flits")
+            _require(payload <= chunk_bytes,
+                     f"{chunk_prefix}.payload_bytes exceeds chunk_bytes")
+            _require(packet_flits == payload // flit_bytes,
+                     f"{chunk_prefix}.packet_flits does not match payload_bytes")
+            _require(isinstance(lane_start, int) and lane_start >= 0,
+                     f"{chunk_prefix}.lane_start must be non-negative")
+            _require(lane_start == expected_lane_start,
+                     f"{chunk_prefix}.lane_start is not contiguous")
+            _require(lane_count == packet_flits,
+                     f"{chunk_prefix}.lane_count must equal packet_flits")
+            expected_lane_start += lane_count
+            chunk_bytes_sum += payload
+            chunk_lanes += lane_count
+        _require(chunk_bytes_sum == scaled_bytes,
+                 f"{prefix}.chunks do not cover scaled_event_bytes")
+        _require(chunk_lanes == tensor_flits,
+                 f"{prefix}.chunk lanes do not match tensor_flits")
+        total_bytes += scaled_bytes
+        total_flits += tensor_flits
+        total_chunks += len(chunks)
+
+    _require(replay.get("total_tensor_bytes") == total_bytes,
+             "total_tensor_bytes does not match requests")
+    _require(replay.get("total_tensor_flits") == total_flits,
+             "total_tensor_flits does not match requests")
+    _require(replay.get("total_chunk_count") == total_chunks,
+             "total_chunk_count does not match requests")
+    _require(
+        replay.get("total_contribution_flits") == total_flits * world_size,
+        "total_contribution_flits does not match tensor_flits * world_size",
+    )
+    return dict(replay)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("replay", type=Path)
@@ -162,9 +298,12 @@ def main():
     try:
         with args.replay.open(encoding="utf-8") as handle:
             raw = json.load(handle)
-            replay = (validate_allreduce_replay(raw)
-                      if raw.get("schema") == ALLREDUCE_REPLAY_SCHEMA
-                      else validate_replay(raw))
+            if raw.get("schema") == TENSOR_ALLREDUCE_REPLAY_SCHEMA:
+                replay = validate_tensor_allreduce_replay(raw)
+            elif raw.get("schema") == ALLREDUCE_REPLAY_SCHEMA:
+                replay = validate_allreduce_replay(raw)
+            else:
+                replay = validate_replay(raw)
     except (OSError, json.JSONDecodeError, ReplayValidationError) as error:
         print(f"FAIL: {error}")
         return 1

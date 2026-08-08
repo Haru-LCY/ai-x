@@ -11,6 +11,7 @@ from pathlib import Path
 TRACE_SCHEMA = "lab4.ai_collective_trace.v1"
 REPLAY_SCHEMA = "lab4.garnet_collective_replay.v1"
 ALLREDUCE_REPLAY_SCHEMA = "lab4.garnet_allreduce_replay.v1"
+TENSOR_ALLREDUCE_REPLAY_SCHEMA = "lab4.garnet_tensor_allreduce_replay.v1"
 SUPPORTED_OPERATIONS = {
     "all_gather",
     "all_reduce",
