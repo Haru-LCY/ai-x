@@ -107,6 +107,7 @@ class Router : public BasicRouter, public Consumer
     {
         return m_collective_expected_fanin;
     }
+    size_t collectivePeakLanes() const { return m_collective_peak_lanes; }
 
     void init_net_ptr(GarnetNetwork* net_ptr)
     {
@@ -139,6 +140,9 @@ class Router : public BasicRouter, public Consumer
     void schedule_wakeup(Cycles time);
     // Lab4: consume one reduction flit and update the local tree state.
     void handleCollectiveFlit(flit *t_flit, int inport);
+    void forwardCollectiveLane(int64_t value, int lane, CollectiveOp op,
+                               int dest_router, flit *template_flit);
+    void flushPendingCollectiveForwards();
 
     std::string getPortDirectionName(PortDirection direction);
     void printFaultVector(std::ostream& out);
@@ -185,7 +189,15 @@ class Router : public BasicRouter, public Consumer
         uint32_t count = 0;
     };
     std::map<std::pair<int, int>, CollectiveLaneState> m_collective_lanes;
-    int m_collective_active_request = -1;
+    size_t m_collective_peak_lanes = 0;
+
+    // Backpressure-safe forwarding: completed reduce/broadcast lanes wait in
+    // this queue until their destination output port has a free VC.
+    struct PendingCollectiveForward
+    {
+        flit *forward_flit;
+    };
+    std::deque<PendingCollectiveForward> m_pending_collective_forwards;
 
     struct MulticastBranch
     {

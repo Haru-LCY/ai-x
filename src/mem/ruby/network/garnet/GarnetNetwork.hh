@@ -220,6 +220,7 @@ class GarnetNetwork : public Network
     void recordCollectiveInjection(int collective_id, int source_flits = 1);
     void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
     void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
+    void recordCollectiveCreditStall() { ++m_collective_credit_stalls; }
     void recordMulticastInternalLinkFlit(int collective_id);
     void recordMulticastCreditStall() { ++m_multicast_credit_stalls; }
     void recordMulticastReplication(int fanout)
@@ -312,6 +313,9 @@ class GarnetNetwork : public Network
     statistics::Scalar m_collective_tensor_p50_completion_ticks;
     statistics::Scalar m_collective_tensor_p95_completion_ticks;
     statistics::Scalar m_collective_tensor_p99_completion_ticks;
+    statistics::Scalar m_collective_credit_stalls;
+    statistics::Scalar m_collective_tensor_peak_lanes;
+    statistics::Scalar m_collective_tensor_measurement_ticks;
     statistics::Scalar m_multicast_logical_requests;
     statistics::Scalar m_multicast_physical_packets;
     statistics::Scalar m_multicast_internal_link_flits;
@@ -369,6 +373,8 @@ class GarnetNetwork : public Network
     Tick m_multicast_measurement_last_completion_tick = 0;
     std::vector<Tick> m_multicast_measured_latencies;
     std::vector<Tick> m_tensor_request_latencies;
+    Tick m_tensor_first_injection_tick = 0;
+    Tick m_tensor_last_completion_tick = 0;
 
     bool
     isMeasurementRound(int collective_id) const

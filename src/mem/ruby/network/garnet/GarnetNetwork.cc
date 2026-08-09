@@ -356,6 +356,14 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router,
                     m_collective_tensor_p99_completion_ticks =
                         percentile(99);
                 }
+                m_tensor_last_completion_tick = curTick();
+                m_collective_tensor_measurement_ticks =
+                    m_tensor_last_completion_tick -
+                    m_tensor_first_injection_tick;
+                size_t peak = 0;
+                for (const auto* router : m_routers)
+                    peak = std::max(peak, router->collectivePeakLanes());
+                m_collective_tensor_peak_lanes = peak;
                 exitSimLoop("Lab4 collective completed");
             }
         }
@@ -452,6 +460,8 @@ GarnetNetwork::beginCollectiveRound(int collective_id)
     ++m_collective_active_rounds;
     if (m_collective_next_injection_id == 1)
         m_multicast_first_injection_tick = curTick();
+    if (m_collective_tensor && collective_id == 0)
+        m_tensor_first_injection_tick = curTick();
     if (collective_id == m_multicast_warmup_rounds)
         m_multicast_measurement_first_injection_tick = curTick();
     if (m_collective_multicast)
@@ -780,6 +790,12 @@ GarnetNetwork::regStats()
         .name(name() + ".collective_tensor_p95_completion_ticks");
     m_collective_tensor_p99_completion_ticks
         .name(name() + ".collective_tensor_p99_completion_ticks");
+    m_collective_credit_stalls
+        .name(name() + ".collective_credit_stalls");
+    m_collective_tensor_peak_lanes
+        .name(name() + ".collective_tensor_peak_lanes");
+    m_collective_tensor_measurement_ticks
+        .name(name() + ".collective_tensor_measurement_ticks");
     m_multicast_logical_requests
         .name(name() + ".multicast_logical_requests");
     m_multicast_physical_packets
