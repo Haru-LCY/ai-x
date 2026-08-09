@@ -88,6 +88,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
              "Bypass first-hop destination/name vectors differ");
     m_collective_mode = p.collective_mode;
     m_collective_multicast = p.collective_multicast;
+    m_collective_tensor = p.collective_tensor;
     m_collective_rounds = p.collective_rounds;
     m_multicast_mode = p.multicast_mode;
     m_multicast_source = p.multicast_source;
@@ -185,6 +186,15 @@ GarnetNetwork::recordMulticastInternalLinkFlit(int collective_id)
     ++m_multicast_internal_link_flits;
     if (isMeasurementRound(collective_id))
         ++m_multicast_measured_internal_link_flits;
+}
+
+void
+GarnetNetwork::recordCollectiveInternalLinkFlit(CollectiveOp op)
+{
+    if (op == CollectiveOp::Reduce)
+        ++m_collective_reduce_internal_link_flits;
+    else if (op == CollectiveOp::Broadcast)
+        ++m_collective_broadcast_internal_link_flits;
 }
 
 int
@@ -293,7 +303,8 @@ GarnetNetwork::multicastChildNeeded(uint64_t destinations, int router_id,
 }
 
 void
-GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
+GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router,
+                                        int lane)
 {
     fatal_if(!m_collective_mode,
              "Lab4 delivery recorded while collective mode is disabled");
@@ -304,12 +315,86 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
     CollectiveRoundState& state = m_collective_round_states[collective_id];
     fatal_if(!state.started,
              "Lab4 delivery for round %d before injection", collective_id);
-    fatal_if(state.delivered[dest_router],
-             "Lab4 duplicate delivery for round %d at Router %d",
-             collective_id, dest_router);
-    fatal_if(m_collective_multicast && !multicastDestination(dest_router),
-             "Lab4 unexpected multicast delivery for round %d at Router %d",
-             collective_id, dest_router);
+
+    if (m_collective_tensor) {
+        if (lane < 0) {
+            ++m_collective_wrong_lane_deliveries;
+            fatal("Lab4 tensor delivery for round %d requires a lane id",
+                  collective_id);
+        }
+        fatal_if(state.tensor_lanes < 1,
+                 "Lab4 tensor round %d has no lane count", collective_id);
+        const auto dl = std::make_pair(dest_router, lane);
+        if (state.tensor_delivered.count(dl)) {
+            ++m_collective_duplicate_deliveries;
+            fatal("Lab4 duplicate tensor delivery round=%d dest=%d lane=%d",
+                  collective_id, dest_router, lane);
+        }
+        state.tensor_delivered.insert(dl);
+        ++state.tensor_deliveries;
+        ++m_collective_tensor_lanes_delivered;
+        ++m_collective_deliveries;
+        const int expected_deliveries =
+            getNumRouters() * state.tensor_lanes;
+        if (state.tensor_deliveries == expected_deliveries) {
+            state.completed = true;
+            --m_collective_active_rounds;
+            ++m_collective_completed_rounds;
+            const Tick latency = curTick() - state.start_tick;
+            ++m_collective_rounds_completed;
+            m_collective_completion_ticks += latency;
+            ++m_collective_tensor_requests_completed;
+            m_tensor_request_latencies.push_back(latency);
+            inform("Lab4 tensor collective %d delivered %d lanes to all "
+                   "%d routers in %llu ticks\n", collective_id,
+                   state.tensor_lanes, getNumRouters(), latency);
+            while (m_collective_delivery_id < m_collective_rounds &&
+                   m_collective_round_states[
+                       m_collective_delivery_id].completed)
+                ++m_collective_delivery_id;
+            if (m_collective_completed_rounds == m_collective_rounds) {
+                if (!m_tensor_request_latencies.empty()) {
+                    std::sort(m_tensor_request_latencies.begin(),
+                              m_tensor_request_latencies.end());
+                    const auto percentile = [&](size_t p) {
+                        const size_t index =
+                            (p * m_tensor_request_latencies.size() + 99) /
+                                100 - 1;
+                        return m_tensor_request_latencies[index];
+                    };
+                    m_collective_tensor_p50_completion_ticks =
+                        percentile(50);
+                    m_collective_tensor_p95_completion_ticks =
+                        percentile(95);
+                    m_collective_tensor_p99_completion_ticks =
+                        percentile(99);
+                }
+                m_tensor_last_completion_tick = curTick();
+                m_collective_tensor_measurement_ticks =
+                    m_tensor_last_completion_tick -
+                    m_tensor_first_injection_tick;
+                size_t peak = 0;
+                for (const auto* router : m_routers)
+                    peak = std::max(peak, router->collectivePeakLanes());
+                m_collective_tensor_peak_lanes = peak;
+                assertNoResidualCollectiveState();
+                m_collective_tensor_active_entries = 0;
+                exitSimLoop("Lab4 collective completed");
+            }
+        }
+        return;
+    }
+
+    if (state.delivered[dest_router]) {
+        ++m_collective_duplicate_deliveries;
+        fatal("Lab4 duplicate delivery for round %d at Router %d",
+              collective_id, dest_router);
+    }
+    if (m_collective_multicast && !multicastDestination(dest_router)) {
+        ++m_collective_unexpected_deliveries;
+        fatal("Lab4 unexpected multicast delivery for round %d at Router %d",
+              collective_id, dest_router);
+    }
 
     state.delivered[dest_router] = true;
     ++state.delivery_count;
@@ -365,6 +450,32 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router)
 }
 
 void
+GarnetNetwork::setCollectiveRoundTensorLanes(int collective_id, int lanes)
+{
+    fatal_if(!m_collective_tensor,
+             "Tensor round metadata set outside tensor mode");
+    fatal_if(collective_id < 0 || collective_id >= m_collective_rounds,
+             "Lab4 tensor round %d is invalid", collective_id);
+    fatal_if(lanes < 1,
+             "Lab4 tensor round %d must contain at least one lane",
+             collective_id);
+    m_collective_round_states[collective_id].tensor_lanes = lanes;
+}
+
+void
+GarnetNetwork::assertNoResidualCollectiveState()
+{
+    for (auto* router : m_routers) {
+        fatal_if(!router->collectiveStateEmpty(),
+                 "Router %d still holds collective state at completion "
+                 "(active lanes %d, pending forwards %d)",
+                 router->get_id(),
+                 (int)router->collectiveActiveLanes(),
+                 (int)router->collectivePendingForwards());
+    }
+}
+
+void
 GarnetNetwork::beginCollectiveRound(int collective_id)
 {
     fatal_if(collective_id < 0 || collective_id >= m_collective_rounds,
@@ -381,6 +492,8 @@ GarnetNetwork::beginCollectiveRound(int collective_id)
     ++m_collective_active_rounds;
     if (m_collective_next_injection_id == 1)
         m_multicast_first_injection_tick = curTick();
+    if (m_collective_tensor && collective_id == 0)
+        m_tensor_first_injection_tick = curTick();
     if (collective_id == m_multicast_warmup_rounds)
         m_multicast_measurement_first_injection_tick = curTick();
     if (m_collective_multicast)
@@ -699,6 +812,38 @@ GarnetNetwork::regStats()
         .name(name() + ".average_collective_completion_ticks");
     m_average_collective_completion_ticks =
         m_collective_completion_ticks / m_collective_rounds_completed;
+    m_collective_tensor_requests_completed
+        .name(name() + ".collective_tensor_requests_completed");
+    m_collective_tensor_lanes_delivered
+        .name(name() + ".collective_tensor_lanes_delivered");
+    m_collective_tensor_p50_completion_ticks
+        .name(name() + ".collective_tensor_p50_completion_ticks");
+    m_collective_tensor_p95_completion_ticks
+        .name(name() + ".collective_tensor_p95_completion_ticks");
+    m_collective_tensor_p99_completion_ticks
+        .name(name() + ".collective_tensor_p99_completion_ticks");
+    m_collective_credit_stalls
+        .name(name() + ".collective_credit_stalls");
+    m_collective_duplicate_deliveries
+        .name(name() + ".collective_duplicate_deliveries");
+    m_collective_unexpected_deliveries
+        .name(name() + ".collective_unexpected_deliveries");
+    m_collective_wrong_lane_deliveries
+        .name(name() + ".collective_wrong_lane_deliveries");
+    m_collective_wrong_value_deliveries
+        .name(name() + ".collective_wrong_value_deliveries");
+    m_collective_outvc_stalls
+        .name(name() + ".collective_outvc_stalls");
+    m_collective_reduce_internal_link_flits
+        .name(name() + ".collective_reduce_internal_link_flits");
+    m_collective_broadcast_internal_link_flits
+        .name(name() + ".collective_broadcast_internal_link_flits");
+    m_collective_tensor_active_entries
+        .name(name() + ".collective_tensor_active_entries");
+    m_collective_tensor_peak_lanes
+        .name(name() + ".collective_tensor_peak_lanes");
+    m_collective_tensor_measurement_ticks
+        .name(name() + ".collective_tensor_measurement_ticks");
     m_multicast_logical_requests
         .name(name() + ".multicast_logical_requests");
     m_multicast_physical_packets

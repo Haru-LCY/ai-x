@@ -72,6 +72,7 @@ class flit
     int64_t get_value() { return m_value; }
     int get_collective_id() { return m_collective_id; }
     CollectiveOp get_collective_op() { return m_collective_op; }
+    int get_lane_id() { return m_lane_id; }
     uint64_t get_multicast_destinations() const
     {
         return m_multicast_destinations;
@@ -99,6 +100,7 @@ class flit
     void set_value(int64_t v) { m_value = v; }
     void set_collective_id(int cid) { m_collective_id = cid; }
     void set_collective_op(CollectiveOp op) { m_collective_op = op; }
+    void set_lane_id(int lane) { m_lane_id = lane; }
     void set_multicast_destinations(uint64_t destinations)
     {
         m_multicast_destinations = destinations;
@@ -166,6 +168,7 @@ class flit
     int64_t m_value = 0;
     int m_collective_id = -1;
     CollectiveOp m_collective_op = CollectiveOp::None;
+    int m_lane_id = -1;
     uint64_t m_multicast_destinations = 0;
 };
 

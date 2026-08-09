@@ -34,7 +34,9 @@
 
 #include <deque>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "mem/ruby/common/Consumer.hh"
@@ -105,6 +107,17 @@ class Router : public BasicRouter, public Consumer
     {
         return m_collective_expected_fanin;
     }
+    size_t collectivePeakLanes() const { return m_collective_peak_lanes; }
+    size_t collectiveActiveLanes() const { return m_collective_lanes.size(); }
+    size_t collectivePendingForwards() const
+    {
+        return m_pending_collective_forwards.size();
+    }
+    bool collectiveStateEmpty() const
+    {
+        return m_collective_lanes.empty() &&
+               m_pending_collective_forwards.empty();
+    }
 
     void init_net_ptr(GarnetNetwork* net_ptr)
     {
@@ -137,6 +150,9 @@ class Router : public BasicRouter, public Consumer
     void schedule_wakeup(Cycles time);
     // Lab4: consume one reduction flit and update the local tree state.
     void handleCollectiveFlit(flit *t_flit, int inport);
+    void forwardCollectiveLane(int64_t value, int lane, CollectiveOp op,
+                               int dest_router, flit *template_flit);
+    void flushPendingCollectiveForwards();
 
     std::string getPortDirectionName(PortDirection direction);
     void printFaultVector(std::ostream& out);
@@ -173,10 +189,25 @@ class Router : public BasicRouter, public Consumer
     std::string m_collective_parent_outport;
     std::vector<std::string> m_collective_child_inports;
     uint32_t m_collective_expected_fanin;
-    int64_t m_collective_accum;
-    uint32_t m_collective_count;
-    int m_collective_id;
-    bool m_collective_active;
+
+    // Lab4 tensor all-reduce: one accumulator entry per (collective, lane).
+    // Conservative v1 allows a single active request; lanes of that request
+    // stream through the tree. Bounded by the active request's tensor size.
+    struct CollectiveLaneState
+    {
+        int64_t sum = 0;
+        uint32_t count = 0;
+    };
+    std::map<std::pair<int, int>, CollectiveLaneState> m_collective_lanes;
+    size_t m_collective_peak_lanes = 0;
+
+    // Backpressure-safe forwarding: completed reduce/broadcast lanes wait in
+    // this queue until their destination output port has a free VC.
+    struct PendingCollectiveForward
+    {
+        flit *forward_flit;
+    };
+    std::deque<PendingCollectiveForward> m_pending_collective_forwards;
 
     struct MulticastBranch
     {

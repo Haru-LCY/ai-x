@@ -86,11 +86,15 @@ InputUnit::wakeup()
         assert(t_flit->m_width == m_router->getBitWidth());
         int vc = t_flit->get_vc();
         t_flit->increment_hops(); // for stats
-        if (t_flit->is_collective() &&
-            m_router->get_net_ptr()->collectiveMulticast() &&
-            m_direction != "Local") {
-            m_router->get_net_ptr()->recordMulticastInternalLinkFlit(
-                t_flit->get_collective_id());
+        if (m_direction != "Local") {
+            GarnetNetwork *net = m_router->get_net_ptr();
+            if (t_flit->is_collective() && net->collectiveMulticast()) {
+                net->recordMulticastInternalLinkFlit(
+                    t_flit->get_collective_id());
+            } else if (t_flit->is_collective()) {
+                net->recordCollectiveInternalLinkFlit(
+                    t_flit->get_collective_op());
+            }
         }
 
         // Lab4 collective flits are consumed by the Router state machine

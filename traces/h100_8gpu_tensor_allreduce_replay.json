@@ -1,0 +1,610 @@
+{
+  "byte_scale": 0.0009765625,
+  "chunk_bytes": 4096,
+  "flit_bytes": 16,
+  "lowering": {
+    "all_reduce": "per logical event, one tensor request; the tensor is split into chunks, each chunk is a packet of flits, and each flit is one 64-bit reduction lane that is reduced along the convergence tree and then broadcast from the root",
+    "payload_scaling": "ceil(source tensor bytes * byte_scale), padded to a whole number of flits",
+    "serialization": "chunks of a request are released together; lane state must be tracked per (request, chunk, lane) by the datapath",
+    "time_scaling": "source relative time * time_scale"
+  },
+  "network_clock_ghz": 1.0,
+  "rank_to_router": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "reduction_root_rank": 0,
+  "reduction_root_router": 0,
+  "request_count": 15,
+  "requests": [
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000012-chunk-000000",
+          "lane_count": 64,
+          "lane_start": 0,
+          "packet_flits": 64,
+          "payload_bytes": 1024
+        }
+      ],
+      "id": "event-000012",
+      "iteration": 2,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 0,
+      "scaled_event_bytes": 1024,
+      "source_tensor_bytes": 1048576,
+      "tensor_flits": 64,
+      "trace_event_id": "event-000012"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000013-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000013",
+      "iteration": 2,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 290,
+      "scaled_event_bytes": 4096,
+      "source_tensor_bytes": 4194304,
+      "tensor_flits": 256,
+      "trace_event_id": "event-000013"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000014-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000014-chunk-000001",
+          "lane_count": 256,
+          "lane_start": 256,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000014-chunk-000002",
+          "lane_count": 256,
+          "lane_start": 512,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000014-chunk-000003",
+          "lane_count": 256,
+          "lane_start": 768,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000014",
+      "iteration": 2,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 552,
+      "scaled_event_bytes": 16384,
+      "source_tensor_bytes": 16777216,
+      "tensor_flits": 1024,
+      "trace_event_id": "event-000014"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000018-chunk-000000",
+          "lane_count": 64,
+          "lane_start": 0,
+          "packet_flits": 64,
+          "payload_bytes": 1024
+        }
+      ],
+      "id": "event-000018",
+      "iteration": 3,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 1939,
+      "scaled_event_bytes": 1024,
+      "source_tensor_bytes": 1048576,
+      "tensor_flits": 64,
+      "trace_event_id": "event-000018"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000019-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000019",
+      "iteration": 3,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 2195,
+      "scaled_event_bytes": 4096,
+      "source_tensor_bytes": 4194304,
+      "tensor_flits": 256,
+      "trace_event_id": "event-000019"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000020-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000020-chunk-000001",
+          "lane_count": 256,
+          "lane_start": 256,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000020-chunk-000002",
+          "lane_count": 256,
+          "lane_start": 512,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000020-chunk-000003",
+          "lane_count": 256,
+          "lane_start": 768,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000020",
+      "iteration": 3,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 2449,
+      "scaled_event_bytes": 16384,
+      "source_tensor_bytes": 16777216,
+      "tensor_flits": 1024,
+      "trace_event_id": "event-000020"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000024-chunk-000000",
+          "lane_count": 64,
+          "lane_start": 0,
+          "packet_flits": 64,
+          "payload_bytes": 1024
+        }
+      ],
+      "id": "event-000024",
+      "iteration": 4,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 3797,
+      "scaled_event_bytes": 1024,
+      "source_tensor_bytes": 1048576,
+      "tensor_flits": 64,
+      "trace_event_id": "event-000024"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000025-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000025",
+      "iteration": 4,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 4027,
+      "scaled_event_bytes": 4096,
+      "source_tensor_bytes": 4194304,
+      "tensor_flits": 256,
+      "trace_event_id": "event-000025"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000026-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000026-chunk-000001",
+          "lane_count": 256,
+          "lane_start": 256,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000026-chunk-000002",
+          "lane_count": 256,
+          "lane_start": 512,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000026-chunk-000003",
+          "lane_count": 256,
+          "lane_start": 768,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000026",
+      "iteration": 4,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 4313,
+      "scaled_event_bytes": 16384,
+      "source_tensor_bytes": 16777216,
+      "tensor_flits": 1024,
+      "trace_event_id": "event-000026"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000030-chunk-000000",
+          "lane_count": 64,
+          "lane_start": 0,
+          "packet_flits": 64,
+          "payload_bytes": 1024
+        }
+      ],
+      "id": "event-000030",
+      "iteration": 5,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 5651,
+      "scaled_event_bytes": 1024,
+      "source_tensor_bytes": 1048576,
+      "tensor_flits": 64,
+      "trace_event_id": "event-000030"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000031-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000031",
+      "iteration": 5,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 5876,
+      "scaled_event_bytes": 4096,
+      "source_tensor_bytes": 4194304,
+      "tensor_flits": 256,
+      "trace_event_id": "event-000031"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000032-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000032-chunk-000001",
+          "lane_count": 256,
+          "lane_start": 256,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000032-chunk-000002",
+          "lane_count": 256,
+          "lane_start": 512,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000032-chunk-000003",
+          "lane_count": 256,
+          "lane_start": 768,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000032",
+      "iteration": 5,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 6154,
+      "scaled_event_bytes": 16384,
+      "source_tensor_bytes": 16777216,
+      "tensor_flits": 1024,
+      "trace_event_id": "event-000032"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000036-chunk-000000",
+          "lane_count": 64,
+          "lane_start": 0,
+          "packet_flits": 64,
+          "payload_bytes": 1024
+        }
+      ],
+      "id": "event-000036",
+      "iteration": 6,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 7496,
+      "scaled_event_bytes": 1024,
+      "source_tensor_bytes": 1048576,
+      "tensor_flits": 64,
+      "trace_event_id": "event-000036"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000037-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000037",
+      "iteration": 6,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 7723,
+      "scaled_event_bytes": 4096,
+      "source_tensor_bytes": 4194304,
+      "tensor_flits": 256,
+      "trace_event_id": "event-000037"
+    },
+    {
+      "chunks": [
+        {
+          "chunk_id": "event-000038-chunk-000000",
+          "lane_count": 256,
+          "lane_start": 0,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000038-chunk-000001",
+          "lane_count": 256,
+          "lane_start": 256,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000038-chunk-000002",
+          "lane_count": 256,
+          "lane_start": 512,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        },
+        {
+          "chunk_id": "event-000038-chunk-000003",
+          "lane_count": 256,
+          "lane_start": 768,
+          "packet_flits": 256,
+          "payload_bytes": 4096
+        }
+      ],
+      "id": "event-000038",
+      "iteration": 6,
+      "operation": "all_reduce",
+      "participant_routers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": "measurement",
+      "reduction_root_router": 0,
+      "release_cycle": 7994,
+      "scaled_event_bytes": 16384,
+      "source_tensor_bytes": 16777216,
+      "tensor_flits": 1024,
+      "trace_event_id": "event-000038"
+    }
+  ],
+  "schema": "lab4.garnet_tensor_allreduce_replay.v1",
+  "selected_all_reduce_event_count": 15,
+  "selected_phases": [
+    "measurement"
+  ],
+  "source_event_count": 48,
+  "source_trace_schema": "lab4.ai_collective_trace.v1",
+  "time_scale": 0.0009765625,
+  "total_chunk_count": 30,
+  "total_contribution_flits": 53760,
+  "total_tensor_bytes": 107520,
+  "total_tensor_flits": 6720,
+  "world_size": 8
+}

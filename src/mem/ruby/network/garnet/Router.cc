@@ -61,8 +61,6 @@ Router::Router(const Params &p)
     m_collective_parent_outport(p.collective_parent_outport),
     m_collective_child_inports(p.collective_child_inports),
     m_collective_expected_fanin(p.collective_expected_fanin),
-    m_collective_accum(0), m_collective_count(0), m_collective_id(-1),
-    m_collective_active(false),
     routingUnit(this), switchAllocator(this),
     crossbarSwitch(this)
 {
@@ -107,6 +105,8 @@ Router::wakeup()
 {
     DPRINTF(RubyNetwork, "Router %d woke up\n", m_id);
     assert(clockEdge() == curTick());
+
+    flushPendingCollectiveForwards();
 
     // check for incoming flits
     for (int inport = 0; inport < m_input_unit.size(); inport++) {
@@ -273,7 +273,7 @@ Router::collectiveOutportForChild(int child_id) const
 
 void
 Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
-                            flit *template_flit)
+                           flit *template_flit)
 {
     const int cols = m_network_ptr->getNumCols();
     const int out_x = dest_router % cols;
@@ -309,6 +309,7 @@ Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
     out_flit->set_value(value);
     out_flit->set_collective_id(template_flit->get_collective_id());
     out_flit->set_collective_op(op);
+    out_flit->set_lane_id(template_flit->get_lane_id());
     out_flit->set_multicast_destinations(
         template_flit->get_multicast_destinations());
     m_network_ptr->recordCollectiveRouterFlit();
@@ -320,6 +321,67 @@ Router::sendCollectiveFlit(int64_t value, CollectiveOp op, int dest_router,
 ",
             template_flit->get_collective_id(), m_id, dest_router,
             static_cast<int>(op), (long)value);
+}
+
+// Backpressure-safe forwarding of one completed reduce/broadcast lane. The
+// forward job is queued and retried until the destination output port has a
+// free VC, instead of aborting the simulation.
+void
+Router::forwardCollectiveLane(int64_t value, int lane, CollectiveOp op,
+                              int dest_router, flit *template_flit)
+{
+    RouteInfo route;
+    route.vnet = template_flit->get_vnet();
+    route.src_ni = m_network_ptr->getNumRouters() + m_id;
+    route.src_router = m_id;
+    route.dest_ni = m_network_ptr->getNumRouters() + dest_router;
+    route.dest_router = dest_router;
+    route.net_dest.clear();
+    route.net_dest.add(MachineID(MachineType_Directory, dest_router));
+    route.hops_traversed = -1;
+
+    flit *forward_flit = new flit(m_network_ptr->getNextPacketID(), 0, -1,
+        template_flit->get_vnet(), route, 1, template_flit->get_msg_ptr(),
+        template_flit->msgSize, m_bit_width, curTick());
+    forward_flit->set_value(value);
+    forward_flit->set_collective_id(template_flit->get_collective_id());
+    forward_flit->set_collective_op(op);
+    forward_flit->set_lane_id(lane);
+    m_pending_collective_forwards.push_back({forward_flit});
+    flushPendingCollectiveForwards();
+}
+
+void
+Router::flushPendingCollectiveForwards()
+{
+    if (m_pending_collective_forwards.empty())
+        return;
+
+    // Drain as many queued forwards as possible in this cycle. Each job goes
+    // to its own output port/VC, so a fan-out can be sent in one cycle; we
+    // stop at the first blocked job to preserve FIFO order.
+    while (!m_pending_collective_forwards.empty()) {
+        flit *forward_flit =
+            m_pending_collective_forwards.front().forward_flit;
+        const int vnet = forward_flit->get_vnet();
+        const int outport = collectiveOutportForChild(
+            forward_flit->get_route().dest_router);
+        if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet)) {
+            m_network_ptr->recordCollectiveCreditStall();
+            m_network_ptr->recordCollectiveOutvcStall();
+            schedule_wakeup(Cycles(1));
+            return;
+        }
+
+        const int outvc = m_output_unit[outport]->select_free_vc(vnet);
+        fatal_if(outvc < 0, "Router %d lost collective VC allocation", m_id);
+
+        forward_flit->set_vc(outvc);
+        m_network_ptr->recordCollectiveRouterFlit();
+        m_output_unit[outport]->decrement_credit(outvc);
+        m_output_unit[outport]->insert_flit(forward_flit);
+        m_pending_collective_forwards.pop_front();
+    }
 }
 
 void
@@ -478,20 +540,20 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
         enqueueMulticastFlit(t_flit, inport);
         return;
     }
-    fatal_if(t_flit->get_size() != 1 || t_flit->get_type() != HEAD_TAIL_,
-             "Lab4 scalar collective at Router %d must be a single "
-             "HEAD_TAIL flit", m_id);
     const CollectiveOp op = t_flit->get_collective_op();
+    const bool tail = (t_flit->get_type() == TAIL_ ||
+                       t_flit->get_type() == HEAD_TAIL_);
     if (op == CollectiveOp::Broadcast) {
         fatal_if(m_collective_multicast,
                  "Router %d received broadcast in multicast mode", m_id);
 
-        // All-reduce broadcast reaches every Router. Multicast prunes local
-        // delivery and child branches against its configured destination set.
-        sendCollectiveFlit(t_flit->get_value(), op, m_id, t_flit);
+        // All-reduce broadcast reaches every Router, one lane per flit.
+        forwardCollectiveLane(t_flit->get_value(), t_flit->get_lane_id(),
+                              op, m_id, t_flit);
         for (const auto& child_in : m_collective_child_inports) {
             const int child = collectiveChildId(child_in);
-            sendCollectiveFlit(t_flit->get_value(), op, child, t_flit);
+            forwardCollectiveLane(t_flit->get_value(), t_flit->get_lane_id(),
+                                  op, child, t_flit);
         }
         getInputUnit(inport)->increment_credit(t_flit->get_vc(), true,
                                                 curTick());
@@ -500,29 +562,31 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
     }
     fatal_if(op != CollectiveOp::Reduce,
              "Router %d received invalid Lab4 collective operation", m_id);
-    if (!m_collective_active) {
-        m_collective_active = true;
-        m_collective_accum = 0;
-        m_collective_count = 0;
-        m_collective_id = t_flit->get_collective_id();
-    } else {
-        fatal_if(t_flit->get_collective_id() != m_collective_id,
-                 "Router %d received mixed Lab4 collective ids", m_id);
-    }
 
-    m_collective_accum += t_flit->get_value();
-    ++m_collective_count;
-    getInputUnit(inport)->increment_credit(t_flit->get_vc(), true, curTick());
+    // The lane id is -1 in the legacy scalar mode (one lane per round).
+    const int lane = t_flit->get_lane_id();
+    const auto key = std::make_pair(t_flit->get_collective_id(), lane);
+    CollectiveLaneState &state = m_collective_lanes[key];
+    state.sum += t_flit->get_value();
+    ++state.count;
+    if (m_collective_lanes.size() > m_collective_peak_lanes)
+        m_collective_peak_lanes = m_collective_lanes.size();
 
-    if (m_collective_count == m_collective_expected_fanin) {
+    // Multi-flit packets keep the upstream VC allocated until the tail;
+    // single-flit (HEAD_TAIL) packets free it immediately.
+    getInputUnit(inport)->increment_credit(t_flit->get_vc(), tail, curTick());
+
+    if (state.count == m_collective_expected_fanin) {
         m_network_ptr->recordCollectiveReduceMerge();
-        const int64_t sum = m_collective_accum;
+        const int64_t sum = state.sum;
+        m_collective_lanes.erase(key);
         if (m_collective_root) {
             // Include the root's local NI and every child in the broadcast.
-            sendCollectiveFlit(sum, CollectiveOp::Broadcast, m_id, t_flit);
+            forwardCollectiveLane(sum, lane, CollectiveOp::Broadcast,
+                                  m_id, t_flit);
             for (const auto& child_in : m_collective_child_inports)
-                sendCollectiveFlit(sum, CollectiveOp::Broadcast,
-                                    collectiveChildId(child_in), t_flit);
+                forwardCollectiveLane(sum, lane, CollectiveOp::Broadcast,
+                                      collectiveChildId(child_in), t_flit);
         } else {
             const int cols = m_network_ptr->getNumCols();
             const int x = m_id % cols;
@@ -532,12 +596,9 @@ Router::handleCollectiveFlit(flit *t_flit, int inport)
             else if (m_collective_parent_outport == "West") parent = y * cols + x - 1;
             else if (m_collective_parent_outport == "North") parent = (y + 1) * cols + x;
             else if (m_collective_parent_outport == "South") parent = (y - 1) * cols + x;
-            sendCollectiveFlit(sum, CollectiveOp::Reduce, parent, t_flit);
+            forwardCollectiveLane(sum, lane, CollectiveOp::Reduce,
+                                  parent, t_flit);
         }
-        m_collective_active = false;
-        m_collective_count = 0;
-        m_collective_accum = 0;
-        m_collective_id = -1;
     }
     delete t_flit;
 }

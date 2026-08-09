@@ -47,10 +47,14 @@ def tree_edges(cpus, rows, source, members):
         while node != source:
             x = node % cols
             y = node // cols
-            if x != source_x:
-                parent = y * cols + x + (1 if source_x > x else -1)
-            else:
+            # Forward XY routing moves in X first, then Y; walking backward
+            # from the destination therefore moves in Y first, then X. The
+            # old order produced edge sets that did not match the actual
+            # X-first pruned multicast tree.
+            if y != source_y:
                 parent = (y + (1 if source_y > y else -1)) * cols + x
+            else:
+                parent = y * cols + x + (1 if source_x > x else -1)
             edges.add((parent, node))
             node = parent
     return len(edges)
