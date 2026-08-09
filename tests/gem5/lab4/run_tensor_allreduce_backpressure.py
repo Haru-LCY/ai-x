@@ -116,6 +116,8 @@ def run_case(gem5, output_root, case):
         "--lab4-all-reduce", "--collective-tensor",
         f"--all-reduce-replay-file={replay}",
         "--vcs-per-vnet=1",
+        "--buffers-per-ctrl-vc=1",
+        "--buffers-per-data-vc=1",
         f"--router-latency={router_latency}",
         "--multicast-workload=throughput",
         f"--multicast-max-outstanding={outstanding}",

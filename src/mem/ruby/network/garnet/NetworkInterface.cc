@@ -196,8 +196,13 @@ NetworkInterface::incrementStats(flit *t_flit)
                 (long)expected, t_flit->is_reduce());
         assert(!t_flit->is_reduce() &&
                "Lab4: reduce flit must not eject at a network interface");
-        assert(t_flit->get_value() == expected &&
-               "Lab4: broadcast result is incorrect");
+        if (t_flit->get_value() != expected) {
+            m_net_ptr->recordCollectiveWrongValue();
+            fatal("Lab4: broadcast result is incorrect for round %d lane %d "
+                  "(value %ld expected %ld)",
+                  t_flit->get_collective_id(), t_flit->get_lane_id(),
+                  (long)t_flit->get_value(), (long)expected);
+        }
         if (m_net_ptr->collectiveMulticast()) {
             fatal_if(t_flit->get_multicast_destinations() !=
                          m_net_ptr->multicastDestinationMask(),

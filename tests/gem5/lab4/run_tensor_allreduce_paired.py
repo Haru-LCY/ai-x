@@ -66,31 +66,37 @@ def main():
 
     scalar = json.loads(
         (scalar_dir / "summary.json").read_text(encoding="utf-8"))
-    scalar_row = next(row for row in scalar["rows"]
-                      if row["design"] == "mesh_xy")
+    scalar_rows = {row["design"]: row for row in scalar["rows"]}
     tensor = json.loads(
         (tensor_dir / "summary.json").read_text(encoding="utf-8"))
-    tensor_row = tensor["row"]
+    tensor_rows = {row["design"]: row for row in tensor["rows"]}
 
-    scalar_ticks = int(scalar_row["measurement_ticks"])
-    tensor_ticks = int(tensor_row["measurement_ticks"])
-    scalar_p95 = int(scalar_row["p95_lane_ticks"])
-    tensor_p95 = int(tensor_row["p95_ticks"])
+    designs = ["mesh_xy", "mesh_bypass"]
+    comparisons = {}
+    for design in designs:
+        s = scalar_rows[design]
+        t = tensor_rows[design]
+        scalar_ticks = int(s["measurement_ticks"])
+        tensor_ticks = int(t["measurement_ticks"])
+        comparisons[design] = {
+            "scalar_measurement_ticks": scalar_ticks,
+            "tensor_measurement_ticks": tensor_ticks,
+            "measurement_speedup": scalar_ticks / tensor_ticks,
+            "scalar_p95_ticks": int(s["p95_lane_ticks"]),
+            "tensor_p95_ticks": int(t["p95_ticks"]),
+            "scalar_source_flits": int(s["collective_source_flits"]),
+            "tensor_source_flits": int(t["collective_source_flits"]),
+            "scalar_router_flits": int(s["collective_router_flits"]),
+            "tensor_router_flits": int(t["collective_router_flits"]),
+        }
+
     paired = {
         "git_revision": scalar["provenance"]["git_revision"],
-        "scalar_measurement_ticks": scalar_ticks,
-        "tensor_measurement_ticks": tensor_ticks,
-        "measurement_speedup": scalar_ticks / tensor_ticks,
-        "scalar_p95_ticks": scalar_p95,
-        "tensor_p95_ticks": tensor_p95,
+        "designs": comparisons,
         "p95_note": (
             "granularity differs: scalar p95 is per serialized lane, tensor "
             "p95 is per logical request; not directly comparable"
         ),
-        "scalar_source_flits": int(scalar_row["collective_source_flits"]),
-        "tensor_source_flits": int(tensor_row["collective_source_flits"]),
-        "scalar_router_flits": int(scalar_row["collective_router_flits"]),
-        "tensor_router_flits": int(tensor_row["collective_router_flits"]),
         "note": (
             "scaled Garnet trace simulation on 1/1024 byte/time scales; "
             "not native H100/NVLink performance"
@@ -99,22 +105,32 @@ def main():
     (output / "paired_summary.json").write_text(
         json.dumps(paired, indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
-    (output / "paired_summary.csv").write_text(
-        "git_revision,scalar_measurement_ticks,tensor_measurement_ticks,"
+    csv_lines = [
+        "design,scalar_measurement_ticks,tensor_measurement_ticks,"
         "measurement_speedup,scalar_p95_ticks,tensor_p95_ticks,"
         "scalar_source_flits,tensor_source_flits,scalar_router_flits,"
-        "tensor_router_flits\n"
-        f"{paired['git_revision']},{scalar_ticks},{tensor_ticks},"
-        f"{paired['measurement_speedup']:.3f},{scalar_p95},{tensor_p95},"
-        f"{paired['scalar_source_flits']},{paired['tensor_source_flits']},"
-        f"{paired['scalar_router_flits']},{paired['tensor_router_flits']}\n",
-        encoding="utf-8")
+        "tensor_router_flits"
+    ]
+    for design, c in comparisons.items():
+        csv_lines.append(
+            f"{design},{c['scalar_measurement_ticks']},"
+            f"{c['tensor_measurement_ticks']},"
+            f"{c['measurement_speedup']:.3f},{c['scalar_p95_ticks']},"
+            f"{c['tensor_p95_ticks']},{c['scalar_source_flits']},"
+            f"{c['tensor_source_flits']},{c['scalar_router_flits']},"
+            f"{c['tensor_router_flits']}"
+        )
+    (output / "paired_summary.csv").write_text(
+        "\n".join(csv_lines) + "\n", encoding="utf-8")
 
-    print(
-        f"scalar: measurement_ticks={scalar_ticks} p95={scalar_p95}\n"
-        f"tensor: measurement_ticks={tensor_ticks} p95={tensor_p95}\n"
-        f"measurement speedup: {paired['measurement_speedup']:.3f}x"
-    )
+    for design in designs:
+        c = comparisons[design]
+        print(
+            f"{design}: scalar measurement_ticks="
+            f"{c['scalar_measurement_ticks']} tensor="
+            f"{c['tensor_measurement_ticks']} "
+            f"measurement speedup={c['measurement_speedup']:.3f}x"
+        )
     print(f"artifacts: {output}")
     return 0
 

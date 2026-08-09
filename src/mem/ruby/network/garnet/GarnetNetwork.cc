@@ -308,15 +308,19 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router,
              "Lab4 delivery for round %d before injection", collective_id);
 
     if (m_collective_tensor) {
-        fatal_if(lane < 0,
-                 "Lab4 tensor delivery for round %d requires a lane id",
-                 collective_id);
+        if (lane < 0) {
+            ++m_collective_wrong_lane_deliveries;
+            fatal("Lab4 tensor delivery for round %d requires a lane id",
+                  collective_id);
+        }
         fatal_if(state.tensor_lanes < 1,
                  "Lab4 tensor round %d has no lane count", collective_id);
         const auto dl = std::make_pair(dest_router, lane);
-        fatal_if(state.tensor_delivered.count(dl),
-                 "Lab4 duplicate tensor delivery round=%d dest=%d lane=%d",
-                 collective_id, dest_router, lane);
+        if (state.tensor_delivered.count(dl)) {
+            ++m_collective_duplicate_deliveries;
+            fatal("Lab4 duplicate tensor delivery round=%d dest=%d lane=%d",
+                  collective_id, dest_router, lane);
+        }
         state.tensor_delivered.insert(dl);
         ++state.tensor_deliveries;
         ++m_collective_tensor_lanes_delivered;
@@ -370,12 +374,16 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router,
         return;
     }
 
-    fatal_if(state.delivered[dest_router],
-             "Lab4 duplicate delivery for round %d at Router %d",
-             collective_id, dest_router);
-    fatal_if(m_collective_multicast && !multicastDestination(dest_router),
-             "Lab4 unexpected multicast delivery for round %d at Router %d",
-             collective_id, dest_router);
+    if (state.delivered[dest_router]) {
+        ++m_collective_duplicate_deliveries;
+        fatal("Lab4 duplicate delivery for round %d at Router %d",
+              collective_id, dest_router);
+    }
+    if (m_collective_multicast && !multicastDestination(dest_router)) {
+        ++m_collective_unexpected_deliveries;
+        fatal("Lab4 unexpected multicast delivery for round %d at Router %d",
+              collective_id, dest_router);
+    }
 
     state.delivered[dest_router] = true;
     ++state.delivery_count;
@@ -792,6 +800,14 @@ GarnetNetwork::regStats()
         .name(name() + ".collective_tensor_p99_completion_ticks");
     m_collective_credit_stalls
         .name(name() + ".collective_credit_stalls");
+    m_collective_duplicate_deliveries
+        .name(name() + ".collective_duplicate_deliveries");
+    m_collective_unexpected_deliveries
+        .name(name() + ".collective_unexpected_deliveries");
+    m_collective_wrong_lane_deliveries
+        .name(name() + ".collective_wrong_lane_deliveries");
+    m_collective_wrong_value_deliveries
+        .name(name() + ".collective_wrong_value_deliveries");
     m_collective_tensor_peak_lanes
         .name(name() + ".collective_tensor_peak_lanes");
     m_collective_tensor_measurement_ticks

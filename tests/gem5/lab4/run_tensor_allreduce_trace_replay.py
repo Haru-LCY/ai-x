@@ -2,9 +2,10 @@
 
 The committed tensor replay lowers the 15 measured all-reduce events to 15
 logical tensor requests (6,720 flits per rank) instead of 6,720 scalar
-rounds. This runner requires exact completion and counts, per-lane value
-validation (enforced by network-interface asserts), and reports request
-completion percentiles and peak router accumulator state.
+rounds. This runner requires exact completion and counts on both Mesh_XY and
+Mesh_Bypass, per-lane value validation (enforced by network-interface
+asserts and error counters), and reports request completion percentiles,
+peak router accumulator state, wire distance and express usage.
 """
 
 from __future__ import annotations
@@ -51,16 +52,23 @@ def parse_stats(path):
     return values
 
 
-def run_case(gem5, output, sim_cycles, world_size):
+def run_case(gem5, output, sim_cycles, world_size, design):
     output.mkdir(parents=True, exist_ok=True)
+    topology = "Mesh_XY" if design == "mesh_xy" else "Mesh_Bypass"
     command = [
         str(gem5), "-d", str(output), str(CONFIG),
-        "--network=garnet", "--topology=Mesh_XY",
+        "--network=garnet", f"--topology={topology}",
         f"--num-cpus={world_size}", f"--num-dirs={world_size}",
-        "--mesh-rows=4", "--routing-algorithm=1",
+        "--mesh-rows=4",
+        f"--routing-algorithm={'1' if design == 'mesh_xy' else '2'}",
         f"--sim-cycles={sim_cycles}", "--lab4-all-reduce",
         "--collective-tensor", f"--all-reduce-replay-file={REPLAY}",
     ]
+    if design == "mesh_bypass":
+        command += [
+            "--bypass-mode=diagonal", "--bypass-link-budget=4",
+            "--bypass-wire-model=distance_scaled",
+        ]
     result = subprocess.run(
         command, cwd=REPO_ROOT, env=os.environ.copy(), text=True,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
@@ -69,6 +77,7 @@ def run_case(gem5, output, sim_cycles, world_size):
     stats = parse_stats(output / "stats.txt")
     prefix = "system.ruby.network."
     row = {
+        "design": design,
         "returncode": result.returncode,
         "completed": result.returncode == 0 and
                      "because Lab4 collective completed" in result.stdout,
@@ -98,6 +107,18 @@ def run_case(gem5, output, sim_cycles, world_size):
             stats.get(prefix + "collective_tensor_peak_lanes", -1)),
         "credit_stalls": int(
             stats.get(prefix + "collective_credit_stalls", -1)),
+        "duplicate_deliveries": int(
+            stats.get(prefix + "collective_duplicate_deliveries", -1)),
+        "unexpected_deliveries": int(
+            stats.get(prefix + "collective_unexpected_deliveries", -1)),
+        "wrong_lane_deliveries": int(
+            stats.get(prefix + "collective_wrong_lane_deliveries", -1)),
+        "wrong_value_deliveries": int(
+            stats.get(prefix + "collective_wrong_value_deliveries", -1)),
+        "express_internal_link_flits": int(
+            stats.get(prefix + "express_internal_link_flits", -1)),
+        "wire_flit_distance": int(
+            stats.get(prefix + "physical_wire_flit_distance", -1)),
         "sim_ticks": int(stats.get("simTicks", -1)),
         "output": str(output),
     }
@@ -132,16 +153,27 @@ def main():
         "tensor_requests_completed": replay["request_count"],
         "tensor_lanes_delivered": contributions,
     }
-    row = run_case(gem5, output, args.sim_cycles, world)
+    rows = [
+        run_case(gem5, output / design, args.sim_cycles, world, design)
+        for design in ("mesh_xy", "mesh_bypass")
+    ]
     errors = []
-    if not row["completed"]:
-        errors.append("replay did not complete")
-    for field, wanted in expected.items():
-        if row[field] != wanted:
-            errors.append(f"{field}={row[field]} expected={wanted}")
-    for field in ("p50_ticks", "p95_ticks", "p99_ticks", "measurement_ticks"):
-        if row[field] <= 0:
-            errors.append(f"{field} not reported")
+    for row in rows:
+        tag = row["design"]
+        if not row["completed"]:
+            errors.append(f"{tag}: replay did not complete")
+        for field, wanted in expected.items():
+            if row[field] != wanted:
+                errors.append(
+                    f"{tag}: {field}={row[field]} expected={wanted}")
+        for field in ("p50_ticks", "p95_ticks", "p99_ticks",
+                      "measurement_ticks"):
+            if row[field] <= 0:
+                errors.append(f"{tag}: {field} not reported")
+        for field in ("duplicate_deliveries", "unexpected_deliveries",
+                      "wrong_lane_deliveries", "wrong_value_deliveries"):
+            if row[field] != 0:
+                errors.append(f"{tag}: {field}={row[field]} expected 0")
 
     provenance = {
         "git_revision": git_output("rev-parse", "HEAD"),
@@ -154,35 +186,54 @@ def main():
         "tensor_flits_per_rank": lanes,
         "contribution_flits": contributions,
     }
-    summary = {"provenance": provenance, "expected": expected, "row": row}
+    summary = {"provenance": provenance, "expected": expected, "rows": rows}
     (output / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
+    csv_header = (
+        "design,git_revision,source_trace_sha256,tensor_replay_sha256,"
+        "completed,rounds,deliveries,source_flits,router_flits,merges,"
+        "requests,lanes_delivered,p50,p95,p99,measurement_ticks,peak_lanes,"
+        "credit_stalls,duplicate,unexpected,wrong_lane,wrong_value,"
+        "express_flits,wire_flit_distance,sim_ticks\n"
+    )
+    csv_rows = []
+    for row in rows:
+        csv_rows.append(
+            f"{row['design']},{provenance['git_revision']},"
+            f"{provenance['source_trace_sha256']},"
+            f"{provenance['tensor_replay_sha256']},{row['completed']},"
+            f"{row['collective_rounds_completed']},"
+            f"{row['collective_deliveries']},"
+            f"{row['collective_source_flits']},"
+            f"{row['collective_router_flits']},"
+            f"{row['collective_reduce_merges']},"
+            f"{row['tensor_requests_completed']},"
+            f"{row['tensor_lanes_delivered']},{row['p50_ticks']},"
+            f"{row['p95_ticks']},{row['p99_ticks']},"
+            f"{row['measurement_ticks']},{row['peak_lanes']},"
+            f"{row['credit_stalls']},{row['duplicate_deliveries']},"
+            f"{row['unexpected_deliveries']},{row['wrong_lane_deliveries']},"
+            f"{row['wrong_value_deliveries']},"
+            f"{row['express_internal_link_flits']},"
+            f"{row['wire_flit_distance']},{row['sim_ticks']}\n"
+        )
     (output / "summary.csv").write_text(
-        "git_revision,source_trace_sha256,tensor_replay_sha256,completed,"
-        "rounds,deliveries,source_flits,router_flits,merges,requests,"
-        "lanes_delivered,p50,p95,p99,measurement_ticks,peak_lanes,"
-        "credit_stalls,sim_ticks\n"
-        f"{provenance['git_revision']},{provenance['source_trace_sha256']},"
-        f"{provenance['tensor_replay_sha256']},{row['completed']},"
-        f"{row['collective_rounds_completed']},{row['collective_deliveries']},"
-        f"{row['collective_source_flits']},{row['collective_router_flits']},"
-        f"{row['collective_reduce_merges']},{row['tensor_requests_completed']},"
-        f"{row['tensor_lanes_delivered']},{row['p50_ticks']},"
-        f"{row['p95_ticks']},{row['p99_ticks']},{row['measurement_ticks']},"
-        f"{row['peak_lanes']},{row['credit_stalls']},{row['sim_ticks']}\n",
-        encoding="utf-8")
+        csv_header + "".join(csv_rows), encoding="utf-8")
 
     if errors:
         print(f"FAIL: {'; '.join(errors)}")
         print(f"artifacts: {output}")
         return 1
-    print(
-        f"PASS: {row['collective_rounds_completed']} logical requests, "
-        f"measurement_ticks={row['measurement_ticks']} "
-        f"p50/p95/p99={row['p50_ticks']}/{row['p95_ticks']}/{row['p99_ticks']} "
-        f"peak_lanes={row['peak_lanes']} credit_stalls={row['credit_stalls']}"
-    )
+    for row in rows:
+        print(
+            f"PASS {row['design']}: {row['collective_rounds_completed']} "
+            f"logical requests, measurement_ticks={row['measurement_ticks']} "
+            f"p50/p95/p99={row['p50_ticks']}/{row['p95_ticks']}/"
+            f"{row['p99_ticks']} peak_lanes={row['peak_lanes']} "
+            f"wire_distance={row['wire_flit_distance']} "
+            f"express_flits={row['express_internal_link_flits']}"
+        )
     print(f"artifacts: {output}")
     return 0
 

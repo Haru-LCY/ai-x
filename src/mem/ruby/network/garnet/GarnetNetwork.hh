@@ -221,6 +221,10 @@ class GarnetNetwork : public Network
     void recordCollectiveRouterFlit() { ++m_collective_router_flits; }
     void recordCollectiveReduceMerge() { ++m_collective_reduce_merges; }
     void recordCollectiveCreditStall() { ++m_collective_credit_stalls; }
+    void recordCollectiveWrongValue()
+    {
+        ++m_collective_wrong_value_deliveries;
+    }
     void recordMulticastInternalLinkFlit(int collective_id);
     void recordMulticastCreditStall() { ++m_multicast_credit_stalls; }
     void recordMulticastReplication(int fanout)
@@ -314,6 +318,10 @@ class GarnetNetwork : public Network
     statistics::Scalar m_collective_tensor_p95_completion_ticks;
     statistics::Scalar m_collective_tensor_p99_completion_ticks;
     statistics::Scalar m_collective_credit_stalls;
+    statistics::Scalar m_collective_duplicate_deliveries;
+    statistics::Scalar m_collective_unexpected_deliveries;
+    statistics::Scalar m_collective_wrong_lane_deliveries;
+    statistics::Scalar m_collective_wrong_value_deliveries;
     statistics::Scalar m_collective_tensor_peak_lanes;
     statistics::Scalar m_collective_tensor_measurement_ticks;
     statistics::Scalar m_multicast_logical_requests;
