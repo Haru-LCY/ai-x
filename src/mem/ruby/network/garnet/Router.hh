@@ -108,6 +108,16 @@ class Router : public BasicRouter, public Consumer
         return m_collective_expected_fanin;
     }
     size_t collectivePeakLanes() const { return m_collective_peak_lanes; }
+    size_t collectiveActiveLanes() const { return m_collective_lanes.size(); }
+    size_t collectivePendingForwards() const
+    {
+        return m_pending_collective_forwards.size();
+    }
+    bool collectiveStateEmpty() const
+    {
+        return m_collective_lanes.empty() &&
+               m_pending_collective_forwards.empty();
+    }
 
     void init_net_ptr(GarnetNetwork* net_ptr)
     {

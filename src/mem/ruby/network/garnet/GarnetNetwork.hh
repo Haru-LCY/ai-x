@@ -40,6 +40,7 @@
 #include "mem/ruby/network/Network.hh"
 #include "mem/ruby/network/fault_model/FaultModel.hh"
 #include "mem/ruby/network/garnet/CommonTypes.hh"
+#include "mem/ruby/network/garnet/flit.hh"
 #include "params/GarnetNetwork.hh"
 
 namespace gem5
@@ -215,6 +216,7 @@ class GarnetNetwork : public Network
     void recordCollectiveDelivery(int collective_id, int dest_router,
                                   int lane = -1);
     void setCollectiveRoundTensorLanes(int collective_id, int lanes);
+    void assertNoResidualCollectiveState();
     void beginCollectiveRound(int collective_id);
     void recordMulticastLocalDelivery(int collective_id);
     void recordCollectiveInjection(int collective_id, int source_flits = 1);
@@ -225,6 +227,8 @@ class GarnetNetwork : public Network
     {
         ++m_collective_wrong_value_deliveries;
     }
+    void recordCollectiveOutvcStall() { ++m_collective_outvc_stalls; }
+    void recordCollectiveInternalLinkFlit(CollectiveOp op);
     void recordMulticastInternalLinkFlit(int collective_id);
     void recordMulticastCreditStall() { ++m_multicast_credit_stalls; }
     void recordMulticastReplication(int fanout)
@@ -322,6 +326,10 @@ class GarnetNetwork : public Network
     statistics::Scalar m_collective_unexpected_deliveries;
     statistics::Scalar m_collective_wrong_lane_deliveries;
     statistics::Scalar m_collective_wrong_value_deliveries;
+    statistics::Scalar m_collective_outvc_stalls;
+    statistics::Scalar m_collective_reduce_internal_link_flits;
+    statistics::Scalar m_collective_broadcast_internal_link_flits;
+    statistics::Scalar m_collective_tensor_active_entries;
     statistics::Scalar m_collective_tensor_peak_lanes;
     statistics::Scalar m_collective_tensor_measurement_ticks;
     statistics::Scalar m_multicast_logical_requests;

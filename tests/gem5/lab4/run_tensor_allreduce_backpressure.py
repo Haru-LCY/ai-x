@@ -26,15 +26,19 @@ REQUESTS = 100
 
 
 def cases():
-    """(name, cpus, dirs, rows, root, router_latency, outstanding)"""
+    """(name, cpus, dirs, rows, root, router_latency, link_latency,
+    outstanding)"""
     matrix = []
     for cpus, dirs, rows, root in ((4, 4, 2, 0), (9, 16, 3, 0)):
         for router_latency in (1, 4):
-            for outstanding in (1, 2, 4, 8):
-                matrix.append((
-                    f"bp-{rows}x{rows}-r{root}-rl{router_latency}-o{outstanding}",
-                    cpus, dirs, rows, root, router_latency, outstanding,
-                ))
+            for link_latency in (1, 4):
+                for outstanding in (1, 2, 4, 8):
+                    matrix.append((
+                        f"bp-{rows}x{rows}-r{root}-rl{router_latency}-"
+                        f"ll{link_latency}-o{outstanding}",
+                        cpus, dirs, rows, root, router_latency, link_latency,
+                        outstanding,
+                    ))
     return matrix
 
 
@@ -103,7 +107,8 @@ def write_replay(path, cpus, root):
 
 
 def run_case(gem5, output_root, case):
-    name, cpus, dirs, rows, root, router_latency, outstanding = case
+    name, cpus, dirs, rows, root, router_latency, link_latency, \
+        outstanding = case
     output = output_root / name
     output.mkdir(parents=True, exist_ok=False)
     replay = output / "tensor_replay.json"
@@ -119,6 +124,7 @@ def run_case(gem5, output_root, case):
         "--buffers-per-ctrl-vc=1",
         "--buffers-per-data-vc=1",
         f"--router-latency={router_latency}",
+        f"--link-latency={link_latency}",
         "--multicast-workload=throughput",
         f"--multicast-max-outstanding={outstanding}",
     ]

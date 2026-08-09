@@ -188,6 +188,15 @@ GarnetNetwork::recordMulticastInternalLinkFlit(int collective_id)
         ++m_multicast_measured_internal_link_flits;
 }
 
+void
+GarnetNetwork::recordCollectiveInternalLinkFlit(CollectiveOp op)
+{
+    if (op == CollectiveOp::Reduce)
+        ++m_collective_reduce_internal_link_flits;
+    else if (op == CollectiveOp::Broadcast)
+        ++m_collective_broadcast_internal_link_flits;
+}
+
 int
 GarnetNetwork::nextNaiveMulticastRound()
 {
@@ -368,6 +377,8 @@ GarnetNetwork::recordCollectiveDelivery(int collective_id, int dest_router,
                 for (const auto* router : m_routers)
                     peak = std::max(peak, router->collectivePeakLanes());
                 m_collective_tensor_peak_lanes = peak;
+                assertNoResidualCollectiveState();
+                m_collective_tensor_active_entries = 0;
                 exitSimLoop("Lab4 collective completed");
             }
         }
@@ -449,6 +460,19 @@ GarnetNetwork::setCollectiveRoundTensorLanes(int collective_id, int lanes)
              "Lab4 tensor round %d must contain at least one lane",
              collective_id);
     m_collective_round_states[collective_id].tensor_lanes = lanes;
+}
+
+void
+GarnetNetwork::assertNoResidualCollectiveState()
+{
+    for (auto* router : m_routers) {
+        fatal_if(!router->collectiveStateEmpty(),
+                 "Router %d still holds collective state at completion "
+                 "(active lanes %d, pending forwards %d)",
+                 router->get_id(),
+                 (int)router->collectiveActiveLanes(),
+                 (int)router->collectivePendingForwards());
+    }
 }
 
 void
@@ -808,6 +832,14 @@ GarnetNetwork::regStats()
         .name(name() + ".collective_wrong_lane_deliveries");
     m_collective_wrong_value_deliveries
         .name(name() + ".collective_wrong_value_deliveries");
+    m_collective_outvc_stalls
+        .name(name() + ".collective_outvc_stalls");
+    m_collective_reduce_internal_link_flits
+        .name(name() + ".collective_reduce_internal_link_flits");
+    m_collective_broadcast_internal_link_flits
+        .name(name() + ".collective_broadcast_internal_link_flits");
+    m_collective_tensor_active_entries
+        .name(name() + ".collective_tensor_active_entries");
     m_collective_tensor_peak_lanes
         .name(name() + ".collective_tensor_peak_lanes");
     m_collective_tensor_measurement_ticks

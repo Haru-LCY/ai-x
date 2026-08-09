@@ -368,6 +368,7 @@ Router::flushPendingCollectiveForwards()
             forward_flit->get_route().dest_router);
         if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet)) {
             m_network_ptr->recordCollectiveCreditStall();
+            m_network_ptr->recordCollectiveOutvcStall();
             schedule_wakeup(Cycles(1));
             return;
         }

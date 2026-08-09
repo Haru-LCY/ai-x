@@ -52,7 +52,7 @@ def parse_stats(path):
     return values
 
 
-def run_case(gem5, output, sim_cycles, world_size, design):
+def run_case(gem5, output, sim_cycles, world_size, design, request_count):
     output.mkdir(parents=True, exist_ok=True)
     topology = "Mesh_XY" if design == "mesh_xy" else "Mesh_Bypass"
     command = [
@@ -93,6 +93,8 @@ def run_case(gem5, output, sim_cycles, world_size, design):
             stats.get(prefix + "collective_reduce_merges", -1)),
         "tensor_requests_completed": int(
             stats.get(prefix + "collective_tensor_requests_completed", -1)),
+        "incomplete_requests": max(0, request_count - int(
+            stats.get(prefix + "collective_tensor_requests_completed", -1))),
         "tensor_lanes_delivered": int(
             stats.get(prefix + "collective_tensor_lanes_delivered", -1)),
         "p50_ticks": int(
@@ -107,6 +109,14 @@ def run_case(gem5, output, sim_cycles, world_size, design):
             stats.get(prefix + "collective_tensor_peak_lanes", -1)),
         "credit_stalls": int(
             stats.get(prefix + "collective_credit_stalls", -1)),
+        "outvc_stalls": int(
+            stats.get(prefix + "collective_outvc_stalls", -1)),
+        "reduce_internal_link_flits": int(
+            stats.get(prefix + "collective_reduce_internal_link_flits", -1)),
+        "broadcast_internal_link_flits": int(
+            stats.get(prefix + "collective_broadcast_internal_link_flits", -1)),
+        "active_entries": int(
+            stats.get(prefix + "collective_tensor_active_entries", -1)),
         "duplicate_deliveries": int(
             stats.get(prefix + "collective_duplicate_deliveries", -1)),
         "unexpected_deliveries": int(
@@ -150,11 +160,15 @@ def main():
         "collective_source_flits": contributions,
         "collective_router_flits": lanes * (3 * world - 2),
         "collective_reduce_merges": contributions,
+        "reduce_internal_link_flits": lanes * (world - 1),
+        "broadcast_internal_link_flits": lanes * (world - 1),
         "tensor_requests_completed": replay["request_count"],
         "tensor_lanes_delivered": contributions,
+        "active_entries": 0,
     }
     rows = [
-        run_case(gem5, output / design, args.sim_cycles, world, design)
+        run_case(gem5, output / design, args.sim_cycles, world, design,
+                 replay["request_count"])
         for design in ("mesh_xy", "mesh_bypass")
     ]
     errors = []
@@ -174,6 +188,9 @@ def main():
                       "wrong_lane_deliveries", "wrong_value_deliveries"):
             if row[field] != 0:
                 errors.append(f"{tag}: {field}={row[field]} expected 0")
+        if row["incomplete_requests"] != 0:
+            errors.append(
+                f"{tag}: incomplete_requests={row['incomplete_requests']}")
 
     provenance = {
         "git_revision": git_output("rev-parse", "HEAD"),
@@ -185,6 +202,14 @@ def main():
         "logical_events": replay["request_count"],
         "tensor_flits_per_rank": lanes,
         "contribution_flits": contributions,
+        "min_chunks_per_request": min(
+            len(request["chunks"]) for request in replay["requests"]),
+        "max_chunks_per_request": max(
+            len(request["chunks"]) for request in replay["requests"]),
+        "min_flits_per_request": min(
+            request["tensor_flits"] for request in replay["requests"]),
+        "max_flits_per_request": max(
+            request["tensor_flits"] for request in replay["requests"]),
     }
     summary = {"provenance": provenance, "expected": expected, "rows": rows}
     (output / "summary.json").write_text(
@@ -193,9 +218,11 @@ def main():
     csv_header = (
         "design,git_revision,source_trace_sha256,tensor_replay_sha256,"
         "completed,rounds,deliveries,source_flits,router_flits,merges,"
-        "requests,lanes_delivered,p50,p95,p99,measurement_ticks,peak_lanes,"
-        "credit_stalls,duplicate,unexpected,wrong_lane,wrong_value,"
-        "express_flits,wire_flit_distance,sim_ticks\n"
+        "requests,incomplete_requests,lanes_delivered,p50,p95,p99,"
+        "measurement_ticks,peak_lanes,active_entries,credit_stalls,"
+        "outvc_stalls,reduce_internal,broadcast_internal,duplicate,"
+        "unexpected,wrong_lane,wrong_value,express_flits,"
+        "wire_flit_distance,sim_ticks\n"
     )
     csv_rows = []
     for row in rows:
@@ -209,10 +236,15 @@ def main():
             f"{row['collective_router_flits']},"
             f"{row['collective_reduce_merges']},"
             f"{row['tensor_requests_completed']},"
+            f"{row['incomplete_requests']},"
             f"{row['tensor_lanes_delivered']},{row['p50_ticks']},"
             f"{row['p95_ticks']},{row['p99_ticks']},"
             f"{row['measurement_ticks']},{row['peak_lanes']},"
-            f"{row['credit_stalls']},{row['duplicate_deliveries']},"
+            f"{row['active_entries']},{row['credit_stalls']},"
+            f"{row['outvc_stalls']},"
+            f"{row['reduce_internal_link_flits']},"
+            f"{row['broadcast_internal_link_flits']},"
+            f"{row['duplicate_deliveries']},"
             f"{row['unexpected_deliveries']},{row['wrong_lane_deliveries']},"
             f"{row['wrong_value_deliveries']},"
             f"{row['express_internal_link_flits']},"
@@ -231,6 +263,9 @@ def main():
             f"logical requests, measurement_ticks={row['measurement_ticks']} "
             f"p50/p95/p99={row['p50_ticks']}/{row['p95_ticks']}/"
             f"{row['p99_ticks']} peak_lanes={row['peak_lanes']} "
+            f"reduce/bcast_internal="
+            f"{row['reduce_internal_link_flits']}/"
+            f"{row['broadcast_internal_link_flits']} "
             f"wire_distance={row['wire_flit_distance']} "
             f"express_flits={row['express_internal_link_flits']}"
         )
