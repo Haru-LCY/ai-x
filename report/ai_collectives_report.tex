@@ -46,7 +46,9 @@ cases; static bypass achieves 1.068$\times$ and 1.072$\times$.  Tensor
 streaming reduces the
 all-reduce trace window from 80,638,000 to 17,054,500 ticks (4.728$\times$
 versus scalar-lane replay).  These are validated NoC mechanism results, not an
-end-to-end GPU-training speedup claim.
+end-to-end GPU-training speedup claim.  The bypass effect is workload
+dependent: speedup reaches 1.213$\times$ for transpose traffic and
+1.266$\times$ at offered load 0.7, but is only 1.006$\times$ at load 0.05.
 \end{abstract}
 
 \section{Introduction}
@@ -497,6 +499,10 @@ The original 4$\times$4 hotspot/load-0.3 weakness is removed: its 12 cases
 have 1.091$\times$ geometric-mean speedup and a 1.000$\times$ minimum.
 Across the full matrix, eight mild regressions remain, but the worst is
 0.980$\times$ and none exceeds 5\%.
+Thus the bypass result is significant for structured or heavily loaded NoC
+traffic, while it is intentionally close to neutral when the network is
+lightly loaded.  The adaptive admission policy is essential: static bypass
+has a useful mean but can produce pathological individual regressions.
 
 G10 further shows that interaction is workload dependent.  Distance-scaled
 mean latency speedup is 0.965$\times$ for replicated unicast and
@@ -634,12 +640,12 @@ physical bypass links are implemented, tested, and compared against appropriate
 Mesh/unicast baselines.  Multicast achieves 39.51\% mean internal-link traffic
 reduction, with benefit increasing with fanout, although 10 throughput
 regressions and the dedicated fast path qualify the latency result.  Bypass is
-useful only conditionally: after selecting distance-scaled diagonal links and
-mapping tensor packets to the data VNet, bounded-lookahead admission achieves
-1.080$\times$ geometric-mean latency speedup, removes the 4$\times$4 hotspot
-weakness, and reduces regressions larger than 5\% from 44 to zero.  Its
-32-flit cutoff and remaining mild low-load cases still reject a universal
-speedup claim.  Finally, exact
+meaningfully effective but workload dependent: adaptive admission achieves
+1.080$\times$ overall, 1.213$\times$ on transpose, and 1.266$\times$ at high
+load, removes the 4$\times$4 hotspot weakness, and reduces regressions larger
+than 5\% from 44 to zero.  Its near-neutral low-load result and 32-flit cutoff
+reject a universal speedup claim; these are NoC latency results, not
+end-to-end GPU-training throughput.  Finally, exact
 replay of broadcast and all-reduce events from a real eight-H100 microbenchmark
 connects the mechanisms to AI-training communication.  The tensor path's
 4.728$\times$ reduction is evidence that preserving a streaming collective is
