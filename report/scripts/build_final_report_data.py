@@ -17,7 +17,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "report" / "raw-results" / "head-77fcf26d"
-OPT_RAW = ROOT / "report" / "raw-results" / "bypass-optimization-v4"
+OPT_RAW = ROOT / "report" / "raw-results" / "bypass-optimization-v5"
 DATA = ROOT / "report" / "data"
 FIGURES = ROOT / "report" / "figures"
 

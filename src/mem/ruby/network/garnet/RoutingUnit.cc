@@ -359,9 +359,11 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 if (lookahead_free < lookahead_low_watermark)
                     return xy_outport;
 
-                if (express_free < xy_free ||
-                    (express_free == xy_free &&
-                     express_free < vcs_per_vnet))
+                // Small free-VC differences are too noisy at light load.
+                // Reserve the shortcut for a decisive source-pressure
+                // advantage so occasional allocator timing does not create a
+                // longer tail through an otherwise uncongested landing router.
+                if (express_free <= xy_free + 1)
                     return xy_outport;
             }
             return outport->second;
