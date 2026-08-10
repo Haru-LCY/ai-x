@@ -491,6 +491,54 @@ regressions larger than 5\%.}
 \label{fig:bypass-opt}
 \end{figure}
 
+Figure~\ref{fig:bypass-matrix} expands this aggregate into the complete
+adaptive matrix.  The 1.0 boundary makes the intended operating region
+visible: bypass is nearly neutral at light load, while structured traffic and
+high offered load expose larger gains.  It also shows why a single average
+would be misleading (for example, transpose at 4$\times$4 is much more
+sensitive to packet length than the corresponding 8$\times$8 cases).
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth]{bypass_matrix_heatmap.pdf}
+\caption{Complete adaptive data-VNet matrix.  Each cell is the geometric-mean
+Mesh/bypass latency speedup over three seeds; rows separate mesh size, columns
+traffic pattern, and each panel enumerates packet length (rows) and offered
+load (columns).  Values above 1 indicate a bypass benefit.}
+\label{fig:bypass-matrix}
+\end{figure}
+
+The tail behavior follows the same pattern as the mean.  Figure~\ref{fig:bypass-tail}
+shows that p95 latency tracks the average improvement for transpose and high
+load, while remaining close to one for uniform traffic and low load.  This is
+important for a training-style workload: the optimization improves congestion
+episodes rather than merely shifting the central tendency.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{bypass_tail_latency.pdf}
+\caption{Adaptive bypass latency speedups grouped by traffic pattern and
+offered load.  Bars report geometric means for average latency and p95
+latency, exposing both central and tail behavior.}
+\label{fig:bypass-tail}
+\end{figure}
+
+Finally, Figure~\ref{fig:bypass-tradeoff} separates the mechanism from the
+outcome.  Adaptive routing reduces Router traversals in every traffic family,
+but the latency speedup depends on whether those saved hops occur on the
+congested critical path.  The plot therefore supports a cautious claim:
+physical bypass provides a useful congestion-relief mechanism, not a universal
+latency multiplier.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.80\linewidth]{bypass_path_tradeoff.pdf}
+\caption{Mechanism-level trade-off for adaptive bypass.  Each point is one
+traffic/size/load/flit aggregate; the x-axis is Router-traversal reduction and
+the y-axis is Mesh-relative latency speedup.  Color identifies traffic.}
+\label{fig:bypass-tradeoff}
+\end{figure}
+
 By traffic pattern, adaptive speedups are 1.022$\times$ for uniform-random,
 1.213$\times$ for transpose, 1.044$\times$ for bit-complement, and
 1.052$\times$ for hotspot.  At offered load 0.7 the speedup is

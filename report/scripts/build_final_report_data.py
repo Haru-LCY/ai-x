@@ -36,7 +36,8 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def save(fig: plt.Figure, name: str) -> None:
-    fig.tight_layout()
+    if fig.get_layout_engine() is None:
+        fig.tight_layout()
     for suffix in ("pdf", "png"):
         fig.savefig(FIGURES / f"{name}.{suffix}", dpi=220, bbox_inches="tight")
     plt.close(fig)
@@ -291,6 +292,141 @@ def main() -> int:
     axes[0].legend(frameon=False, fontsize=8)
     fig.suptitle("Distance-scaled diagonal bypass: congestion-aware admission")
     save(fig, "bypass_optimization")
+
+    # Matrix view: expose the workload/packet-size/load corners hidden by
+    # geometric means.  Each cell is the geometric mean over the three seeds.
+    matrix_traffic = [
+        ("uniform_random", "uniform\nrandom"),
+        ("transpose", "transpose"),
+        ("bit_complement", "bit\ncomplement"),
+        ("hotspot", "hotspot"),
+    ]
+    matrix_sizes = [4, 8]
+    matrix_packets = [1, 4, 16, 64]
+    matrix_loads = [0.05, 0.1, 0.3, 0.7]
+    fig, axes = plt.subplots(
+        2, 4, figsize=(11.2, 5.5), squeeze=False, constrained_layout=True
+    )
+    image = None
+    for row_index, size in enumerate(matrix_sizes):
+        for col_index, (traffic, title) in enumerate(matrix_traffic):
+            axis = axes[row_index, col_index]
+            matrix = []
+            for packet in matrix_packets:
+                values = []
+                for offered_load in matrix_loads:
+                    cases = [
+                        item for item in optimized["adaptive"]
+                        if int(item["size"]) == size
+                        and item["traffic"] == traffic
+                        and int(item["packet_flits"]) == packet
+                        and float(item["offered_flits_per_node_cycle"])
+                        == offered_load
+                    ]
+                    values.append(geometric_mean(
+                        item["latency_speedup"] for item in cases
+                    ))
+                matrix.append(values)
+            image = axis.imshow(
+                matrix, vmin=0.95, vmax=1.35, cmap="RdYlGn", aspect="auto"
+            )
+            for packet_index in range(len(matrix_packets)):
+                for load_index in range(len(matrix_loads)):
+                    value = matrix[packet_index][load_index]
+                    text_color = "white" if value < 1.02 else "black"
+                    axis.text(
+                        load_index, packet_index, f"{value:.3f}",
+                        ha="center", va="center", fontsize=7,
+                        color=text_color,
+                    )
+            axis.set_title(title, fontsize=9)
+            axis.set_xticks(range(len(matrix_loads)), [".05", ".1", ".3", ".7"])
+            axis.set_yticks(range(len(matrix_packets)), ["1", "4", "16", "64"])
+            axis.set_xlabel("offered load", fontsize=8)
+            if col_index == 0:
+                axis.set_ylabel(f"{size}×{size}; packet flits", fontsize=8)
+    assert image is not None
+    fig.colorbar(
+        image, ax=axes.ravel().tolist(), shrink=0.82, pad=0.02,
+        label="Mesh / adaptive bypass latency",
+    )
+    fig.suptitle("Adaptive bypass latency across the complete data-VNet matrix")
+    save(fig, "bypass_matrix_heatmap")
+
+    # Average versus tail latency: a policy can improve the mean while still
+    # worsening the tail, so report both metrics on the same workload axes.
+    tail_groups = [
+        ("traffic", traffic_order, "Traffic pattern"),
+        (
+            "offered_flits_per_node_cycle", load_order, "Offered load"
+        ),
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.5))
+    for axis, (dimension, values, title) in zip(axes, tail_groups):
+        average_values = []
+        p95_values = []
+        for value in values:
+            cases = [
+                item for item in optimized["adaptive"]
+                if item[dimension] == value
+            ]
+            average_values.append(geometric_mean(
+                item["latency_speedup"] for item in cases
+            ))
+            p95_values.append(geometric_mean(
+                item["mesh_p95_latency_cycles"] /
+                item["bypass_p95_latency_cycles"] for item in cases
+            ))
+        positions = np.arange(len(values))
+        width = 0.36
+        axis.bar(
+            positions - width / 2, average_values, width,
+            label="mean latency", color="#4c78a8",
+        )
+        axis.bar(
+            positions + width / 2, p95_values, width,
+            label="p95 latency", color="#f28e2b",
+        )
+        axis.axhline(1, color="#333333", linestyle="--", linewidth=1)
+        axis.set_title(title)
+        axis.set_xticks(
+            positions,
+            [str(value).replace("_", "\n") for value in values],
+            fontsize=8,
+        )
+        axis.grid(axis="y", alpha=0.25)
+    axes[0].set_ylabel("Mesh / bypass speedup")
+    axes[0].legend(frameon=False, fontsize=8)
+    fig.suptitle("Adaptive bypass improves both mean and p95 latency")
+    save(fig, "bypass_tail_latency")
+
+    # Mechanism-level view: path shortening is useful, but the scatter also
+    # makes clear why a topology-only claim cannot predict latency.
+    fig, axis = plt.subplots(figsize=(6.2, 3.7))
+    traffic_colors = {
+        "uniform_random": "#4c78a8",
+        "transpose": "#f28e2b",
+        "bit_complement": "#59a14f",
+        "hotspot": "#e15759",
+    }
+    for traffic, color in traffic_colors.items():
+        cases = [
+            item for item in optimized["adaptive"]
+            if item["traffic"] == traffic
+        ]
+        axis.scatter(
+            [100 * item["router_traversal_reduction"] for item in cases],
+            [item["latency_speedup"] for item in cases],
+            s=13, alpha=0.48, color=color, label=traffic.replace("_", "-"),
+        )
+    axis.axhline(1, color="#333333", linestyle="--", linewidth=1)
+    axis.set_yscale("log")
+    axis.set_xlabel("Router-traversal reduction (%)")
+    axis.set_ylabel("Latency speedup (log scale)")
+    axis.set_title("Path shortening is necessary but not sufficient")
+    axis.grid(alpha=0.2, which="both")
+    axis.legend(frameon=False, fontsize=8, ncol=2)
+    save(fig, "bypass_path_tradeoff")
 
     comparison = tensor["designs"]["mesh_xy"]
     scalar = comparison["scalar_measurement_ticks"]
