@@ -101,6 +101,12 @@ class GarnetNetwork : public Network
     {
         return m_bypass_adaptive_max_packet_flits;
     }
+    bool bypassDestinationSkewed(int destination) const
+    {
+        assert(destination >= 0 &&
+               destination < m_bypass_hot_destinations.size());
+        return m_bypass_hot_destinations[destination];
+    }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
     bool collectiveTensor() const { return m_collective_tensor; }
@@ -262,6 +268,9 @@ class GarnetNetwork : public Network
     std::vector<int> m_bypass_link_spans;
     bool m_bypass_adaptive_routing;
     unsigned m_bypass_adaptive_max_packet_flits;
+    std::vector<uint64_t> m_bypass_destination_epoch_packets;
+    std::vector<bool> m_bypass_hot_destinations;
+    uint64_t m_bypass_destination_epoch_total = 0;
     int m_synthetic_packet_flits;
     bool m_collective_mode;
     bool m_collective_multicast;

@@ -40,8 +40,8 @@ checks.  Tree multicast
 reduces internal-link flit traffic by 39.51\% on average over 162 pairs and has
 a 3.588$\times$ median completion-latency speedup, although 10 cases regress in
 throughput.  For data traffic on distance-scaled diagonal links,
-congestion-aware bypass achieves 1.078$\times$ geometric-mean average-latency
-speedup and 1.084$\times$ p95-latency speedup over Mesh across 384 paired
+congestion-aware bypass achieves 1.080$\times$ geometric-mean average-latency
+speedup and 1.086$\times$ p95-latency speedup over Mesh across 384 paired
 cases; static bypass achieves 1.068$\times$ and 1.072$\times$.  Tensor
 streaming reduces the
 all-reduce trace window from 80,638,000 to 17,054,500 ticks (4.728$\times$
@@ -151,11 +151,16 @@ data VNet, the source compares free downstream VCs on the oracle's express
 port and the ordinary XY first port.  The shortcut's reverse credit path also
 models a coarse occupancy signal for the landing Router's next output.  A
 busy landing port causes XY fallback; when it is idle, source express-versus-XY
-free-VC pressure makes the final choice.  To reject allocator-timing noise at
-light load, express must have at least two more free VCs than XY; ties and a
-one-VC advantage fall back to XY.  Packets longer than 32 flits
+free-VC pressure and packet length make the final choice.  A compact epoch
+monitor updates one hot-destination bit per Router every $16N$ injected data
+packets; a destination exceeding four times the uniform share is marked
+skewed.  One-flit packets fall back to XY for such many-to-one destinations
+and otherwise require a two-VC express advantage.  Four-flit packets may use
+an idle express/XY tie to capture the pipeline-hop saving, while longer packets
+require the two-VC advantage.  Packets longer than 32 flits
 also use XY because a long wormhole reservation can monopolize a shortcut.
-The threshold is a command-line parameter.  Ordered VNet behavior remains static.
+The packet-length cutoff is a command-line parameter.  Ordered VNet behavior
+remains static.
 The decision occurs only at the source and every suffix is XY.  Thus the
 ordinary XY dependency graph remains acyclic, while express channels have
 only outgoing dependencies into that graph and cannot close a cycle.
@@ -453,11 +458,11 @@ a sufficient hardware argument.
 The corrected data-VNet A/B study then optimizes the chosen diagonal,
 distance-scaled design.  Because speedups are ratios with a long saturation
 tail, Table~\ref{tab:bypass-opt} uses geometric means as its primary aggregate.
-Congestion admission improves geometric-mean average-latency speedup by 1.0\%
-relative to static bypass and p95 by 1.2\%; mean Mesh-relative throughput
-remains positive at +0.82\%.  More importantly, it prevents the static
+Congestion admission improves geometric-mean average-latency speedup by 1.1\%
+relative to static bypass and p95 by 1.4\%; mean Mesh-relative throughput
+remains positive at +0.83\%.  More importantly, it prevents the static
 bit-complement overload cases: the worst Mesh-relative speedup rises from
-0.128$\times$ to 0.971$\times$, and regressions exceeding 5\% fall from 44 to
+0.128$\times$ to 0.980$\times$, and regressions exceeding 5\% fall from 44 to
 zero of 384 cases.
 
 \begin{table}[ht]
@@ -470,7 +475,7 @@ cases per mode).  Latency columns are geometric-mean Mesh/bypass speedups.}
 Mode & Avg. latency & p95 latency & Mean throughput & $>5\%$ regressions \\
 \midrule
 Static oracle & 1.068$\times$ & 1.072$\times$ & +1.92\% & 44 \\
-Congestion-aware & 1.078$\times$ & 1.084$\times$ & +0.82\% & 0 \\
+Congestion-aware & 1.080$\times$ & 1.086$\times$ & +0.83\% & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -484,14 +489,14 @@ regressions larger than 5\%.}
 \label{fig:bypass-opt}
 \end{figure}
 
-By traffic pattern, adaptive speedups are 1.015$\times$ for uniform-random,
-1.202$\times$ for transpose, 1.036$\times$ for bit-complement, and
-1.069$\times$ for hotspot.  At offered load 0.7 the speedup is
-1.276$\times$ and no case regresses; at low load 0.05 it is 1.000$\times$.
+By traffic pattern, adaptive speedups are 1.022$\times$ for uniform-random,
+1.213$\times$ for transpose, 1.044$\times$ for bit-complement, and
+1.052$\times$ for hotspot.  At offered load 0.7 the speedup is
+1.266$\times$; at low load 0.05 it is 1.006$\times$.
 The original 4$\times$4 hotspot/load-0.3 weakness is removed: its 12 cases
-have 1.112$\times$ geometric-mean speedup and a 1.000$\times$ minimum.
-Across the full matrix, 19 mild regressions remain, but the worst is
-0.971$\times$ and none exceeds 5\%.
+have 1.091$\times$ geometric-mean speedup and a 1.000$\times$ minimum.
+Across the full matrix, eight mild regressions remain, but the worst is
+0.980$\times$ and none exceeds 5\%.
 
 G10 further shows that interaction is workload dependent.  Distance-scaled
 mean latency speedup is 0.965$\times$ for replicated unicast and
@@ -541,10 +546,11 @@ for this all-rank convergence/broadcast tree.
         while throughput regresses.
   \item Bypass wire cost is a Garnet latency/serialization and static-cost
         proxy, not area, power, repeater, or timing-closure evidence.
-  \item Bypass lookahead reaches only the express landing Router.  Nineteen
+  \item Bypass lookahead reaches only the express landing Router.  Eight
         of 384 optimized cases remain mildly below Mesh, although none is more
-        than 5\% slower.  The occupancy signal is modeled without separate
-        propagation-delay or wire-cost accounting.
+        than 5\% slower.  The occupancy and epoch destination-skew signals are
+        modeled without separate propagation-delay, counter-area, or
+        wire-cost accounting.
   \item The robust policy deliberately sends packets above 32 flits over XY.
         This removes long-packet shortcut regressions but also gives 64-flit
         cases no bypass benefit; segmentation is future work.
@@ -591,14 +597,14 @@ python3 tests/gem5/lab4/run_bypass_performance.py \
   --no-bypass-adaptive-routing --jobs 64
 python3 tests/gem5/lab4/run_bypass_performance.py \
   --gem5 build/Garnet_standalone/gem5.opt \
-  --output report/raw-results/bypass-optimization-v5/static-data-vnet \
+  --output report/raw-results/bypass-optimization-v7/static-data-vnet \
   --inj-vnet 2 \
   --families diagonal --wire-models distance_scaled \
   --offered-loads 0.05 0.1 0.3 0.7 \
   --no-bypass-adaptive-routing --jobs 64
 python3 tests/gem5/lab4/run_bypass_performance.py \
   --gem5 build/Garnet_standalone/gem5.opt \
-  --output report/raw-results/bypass-optimization-v5/adaptive-data-vnet \
+  --output report/raw-results/bypass-optimization-v7/adaptive-data-vnet \
   --inj-vnet 2 \
   --families diagonal --wire-models distance_scaled \
   --offered-loads 0.05 0.1 0.3 0.7 \
@@ -630,7 +636,7 @@ reduction, with benefit increasing with fanout, although 10 throughput
 regressions and the dedicated fast path qualify the latency result.  Bypass is
 useful only conditionally: after selecting distance-scaled diagonal links and
 mapping tensor packets to the data VNet, bounded-lookahead admission achieves
-1.078$\times$ geometric-mean latency speedup, removes the 4$\times$4 hotspot
+1.080$\times$ geometric-mean latency speedup, removes the 4$\times$4 hotspot
 weakness, and reduces regressions larger than 5\% from 44 to zero.  Its
 32-flit cutoff and remaining mild low-load cases still reject a universal
 speedup claim.  Finally, exact

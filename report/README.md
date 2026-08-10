@@ -36,7 +36,7 @@ The scripts reject missing/non-finite multicast pairs, inconsistent bypass
 VNet/routing metadata, and inconsistent final artifact counts or statuses
 before updating aggregate tables and figures. The bypass optimization raw
 artifacts are under the git-ignored
-`raw-results/bypass-optimization-v5/{static,adaptive}-data-vnet/` directories.
+`raw-results/bypass-optimization-v7/{static,adaptive}-data-vnet/` directories.
 
 ## Build the PDF
 

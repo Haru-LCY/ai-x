@@ -128,6 +128,8 @@ GarnetNetwork::GarnetNetwork(const Params &p)
         // initialize the router's network pointers
         router->init_net_ptr(this);
     }
+    m_bypass_destination_epoch_packets.assign(m_routers.size(), 0);
+    m_bypass_hot_destinations.assign(m_routers.size(), false);
     m_collective_round_states.resize(m_collective_rounds);
     for (auto& state : m_collective_round_states)
         state.delivered.assign(m_routers.size(), false);
@@ -1144,10 +1146,29 @@ GarnetNetwork::update_traffic_distribution(RouteInfo route)
     int dest_node = route.dest_router;
     int vnet = route.vnet;
 
-    if (m_vnet_type[vnet] == DATA_VNET_)
+    if (m_vnet_type[vnet] == DATA_VNET_) {
         (*m_data_traffic_distribution[src_node][dest_node])++;
-    else
+
+        // Update a compact, packet-count-based destination-skew signal once
+        // per epoch.  Four times the uniform all-destination share cleanly
+        // separates sustained many-to-one traffic from random fluctuations.
+        ++m_bypass_destination_epoch_packets[dest_node];
+        ++m_bypass_destination_epoch_total;
+        const uint64_t epoch_packets = 16 * m_routers.size();
+        if (m_bypass_destination_epoch_total >= epoch_packets) {
+            for (int destination = 0;
+                 destination < m_routers.size(); ++destination) {
+                m_bypass_hot_destinations[destination] =
+                    m_bypass_destination_epoch_packets[destination] *
+                        m_routers.size() >=
+                    4 * m_bypass_destination_epoch_total;
+                m_bypass_destination_epoch_packets[destination] = 0;
+            }
+            m_bypass_destination_epoch_total = 0;
+        }
+    } else {
         (*m_ctrl_traffic_distribution[src_node][dest_node])++;
+    }
 }
 
 bool

@@ -359,12 +359,29 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 if (lookahead_free < lookahead_low_watermark)
                     return xy_outport;
 
-                // Small free-VC differences are too noisy at light load.
-                // Reserve the shortcut for a decisive source-pressure
-                // advantage so occasional allocator timing does not create a
-                // longer tail through an otherwise uncongested landing router.
-                if (express_free <= xy_free + 1)
-                    return xy_outport;
+                if (route.packet_flits == 1) {
+                    // A one-flit packet cannot amortize rerouting toward a
+                    // sustained many-to-one endpoint.  An epoch-based
+                    // destination-skew bit suppresses that case; otherwise
+                    // retain the decisive local pressure test.
+                    if (network->bypassDestinationSkewed(
+                            route.dest_router) ||
+                        express_free <= xy_free + 1)
+                        return xy_outport;
+                } else if (route.packet_flits == 4) {
+                    // A short wormhole packet can safely take an otherwise
+                    // idle shortcut for the pipeline-hop saving.
+                    if (express_free < xy_free ||
+                        (express_free == xy_free &&
+                         express_free < vcs_per_vnet))
+                        return xy_outport;
+                } else {
+                    // Longer reservations require a decisive source-pressure
+                    // advantage; small free-VC differences are too noisy at
+                    // light load.
+                    if (express_free <= xy_free + 1)
+                        return xy_outport;
+                }
             }
             return outport->second;
         }
