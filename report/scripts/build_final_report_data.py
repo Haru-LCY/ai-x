@@ -230,6 +230,95 @@ def main() -> int:
     ]
     write_csv(DATA / "quantitative_inventory.csv", headline)
 
+    # Multicast scaling views: show how the shared tree changes with fanout
+    # and packet size, and expose the throughput tail hidden by mean latency.
+    multicast_groups = [4, 8, 16]
+    multicast_packets = [1, 4, 16]
+    fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.5))
+    positions = np.arange(len(multicast_groups))
+    width = 0.24
+    for offset, packet, color in zip(
+        (-width, 0, width), multicast_packets, ("#4c78a8", "#f28e2b", "#59a14f")
+    ):
+        values = []
+        lows = []
+        highs = []
+        for group_size in multicast_groups:
+            cases = [
+                row for row in multicast_rows
+                if row["group_size"] == group_size
+                and row["packet_flits"] == packet
+            ]
+            samples = [100 * row["throughput_improvement"] for row in cases]
+            values.append(statistics.fmean(samples))
+            lows.append(values[-1] - min(samples))
+            highs.append(max(samples) - values[-1])
+        axes[0].bar(
+            positions + offset, values, width, label=f"{packet} flits",
+            color=color, yerr=[lows, highs], capsize=3,
+        )
+    axes[0].axhline(0, color="#333333", linewidth=1)
+    axes[0].set_xticks(positions, [str(value) for value in multicast_groups])
+    axes[0].set_xlabel("Destination count")
+    axes[0].set_ylabel("Throughput change (%)")
+    axes[0].set_title("Throughput is workload-sensitive")
+    axes[0].legend(frameon=False, fontsize=8)
+    axes[0].grid(axis="y", alpha=0.25)
+
+    injection_rates = [0.1, 0.5, 1.0]
+    matrix = []
+    for packet in multicast_packets:
+        row_values = []
+        for injection in injection_rates:
+            cases = [
+                row for row in multicast_rows
+                if row["packet_flits"] == packet
+                and row["injection_rate"] == injection
+            ]
+            row_values.append(geometric_mean(
+                row["latency_speedup"] for row in cases
+            ))
+        matrix.append(row_values)
+    image = axes[1].imshow(
+        matrix, vmin=1.0, vmax=max(5.0, max(max(row) for row in matrix)),
+        cmap="YlGnBu", aspect="auto"
+    )
+    for packet_index, packet in enumerate(multicast_packets):
+        for injection_index, injection in enumerate(injection_rates):
+            matrix_value = matrix[packet_index][injection_index]
+            axes[1].text(
+                injection_index, packet_index, f"{matrix_value:.2f}",
+                ha="center", va="center", fontsize=8,
+                color="white" if matrix_value > 4 else "black",
+            )
+    axes[1].set_xticks(range(len(injection_rates)), [".1", ".5", "1.0"])
+    axes[1].set_yticks(range(len(multicast_packets)), ["1", "4", "16"])
+    axes[1].set_xlabel("Injection rate")
+    axes[1].set_ylabel("Packet flits")
+    axes[1].set_title("Latency speedup grows with load")
+    fig.colorbar(image, ax=axes[1], shrink=0.82, label="Mesh / tree latency")
+    fig.suptitle("Multicast scaling across fanout, packet size, and load")
+    save(fig, "multicast_scaling")
+
+    # Each point is one paired case; this makes the shared-traffic mechanism
+    # and the occasional throughput regression visible simultaneously.
+    fig, axis = plt.subplots(figsize=(6.2, 3.7))
+    fanout_colors = {4: "#4c78a8", 8: "#f28e2b", 16: "#59a14f"}
+    for group_size, color in fanout_colors.items():
+        cases = [row for row in multicast_rows if row["group_size"] == group_size]
+        axis.scatter(
+            [100 * row["traffic_reduction"] for row in cases],
+            [100 * row["throughput_improvement"] for row in cases],
+            s=16, alpha=0.5, color=color, label=f"{group_size} destinations",
+        )
+    axis.axhline(0, color="#333333", linestyle="--", linewidth=1)
+    axis.set_xlabel("Internal-link flit reduction (%)")
+    axis.set_ylabel("Throughput change (%)")
+    axis.set_title("Shared traffic does not guarantee throughput")
+    axis.grid(alpha=0.2)
+    axis.legend(frameon=False, fontsize=8)
+    save(fig, "multicast_traffic_throughput_tradeoff")
+
     labels = [
         row["design"].replace("-", "\n").replace("_", " ")
         for row in bypass_rows

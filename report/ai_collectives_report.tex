@@ -430,6 +430,37 @@ higher throughput under atomic fanout.
 \label{fig:multicast-latency}
 \end{figure}
 
+Figure~\ref{fig:multicast-scaling} makes the workload dependence explicit.
+The left panel reports throughput rather than latency, including observed
+minima and maxima; the right panel shows that the latency benefit grows as
+injection pressure increases.  Thus the tree is not simply a constant-factor
+optimization: it removes duplicated link work, and that saved work matters
+most when the network is busy.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\linewidth]{multicast_scaling.pdf}
+\caption{Multicast scaling across destination count, packet size, and load.
+Bars show mean throughput change with min--max whiskers; the heatmap shows
+geometric-mean completion-latency speedup across background conditions.}
+\label{fig:multicast-scaling}
+\end{figure}
+
+The mechanism-level trade-off is shown in Figure~\ref{fig:multicast-tradeoff}.
+Larger fanouts move right because the tree shares more internal-link flits,
+but throughput does not increase monotonically for every point.  The negative
+points are the ten four-destination regressions reported above, which is why
+the report separates link-traffic reduction from end-to-end throughput.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.80\linewidth]{multicast_traffic_throughput_tradeoff.pdf}
+\caption{Paired multicast cases: internal-link flit reduction versus
+throughput change.  Color denotes destination count; the dashed line marks
+unchanged throughput.}
+\label{fig:multicast-tradeoff}
+\end{figure}
+
 \subsection{Bypass links}
 
 \begin{table}[ht]
