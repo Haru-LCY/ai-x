@@ -1,0 +1,100 @@
+{
+  "provenance": {
+    "git_revision": "77fcf26d57a1a6cf402b40fe748d500746f6578c",
+    "git_dirty": true,
+    "git_dirty_paths": [
+      "?? report/raw-results/"
+    ],
+    "replay": "/volume/pt-algorithm/cxiao03/ai-x/traces/h100_8gpu_broadcast_replay.json",
+    "replay_sha256": "7745c3f0f2b282c42e062998159e5d1ef21e9af032ac96f394c3e133d5b2a87f",
+    "source_trace": "/volume/pt-algorithm/cxiao03/ai-x/traces/h100_8gpu_collectives.json",
+    "source_trace_sha256": "c65857924f2a4be0958124a480d60e4f402df5684e5a9b04b7e44427d4933afd",
+    "schema": "lab4.garnet_collective_replay.v1",
+    "byte_scale": 0.0009765625,
+    "time_scale": 0.0009765625,
+    "rank_to_router": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "expected_requests": 30,
+    "expected_source_flits": 6720,
+    "sim_cycles": 50000000
+  },
+  "rows": [
+    {
+      "design": "mesh_xy",
+      "returncode": 0,
+      "completed": true,
+      "collective_source_flits": 6720,
+      "multicast_logical_requests": 30,
+      "multicast_physical_packets": 30,
+      "multicast_measured_requests": 30,
+      "multicast_measurement_ticks": 17047500,
+      "multicast_p95_completion_ticks": 643500,
+      "express_internal_link_flits": 0,
+      "physical_wire_flit_distance": 47040,
+      "sim_ticks": -1,
+      "output": "report/raw-results/head-77fcf26d/full-gate/t3_broadcast/mesh_xy",
+      "command": [
+        "build/Garnet_standalone/gem5.opt",
+        "-d",
+        "report/raw-results/head-77fcf26d/full-gate/t3_broadcast/mesh_xy",
+        "/volume/pt-algorithm/cxiao03/ai-x/configs/example/garnet_synth_traffic.py",
+        "--network=garnet",
+        "--topology=Mesh_XY",
+        "--num-cpus=8",
+        "--num-dirs=8",
+        "--mesh-rows=4",
+        "--routing-algorithm=1",
+        "--sim-cycles=50000000",
+        "--multicast-mode=tree_multicast",
+        "--multicast-replay-file=/volume/pt-algorithm/cxiao03/ai-x/traces/h100_8gpu_broadcast_replay.json",
+        "--multicast-packet-flits=1",
+        "--multicast-workload=latency"
+      ]
+    },
+    {
+      "design": "mesh_bypass",
+      "returncode": 0,
+      "completed": true,
+      "collective_source_flits": 6720,
+      "multicast_logical_requests": 30,
+      "multicast_physical_packets": 30,
+      "multicast_measured_requests": 30,
+      "multicast_measurement_ticks": 17047500,
+      "multicast_p95_completion_ticks": 643500,
+      "express_internal_link_flits": 0,
+      "physical_wire_flit_distance": 47040,
+      "sim_ticks": -1,
+      "output": "report/raw-results/head-77fcf26d/full-gate/t3_broadcast/mesh_bypass",
+      "command": [
+        "build/Garnet_standalone/gem5.opt",
+        "-d",
+        "report/raw-results/head-77fcf26d/full-gate/t3_broadcast/mesh_bypass",
+        "/volume/pt-algorithm/cxiao03/ai-x/configs/example/garnet_synth_traffic.py",
+        "--network=garnet",
+        "--topology=Mesh_Bypass",
+        "--num-cpus=8",
+        "--num-dirs=8",
+        "--mesh-rows=4",
+        "--routing-algorithm=2",
+        "--sim-cycles=50000000",
+        "--multicast-mode=tree_multicast",
+        "--multicast-replay-file=/volume/pt-algorithm/cxiao03/ai-x/traces/h100_8gpu_broadcast_replay.json",
+        "--multicast-packet-flits=1",
+        "--multicast-workload=latency",
+        "--bypass-mode=diagonal",
+        "--bypass-link-budget=4",
+        "--bypass-wire-model=distance_scaled"
+      ],
+      "latency_ratio_vs_mesh_xy": 1.0,
+      "wire_distance_ratio_vs_mesh_xy": 1.0
+    }
+  ]
+}

@@ -505,6 +505,7 @@ NetworkInterface::flitisizeMessage(MsgPtr msg_ptr, int vnet)
         route.src_router = oPort->routerID();
         route.dest_ni = destID;
         route.dest_router = m_net_ptr->get_router_id(destID, vnet);
+        route.packet_flits = num_flits;
 
         // initialize hops_traversed to -1
         // so that the first router increments it to 0

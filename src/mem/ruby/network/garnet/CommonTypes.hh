@@ -57,7 +57,7 @@ struct RouteInfo
 {
     RouteInfo()
         : vnet(0), src_ni(0), src_router(0), dest_ni(0), dest_router(0),
-          hops_traversed(0)
+          packet_flits(1), hops_traversed(0)
     {}
 
     // destination format for table-based routing
@@ -69,6 +69,7 @@ struct RouteInfo
     int src_router;
     int dest_ni;
     int dest_router;
+    int packet_flits;
     int hops_traversed;
 };
 

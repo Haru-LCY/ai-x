@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import argparse
 import math
 import m5
 from m5.objects import *
@@ -81,6 +82,21 @@ def define_options(parser):
         type=int,
         default=0,
         help="express base latency (0 inherits --link-latency)",
+    )
+    parser.add_argument(
+        "--bypass-adaptive-routing",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "at the source of an unordered packet, use an eligible express "
+            "hop only when it has at least as many free VCs as the XY port"
+        ),
+    )
+    parser.add_argument(
+        "--bypass-adaptive-max-packet-flits",
+        type=int,
+        default=32,
+        help="largest packet admitted to adaptive express routing (0=unlimited)",
     )
     parser.add_argument(
         "--bypass-topology-dump",
@@ -240,6 +256,10 @@ def init_network(options, network, InterfaceClass):
         network.buffers_per_ctrl_vc = options.buffers_per_ctrl_vc
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
+        network.bypass_adaptive_routing = options.bypass_adaptive_routing
+        network.bypass_adaptive_max_packet_flits = (
+            options.bypass_adaptive_max_packet_flits
+        )
         network.synthetic_packet_flits = options.synthetic_packet_flits
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
 

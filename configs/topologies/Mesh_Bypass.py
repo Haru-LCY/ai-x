@@ -213,6 +213,12 @@ class Mesh_Bypass(Mesh_XY):
             "mode": options.bypass_mode,
             "placement": options.bypass_placement,
             "wire_model": options.bypass_wire_model,
+            "adaptive_routing": getattr(
+                options, "bypass_adaptive_routing", False
+            ),
+            "adaptive_max_packet_flits": getattr(
+                options, "bypass_adaptive_max_packet_flits", 32
+            ),
             "rows": rows,
             "columns": columns,
             "routers": columns * rows,

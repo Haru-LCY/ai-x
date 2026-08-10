@@ -1,0 +1,29 @@
+{
+  "designs": {
+    "mesh_bypass": {
+      "measurement_speedup": 4.728253540121376,
+      "scalar_measurement_ticks": 80638000,
+      "scalar_p95_ticks": 10000,
+      "scalar_router_flits": 147840,
+      "scalar_source_flits": 53760,
+      "tensor_measurement_ticks": 17054500,
+      "tensor_p95_ticks": 2567500,
+      "tensor_router_flits": 147840,
+      "tensor_source_flits": 53760
+    },
+    "mesh_xy": {
+      "measurement_speedup": 4.728253540121376,
+      "scalar_measurement_ticks": 80638000,
+      "scalar_p95_ticks": 10000,
+      "scalar_router_flits": 147840,
+      "scalar_source_flits": 53760,
+      "tensor_measurement_ticks": 17054500,
+      "tensor_p95_ticks": 2567500,
+      "tensor_router_flits": 147840,
+      "tensor_source_flits": 53760
+    }
+  },
+  "git_revision": "77fcf26d57a1a6cf402b40fe748d500746f6578c",
+  "note": "scaled Garnet trace simulation on 1/1024 byte/time scales; not native H100/NVLink performance",
+  "p95_note": "granularity differs: scalar p95 is per serialized lane, tensor p95 is per logical request; not directly comparable"
+}

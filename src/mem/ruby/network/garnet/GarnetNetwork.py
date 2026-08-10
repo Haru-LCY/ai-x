@@ -56,6 +56,13 @@ class GarnetNetwork(RubyNetwork):
     bypass_link_spans = VectorParam.Int(
         [], "Manhattan physical spans aligned with bypass_link_ids"
     )
+    bypass_adaptive_routing = Param.Bool(
+        False,
+        "select source express hops using express-versus-XY free-VC pressure",
+    )
+    bypass_adaptive_max_packet_flits = Param.Unsigned(
+        32, "largest packet admitted to adaptive express routing (0=unlimited)"
+    )
     synthetic_packet_flits = Param.Int(
         0, "override ordinary synthetic packet size in flits (0 disables)"
     )

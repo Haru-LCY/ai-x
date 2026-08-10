@@ -76,6 +76,9 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_bypass_first_hop_destinations = p.bypass_first_hop_destinations;
     m_bypass_link_ids = p.bypass_link_ids;
     m_bypass_link_spans = p.bypass_link_spans;
+    m_bypass_adaptive_routing = p.bypass_adaptive_routing;
+    m_bypass_adaptive_max_packet_flits =
+        p.bypass_adaptive_max_packet_flits;
     m_synthetic_packet_flits = p.synthetic_packet_flits;
     fatal_if(m_synthetic_packet_flits < 0,
              "Synthetic packet flits cannot be negative");

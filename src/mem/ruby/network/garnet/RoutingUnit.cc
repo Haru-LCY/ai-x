@@ -34,6 +34,7 @@
 #include "base/compiler.hh"
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/InputUnit.hh"
+#include "mem/ruby/network/garnet/OutputUnit.hh"
 #include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
 
@@ -285,6 +286,84 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
             fatal_if(outport == m_outports_dirn2idx.end(),
                      "Bypass route %d -> %d requests missing port %s",
                      route.src_router, route.dest_router, direction.c_str());
+
+            // Express links reduce hop count, but a static oracle can funnel
+            // many destinations onto one source shortcut.  For unordered
+            // traffic, compare source-port pressure and fall back to the
+            // deterministic XY route when its first output has more free
+            // VCs.  The choice is made only at injection, so every selected
+            // suffix remains deterministic XY and the audited channel order
+            // is unchanged.  Ordered vnets retain the static route to avoid
+            // packet reordering.
+            GarnetNetwork *network = m_router->get_net_ptr();
+            if (network->bypassAdaptiveRouting() &&
+                !network->isVNetOrdered(route.vnet)) {
+                const int xy_outport =
+                    outportComputeXY(route, inport, "Local");
+                const unsigned max_packet_flits =
+                    network->bypassAdaptiveMaxPacketFlits();
+                if (max_packet_flits &&
+                    route.packet_flits > max_packet_flits)
+                    return xy_outport;
+                const int express_free = m_router->getOutputUnit(
+                    outport->second)->count_free_vcs(route.vnet);
+                const int xy_free = m_router->getOutputUnit(
+                    xy_outport)->count_free_vcs(route.vnet);
+                const int vcs_per_vnet = m_router->getOutputUnit(
+                    outport->second)->getVcsPerVnet();
+
+                // The shortcut's reverse credit path can cheaply carry a
+                // coarse congestion bit for the landing Router's next
+                // output.  Consult that one-express-hop lookahead before
+                // committing to a path that would immediately join a busy
+                // hotspot convergence port.
+                const auto& first_hop_destinations =
+                    network->getBypassFirstHopDestinations();
+                const int landing = first_hop_destinations[
+                    route.src_router * routers + route.dest_router];
+                fatal_if(landing < 0 || landing >= routers,
+                         "Missing bypass landing for route %d -> %d",
+                         route.src_router, route.dest_router);
+                const int columns = network->getNumCols();
+                const int landing_x = landing % columns;
+                const int landing_y = landing / columns;
+                const int destination_x = route.dest_router % columns;
+                const int destination_y = route.dest_router / columns;
+                PortDirection lookahead_direction = "Local";
+                if (landing_x < destination_x) {
+                    lookahead_direction = "East";
+                } else if (landing_x > destination_x) {
+                    lookahead_direction = "West";
+                } else if (landing_y < destination_y) {
+                    lookahead_direction = "North";
+                } else if (landing_y > destination_y) {
+                    lookahead_direction = "South";
+                }
+                Router *landing_router = network->getRouter(landing);
+                int lookahead_outport = -1;
+                for (int port = 0;
+                     port < landing_router->get_num_outports(); ++port) {
+                    if (landing_router->getOutportDirection(port) ==
+                        lookahead_direction) {
+                        lookahead_outport = port;
+                        break;
+                    }
+                }
+                fatal_if(lookahead_outport < 0,
+                         "Bypass landing %d has no %s output for %d -> %d",
+                         landing, lookahead_direction.c_str(),
+                         route.src_router, route.dest_router);
+                const int lookahead_free = landing_router->getOutputUnit(
+                    lookahead_outport)->count_free_vcs(route.vnet);
+                const int lookahead_low_watermark = vcs_per_vnet;
+                if (lookahead_free < lookahead_low_watermark)
+                    return xy_outport;
+
+                if (express_free < xy_free ||
+                    (express_free == xy_free &&
+                     express_free < vcs_per_vnet))
+                    return xy_outport;
+            }
             return outport->second;
         }
     }

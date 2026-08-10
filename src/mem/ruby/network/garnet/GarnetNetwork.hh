@@ -83,6 +83,11 @@ class GarnetNetwork : public Network
     uint32_t getBuffersPerDataVC() { return m_buffers_per_data_vc; }
     uint32_t getBuffersPerCtrlVC() { return m_buffers_per_ctrl_vc; }
     int getRoutingAlgorithm() const { return m_routing_algorithm; }
+    Router *getRouter(int id) const
+    {
+        assert(id >= 0 && id < m_routers.size());
+        return m_routers[id];
+    }
     const std::vector<std::string>& getBypassFirstHops() const
     {
         return m_bypass_first_hops;
@@ -90,6 +95,11 @@ class GarnetNetwork : public Network
     const std::vector<int>& getBypassFirstHopDestinations() const
     {
         return m_bypass_first_hop_destinations;
+    }
+    bool bypassAdaptiveRouting() const { return m_bypass_adaptive_routing; }
+    unsigned bypassAdaptiveMaxPacketFlits() const
+    {
+        return m_bypass_adaptive_max_packet_flits;
     }
     bool collectiveMode() const { return m_collective_mode; }
     bool collectiveMulticast() const { return m_collective_multicast; }
@@ -250,6 +260,8 @@ class GarnetNetwork : public Network
     std::vector<int> m_bypass_first_hop_destinations;
     std::vector<int> m_bypass_link_ids;
     std::vector<int> m_bypass_link_spans;
+    bool m_bypass_adaptive_routing;
+    unsigned m_bypass_adaptive_max_packet_flits;
     int m_synthetic_packet_flits;
     bool m_collective_mode;
     bool m_collective_multicast;

@@ -20,6 +20,59 @@ DESIGNS = ("mesh_xy", "mesh_bypass")
 WIRE_MODELS = ("optimistic", "distance_scaled")
 
 
+def xy_path(cpus, rows, source, destination):
+    """Return the directed X-first XY edges from source to destination."""
+    columns = cpus // rows
+    path = []
+    node = source
+    while node != destination:
+        x = node % columns
+        destination_x = destination % columns
+        if x != destination_x:
+            next_node = node + (1 if destination_x > x else -1)
+        else:
+            next_node = node + (columns if destination > node else -columns)
+        path.append((node, next_node))
+        node = next_node
+    return path
+
+
+def bypass_tree_edges(cpus, rows, source, members, topology):
+    """Rebuild the cost-aware multicast tree independently of gem5 stats.
+
+    The datapath may use a source express hop for a destination only when its
+    ordinary XY path shares no edge with another destination's ordinary path.
+    This mirrors the hardware policy while retaining an independently derived
+    expected Router-flit count for the gate.
+    """
+    routes = {
+        (route["source"], route["destination"]): route
+        for route in topology["routing_oracle"]["routes"]
+    }
+    ordinary_paths = {
+        destination: xy_path(cpus, rows, source, destination)
+        for destination in members
+    }
+    edges = set()
+    for destination in members:
+        route = routes[(source, destination)]
+        use_express = route.get("uses_bypass", False)
+        if use_express:
+            candidate_edges = set(ordinary_paths[destination])
+            use_express = not any(
+                candidate_edges.intersection(ordinary_paths[other])
+                for other in members
+                if other != destination
+            )
+        selected = (
+            list(zip(route["path"], route["path"][1:]))
+            if use_express
+            else ordinary_paths[destination]
+        )
+        edges.update(selected)
+    return len(edges)
+
+
 def all_cases():
     cases = list(CASES)
     for mask in range(1, 1 << 4):
@@ -76,13 +129,25 @@ def run_case(gem5, root, rounds, seed, packet_flits, mode, design, wire_model, c
     prefix = "system.ruby.network."
     remote_members = [member for member in members if member != source]
     is_tree = mode == "tree_multicast"
+    tree_edge_count = tree_edges(cpus, rows, source, members)
+    topology = None
+    if design == "mesh_bypass":
+        topology_path = output / "topology.json"
+        if not topology_path.exists():
+            errors.append("topology.json is missing")
+        else:
+            topology = json.loads(topology_path.read_text())
+            tree_edge_count = bypass_tree_edges(
+                cpus, rows, source, members, topology
+            )
+
     expected = {
         "collective_rounds_completed": rounds,
         "collective_deliveries": rounds * len(members),
         "collective_source_flits": rounds
         * (1 if is_tree else len(remote_members)) * packet_flits,
         "collective_router_flits": rounds
-        * (len(members) + tree_edges(cpus, rows, source, members))
+        * (len(members) + tree_edge_count)
         * packet_flits if is_tree else 0,
         "collective_reduce_merges": 0,
         "multicast_logical_requests": rounds,
@@ -94,11 +159,7 @@ def run_case(gem5, root, rounds, seed, packet_flits, mode, design, wire_model, c
         if actual != wanted:
             errors.append(f"{stat}: expected {wanted}, got {actual}")
     if design == "mesh_bypass":
-        topology_path = output / "topology.json"
-        if not topology_path.exists():
-            errors.append("topology.json is missing")
-        else:
-            topology = json.loads(topology_path.read_text())
+        if topology is not None:
             oracle = topology.get("routing_oracle", {})
             if not oracle.get("channel_dependency", {}).get("dag"):
                 errors.append("bypass routing oracle is not DAG")

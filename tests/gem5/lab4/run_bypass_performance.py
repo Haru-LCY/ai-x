@@ -30,7 +30,10 @@ SOURCE_FILES = [
     "src/mem/ruby/network/garnet/GarnetNetwork.cc",
     "src/mem/ruby/network/garnet/GarnetNetwork.hh",
     "src/mem/ruby/network/garnet/GarnetNetwork.py",
+    "src/mem/ruby/network/garnet/CommonTypes.hh",
     "src/mem/ruby/network/garnet/NetworkInterface.cc",
+    "src/mem/ruby/network/garnet/OutputUnit.cc",
+    "src/mem/ruby/network/garnet/OutputUnit.hh",
     "src/mem/ruby/network/garnet/Router.cc",
     "src/mem/ruby/network/garnet/Router.hh",
     "src/mem/ruby/network/garnet/RoutingUnit.cc",
@@ -145,7 +148,8 @@ def command_for(gem5, output, case, design, args):
         "--network=garnet", f"--num-cpus={cpus}", f"--num-dirs={cpus}",
         f"--mesh-rows={size}", f"--synthetic={traffic}",
         f"--synthetic-seed={seed}", f"--synthetic-packet-flits={packet}",
-        "--inj-vnet=0", f"--injectionrate={injection_rate:.9f}",
+        f"--inj-vnet={args.inj_vnet}",
+        f"--injectionrate={injection_rate:.9f}",
         "--precision=9", f"--synthetic-warmup-cycles={args.warmup}",
         f"--synthetic-drain-cycles={args.drain}",
         f"--synthetic-measurement-cycles={args.measurement}",
@@ -169,6 +173,12 @@ def command_for(gem5, output, case, design, args):
             f"--bypass-wire-model={wire_model}",
             f"--bypass-topology-dump={output / 'topology.json'}",
         ])
+        if args.bypass_adaptive_routing:
+            command.extend([
+                "--bypass-adaptive-routing",
+                "--bypass-adaptive-max-packet-flits="
+                f"{args.bypass_adaptive_max_packet_flits}",
+            ])
     return command
 
 
@@ -253,6 +263,12 @@ def run_one(gem5, root, case, design, args):
             errors.append("missing topology.json")
         else:
             topology = json.loads(topology_path.read_text(encoding="utf-8"))
+            if topology.get("adaptive_routing") != args.bypass_adaptive_routing:
+                errors.append("topology adaptive-routing metadata mismatch")
+            if topology.get("adaptive_max_packet_flits") != (
+                args.bypass_adaptive_max_packet_flits
+            ):
+                errors.append("topology adaptive packet-limit metadata mismatch")
     measured_packets = scalar(measured, "packets_received::total")
     measured_flits = scalar(measured, "flits_received::total")
     injected_packets = scalar(measured, "packets_injected::total")
@@ -277,6 +293,13 @@ def run_one(gem5, root, case, design, args):
         "size": case[0], "traffic": case[1], "packet_flits": case[2],
         "offered_flits_per_node_cycle": case[3], "seed": case[4],
         "design": design, "injection_packets_per_node_cycle": case[3] / case[2],
+        "injection_vnet": args.inj_vnet,
+        "bypass_adaptive_routing": (
+            design != "mesh_xy" and args.bypass_adaptive_routing
+        ),
+        "bypass_adaptive_max_packet_flits": (
+            args.bypass_adaptive_max_packet_flits
+        ),
         "measured_packets_injected": injected_packets,
         "measured_packets_received": measured_packets,
         "measured_flits_injected": injected_flits,
@@ -727,6 +750,20 @@ def main():
     parser.add_argument("--wire-models", nargs="+", default=["optimistic", "distance_scaled"])
     parser.add_argument("--seeds", type=int, nargs="+", default=[1, 7, 17])
     parser.add_argument("--hotspot-probability", type=float, default=0.5)
+    parser.add_argument(
+        "--inj-vnet", type=int, choices=[0, 1, 2], default=2,
+        help="synthetic VNet (2 is Garnet's buffered data VNet)",
+    )
+    parser.add_argument(
+        "--bypass-adaptive-routing",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="enable free-VC-aware source admission for express hops",
+    )
+    parser.add_argument(
+        "--bypass-adaptive-max-packet-flits", type=int, default=32,
+        help="largest packet admitted to adaptive express routing (0=unlimited)",
+    )
     parser.add_argument("--warmup", type=int, default=1000)
     parser.add_argument("--drain", type=int, default=100000)
     parser.add_argument("--measurement", type=int, default=5000)
@@ -744,6 +781,8 @@ def main():
         parser.error("sizes and packet flits must be positive")
     if any(load <= 0 for load in args.offered_loads):
         parser.error("offered loads must be positive")
+    if args.bypass_adaptive_max_packet_flits < 0:
+        parser.error("adaptive maximum packet flits must be non-negative")
     root = args.output or Path(tempfile.mkdtemp(prefix="lab4-bypass-perf-"))
     root.mkdir(parents=True, exist_ok=True)
     revision = subprocess.run(

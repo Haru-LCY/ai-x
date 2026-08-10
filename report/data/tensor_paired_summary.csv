@@ -1,0 +1,3 @@
+design,scalar_measurement_ticks,tensor_measurement_ticks,measurement_speedup,scalar_p95_ticks,tensor_p95_ticks,scalar_source_flits,tensor_source_flits,scalar_router_flits,tensor_router_flits
+mesh_xy,80638000,17054500,4.728,10000,2567500,53760,53760,147840,147840
+mesh_bypass,80638000,17054500,4.728,10000,2567500,53760,53760,147840,147840

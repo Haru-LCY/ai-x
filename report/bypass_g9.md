@@ -1,7 +1,7 @@
 # Bypass G9 — cost-aware performance conclusion
 
-Artifact: `/tmp/lab4-bypass-g8-full-r2-20260807`
-Git revision: `b5471a0c3495d6e4368e2e9d338e65148d4b307a`
+Artifact: `report/raw-results/head-77fcf26d/bypass-performance`
+Git revision: `77fcf26d57a1a6cf402b40fe748d500746f6578c`
 Validated runs: 7680 gem5 runs, 6144 paired seed cases, 2048 aggregate points. Offered-vector mismatches: 0.
 
 ## Gate evidence
