@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[margin=0.78in]{geometry}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{tikz}
@@ -13,12 +14,13 @@
 \usetikzlibrary{arrows.meta,calc,positioning}
 
 \graphicspath{{figures/}}
+\newtheorem{theorem}{Theorem}
 \emergencystretch=2em
 \hypersetup{colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black}
 
 \title{AI-Training Collective Communication in gem5 Garnet\\
 \large Router-Level Multicast, Express-Link Bypass, and Tensor AllReduce}
-\author{Haru-LCY and Shealligh}
+\author{Chunyu Liu and Boyan Pu}
 \date{August 10, 2026}
 
 \begin{document}
@@ -192,6 +194,102 @@ behavior remains static.  Because the decision is made only at the source and
 every suffix is plain XY, the ordinary XY dependency graph stays acyclic:
 express channels contribute only outgoing dependencies into that graph and so
 can never close a cycle.
+
+\subsection{Deadlock freedom of express-augmented routing}
+\label{sec:deadlock}
+
+Adding physical shortcuts to an XY Mesh can reintroduce the cyclic
+channel dependencies that plain dimension-order routing was designed to avoid,
+so the safety of the express-augmented routing function must be established
+rather than assumed.  We formalize exactly what the generated oracle
+(\path{configs/topologies/bypass_oracle.py}) constructs and checks.
+
+Fix a Mesh and an express-link set.  For every ordered pair of Routers
+$(s,d)$ with $s\neq d$, the oracle emits a single deterministic route: at most
+one source express hop---selected only when it strictly reduces the Manhattan
+distance to $d$ (the guard $1+\mathrm{dist}(\text{dst},d)<\mathrm{dist}(s,d)$)---
+followed by deterministic XY steps to $d$.  Let $C_{s,d}=\langle c_1,\dots,
+c_{k}\rangle$ be the ordered channels this route uses.  The
+\emph{channel-dependency graph} (CDG) is the directed graph $G=(V,E)$ whose
+vertices are all channels appearing in any route and whose edges are the
+consecutive-use pairs
+\[
+E \;=\; \bigl\{\,(c_i,c_{i+1}) \;:\; \langle c_1,\dots,c_k\rangle=C_{s,d}
+        \text{ for some } s\neq d,\ 1\le i<k \,\bigr\}.
+\]
+A classical result of Dally and Seitz states that a deterministic routing
+function is deadlock-free if its CDG is acyclic; we prove that $G$ is acyclic.
+
+\begin{theorem}[Deadlock freedom]
+\label{thm:deadlock}
+For any Mesh and any express-link set, the channel-dependency graph $G$
+induced by the source-express-then-XY oracle is acyclic; hence the routing
+function is deadlock-free.
+\end{theorem}
+
+\begin{proof}
+We give the per-route monotone rank that the oracle asserts, then the global
+argument its topological sort certifies.
+
+\emph{Per-route rank.}  Along a route with $k$ channels the oracle assigns
+each channel a strictly decreasing rank $k,k-1,\dots,1$ (the
+\texttt{remaining} vector) and asserts this monotonicity, so within a single
+route no channel can depend on one of equal or higher rank.  Because the
+express hop, when taken, is only ever the \emph{first} channel of a route, an
+express channel has no incoming edge \emph{within any route}: it contributes
+only outgoing dependencies into the pure-XY suffix and can therefore never be
+the target of a same-route back-edge.
+
+\emph{Global acyclicity.}  Per-route monotonicity alone does not forbid a
+cycle formed across several routes, because two routes may traverse the same
+channels in opposite relative order.  The oracle therefore verifies acyclicity
+of the \emph{whole} graph directly: it runs Kahn's topological sort on $G$,
+repeatedly removing a zero-indegree channel and decrementing its successors.
+Kahn's algorithm enumerates every vertex of a finite directed graph exactly
+once iff that graph is acyclic; equivalently, it terminates with
+$|\text{order}|<|V|$ precisely when a cycle remains.  The oracle enforces
+$|\text{order}|=|V|$ and raises \texttt{ValueError}, reporting the residual
+positive-indegree channels, otherwise.  A returned oracle therefore certifies
+$G$ acyclic by exhibiting a total order consistent with every dependency edge.
+By the Dally--Seitz criterion an acyclic CDG precludes any cyclic
+hold-and-wait among channels, so no set of packets can deadlock.
+\end{proof}
+
+This check is not a paper argument but an executable precondition: the
+construction of every bypass topology in this report fails loudly on any cyclic
+placement, and each accepted run additionally records the certifying
+\texttt{dag} flag and topological order in its manifest.  The optimized
+congestion-aware policy described above preserves the hypothesis: at runtime it
+only ever \emph{declines} an express hop in favor of plain XY, which restricts
+routes to a subset of the certified channel set and so cannot create a cycle;
+every route suffix remains pure XY.  Figure~\ref{fig:cdg} illustrates the two
+ingredients on a small example.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  chan/.style={draw=black!55,rounded corners,fill=blue!6,align=center,
+               minimum height=6.5mm,minimum width=1.35cm,font=\scriptsize},
+  express/.style={chan,fill=red!10,draw=red!60!black},
+  dep/.style={-{Stealth[length=2mm]},line width=0.9pt,draw=black!60},
+  rank/.style={font=\scriptsize\itshape,text=black!55}
+]
+  \node[express] (e) {express\\rank 3};
+  \node[chan,right=1.5cm of e] (x1) {XY$_1$\\rank 2};
+  \node[chan,right=1.5cm of x1] (x2) {XY$_2$\\rank 1};
+  \draw[dep] (e) -- (x1);
+  \draw[dep] (x1) -- (x2);
+  \node[rank,below=1.5mm of e] {no in-edge};
+  \node[below=10mm of x1,font=\scriptsize,align=center,text width=8.2cm]
+    {Per-route ranks decrease strictly ($3\!\to\!2\!\to\!1$), and the express
+     channel is always the first hop, so it is never a same-route dependency
+     target.  Kahn's sort then certifies the union over all routes is acyclic.};
+\end{tikzpicture}
+\caption{Channel-dependency structure of one express-augmented route.  Strictly
+decreasing per-route rank forbids same-route back-edges; a global topological
+sort (Theorem~\ref{thm:deadlock}) certifies the union of all routes is acyclic.}
+\label{fig:cdg}
+\end{figure}
 
 For multicast, a cost-aware policy takes a source express hop only when the
 destination's ordinary XY path shares no edge with any other destination's
@@ -450,6 +548,20 @@ throughput change is +190.89\% and the median is +121.66\%, though the
 distribution is skewed by full-group traffic.  Ten of the 162 cases regress,
 all of them at four destinations, with a worst case of $-18.24$\%.  Reduced link
 traffic therefore does not guarantee higher throughput under atomic fanout.
+Figure~\ref{fig:multicast-throughput-dist} shows the full paired throughput
+distribution rather than a single average: the long positive tail from
+high-fanout traffic coexists with a cluster near zero and the ten regressions
+left of the dashed line, which is why we report link-traffic reduction and
+throughput as separate claims.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\linewidth]{throughput_improvement_distribution.pdf}
+\caption{Distribution of multicast throughput change over all 162 paired
+cases.  The dashed line marks unchanged throughput; the ten regressions are all
+four-destination cases.}
+\label{fig:multicast-throughput-dist}
+\end{figure}
 
 \begin{figure}[ht]
 \centering
@@ -629,7 +741,12 @@ contributions, 53,760 exact reductions, 53,760 deliveries, and 147,840 Router
 flits.  The tensor window is 17,054,500 ticks; the p50/p95/p99 logical-request
 latencies are 647,500/2,567,500/2,567,500 ticks; and the peak number of active
 lanes is two.  Reduce and broadcast each contribute 47,040 internal-link
-flits.
+flits.  These tail latencies are per \emph{logical request}---each covering a
+64--1,024-flit multi-chunk tensor---whereas the scalar lowering's recorded p95
+of 10,000 ticks is per serialized \emph{scalar lane}.  The two percentiles
+measure different units of work and are \emph{not} directly comparable; the
+sound end-to-end comparison is the measurement window below, which counts the
+same total trace on both lowerings.
 
 \begin{figure}[ht]
 \centering
@@ -673,6 +790,11 @@ this all-rank convergence-and-broadcast tree.
         volume.
   \item Tensor accumulator capacity and arithmetic latency are not modeled as
         finite hardware resources in the current implementation.
+  \item The scalar and tensor lowerings record tail latency at different
+        granularities---per scalar lane versus per multi-flit logical
+        request---so their p95/p99 values are not directly comparable.  Only the
+        measurement window, which counts the identical total trace, is used as
+        the cross-lowering speedup.
   \item The results characterize this simulator mechanism; they do not measure
         NVLink/NVSwitch hardware or end-to-end model throughput.
 \end{itemize}
@@ -681,7 +803,7 @@ this all-rank convergence-and-broadcast tree.
 
 The commit history gives an auditable two-person split.
 \begin{itemize}
-  \item \textbf{Haru-LCY} authored the multicast and bypass work. This covers
+  \item \textbf{Chunyu Liu} authored the multicast and bypass work. This covers
         the Lab 4 collective network plumbing; explicit completion-driven
         collective operations; the replicated-unicast baseline and the
         router-level tree multicast datapath with destination-bitmap carry and
@@ -694,7 +816,7 @@ The commit history gives an auditable two-person split.
         and the final optimization arc: hardened routing, the low-load
         regression fix, epoch-based skewed-destination detection, and the
         report evaluation and figures.
-  \item \textbf{Shealligh} authored the tensor all-reduce work on a dedicated
+  \item \textbf{Boyan Pu} authored the tensor all-reduce work on a dedicated
         branch: the multi-flit replay contract, compiler, and validator (H1);
         the in-network tensor reduction and broadcast datapath (H2); the
         backpressure datapath and H3--H6 gates; the link-latency and
