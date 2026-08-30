@@ -219,6 +219,9 @@ class Mesh_Bypass(Mesh_XY):
             "adaptive_max_packet_flits": getattr(
                 options, "bypass_adaptive_max_packet_flits", 32
             ),
+            "adaptive_policy": getattr(
+                options, "bypass_adaptive_policy", "conservative"
+            ),
             "rows": rows,
             "columns": columns,
             "routers": columns * rows,

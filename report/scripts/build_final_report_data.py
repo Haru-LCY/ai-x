@@ -439,7 +439,7 @@ def main() -> int:
         image, ax=axes.ravel().tolist(), shrink=0.82, pad=0.02,
         label="Mesh / adaptive bypass latency",
     )
-    fig.suptitle("Adaptive bypass latency across the complete data-VNet matrix")
+    fig.suptitle("Adaptive bypass latency over all VNet-2 data-traffic configurations")
     save(fig, "bypass_matrix_heatmap")
 
     # Average versus tail latency: a policy can improve the mean while still

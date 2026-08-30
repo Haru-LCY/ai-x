@@ -101,6 +101,10 @@ class GarnetNetwork : public Network
     {
         return m_bypass_adaptive_max_packet_flits;
     }
+    const std::string& bypassAdaptivePolicy() const
+    {
+        return m_bypass_adaptive_policy;
+    }
     bool bypassDestinationSkewed(int destination) const
     {
         assert(destination >= 0 &&
@@ -268,6 +272,7 @@ class GarnetNetwork : public Network
     std::vector<int> m_bypass_link_spans;
     bool m_bypass_adaptive_routing;
     unsigned m_bypass_adaptive_max_packet_flits;
+    std::string m_bypass_adaptive_policy;
     std::vector<uint64_t> m_bypass_destination_epoch_packets;
     std::vector<bool> m_bypass_hot_destinations;
     uint64_t m_bypass_destination_epoch_total = 0;

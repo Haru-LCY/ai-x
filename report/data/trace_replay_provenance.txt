@@ -13,3 +13,11 @@ Artifact root: report/raw-results/head-77fcf26d
 Broadcast semantics: variable-length tree multicast packets.
 All-reduce semantics: independent serialized scalar lanes, each executing Router reduce then tree broadcast; not vector reduction hardware.
 Tensor semantics: multi-flit logical requests with Router reduce and tree broadcast; finite accumulator capacity and arithmetic latency are not modeled.
+
+Replay re-run: 2026-08-28 UTC, build/Garnet_standalone/gem5.opt built from
+working-tree revision b740a0740ca34e5cc4abf0fd658e0e874db114ae,
+sim_cycles=100000000.  The six paired cases
+(broadcast, scalar all-reduce, tensor all-reduce on Mesh_XY and Mesh_Bypass)
+completed and reproduced the compact statistics in report/data/trace_replay_summary.csv.
+Mesh_Bypass reruns used diagonal links, a four-link budget, distance-scaled
+wire latency, adaptive source admission, and a 32-flit cutoff.

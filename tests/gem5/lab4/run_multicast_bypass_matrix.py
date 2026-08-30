@@ -81,7 +81,8 @@ def all_cases():
     return cases
 
 
-def run_case(gem5, root, rounds, seed, packet_flits, mode, design, wire_model, case):
+def run_case(gem5, root, rounds, seed, packet_flits, mode, design, wire_model,
+             case):
     name, cpus, dirs, rows, source, spec = case
     suffix = "mesh_xy" if design == "mesh_xy" else f"mesh_bypass-{wire_model}"
     case_name = f"{suffix}-{mode}-{name}-f{packet_flits}"

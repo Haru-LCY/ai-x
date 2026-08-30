@@ -99,6 +99,12 @@ def define_options(parser):
         help="largest packet admitted to adaptive express routing (0=unlimited)",
     )
     parser.add_argument(
+        "--bypass-adaptive-policy",
+        choices=["aggressive", "conservative"],
+        default="conservative",
+        help="source-side adaptive express admission policy",
+    )
+    parser.add_argument(
         "--bypass-topology-dump",
         default="",
         help="optional path for a stable topology/cost JSON dump",
@@ -260,6 +266,7 @@ def init_network(options, network, InterfaceClass):
         network.bypass_adaptive_max_packet_flits = (
             options.bypass_adaptive_max_packet_flits
         )
+        network.bypass_adaptive_policy = options.bypass_adaptive_policy
         network.synthetic_packet_flits = options.synthetic_packet_flits
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
 

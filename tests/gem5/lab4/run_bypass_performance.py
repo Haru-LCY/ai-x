@@ -178,6 +178,7 @@ def command_for(gem5, output, case, design, args):
                 "--bypass-adaptive-routing",
                 "--bypass-adaptive-max-packet-flits="
                 f"{args.bypass_adaptive_max_packet_flits}",
+                f"--bypass-adaptive-policy={args.bypass_adaptive_policy}",
             ])
     return command
 
@@ -269,6 +270,8 @@ def run_one(gem5, root, case, design, args):
                 args.bypass_adaptive_max_packet_flits
             ):
                 errors.append("topology adaptive packet-limit metadata mismatch")
+            if topology.get("adaptive_policy") != args.bypass_adaptive_policy:
+                errors.append("topology adaptive-policy metadata mismatch")
     measured_packets = scalar(measured, "packets_received::total")
     measured_flits = scalar(measured, "flits_received::total")
     injected_packets = scalar(measured, "packets_injected::total")
@@ -300,6 +303,7 @@ def run_one(gem5, root, case, design, args):
         "bypass_adaptive_max_packet_flits": (
             args.bypass_adaptive_max_packet_flits
         ),
+        "bypass_adaptive_policy": args.bypass_adaptive_policy,
         "measured_packets_injected": injected_packets,
         "measured_packets_received": measured_packets,
         "measured_flits_injected": injected_flits,
@@ -757,12 +761,17 @@ def main():
     parser.add_argument(
         "--bypass-adaptive-routing",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="enable free-VC-aware source admission for express hops",
+        default=False,
+        help="enable free-VC-aware source admission for express hops (static oracle by default)",
     )
     parser.add_argument(
         "--bypass-adaptive-max-packet-flits", type=int, default=32,
         help="largest packet admitted to adaptive express routing (0=unlimited)",
+    )
+    parser.add_argument(
+        "--bypass-adaptive-policy", choices=["aggressive", "conservative"],
+        default="conservative",
+        help="source-side adaptive admission policy",
     )
     parser.add_argument("--warmup", type=int, default=1000)
     parser.add_argument("--drain", type=int, default=100000)

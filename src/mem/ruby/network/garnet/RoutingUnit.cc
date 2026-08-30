@@ -359,28 +359,32 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 if (lookahead_free < lookahead_low_watermark)
                     return xy_outport;
 
-                if (route.packet_flits == 1) {
-                    // A one-flit packet cannot amortize rerouting toward a
-                    // sustained many-to-one endpoint.  An epoch-based
-                    // destination-skew bit suppresses that case; otherwise
-                    // retain the decisive local pressure test.
-                    if (network->bypassDestinationSkewed(
-                            route.dest_router) ||
-                        express_free <= xy_free + 1)
-                        return xy_outport;
-                } else if (route.packet_flits == 4) {
-                    // A short wormhole packet can safely take an otherwise
-                    // idle shortcut for the pipeline-hop saving.
+                if (network->bypassAdaptivePolicy() == "aggressive") {
+                    // Aggressive policy: the historical adaptive rule.  It
+                    // accepts an express hop whenever the express output is
+                    // at least as healthy as XY (with a usable tie), after
+                    // the landing-router lookahead above passes.
                     if (express_free < xy_free ||
                         (express_free == xy_free &&
                          express_free < vcs_per_vnet))
                         return xy_outport;
                 } else {
-                    // Longer reservations require a decisive source-pressure
-                    // advantage; small free-VC differences are too noisy at
-                    // light load.
-                    if (express_free <= xy_free + 1)
-                        return xy_outport;
+                    // Conservative policy: packet-size and destination-aware
+                    // admission limits tail risk at light load and hotspots.
+                    if (route.packet_flits == 1) {
+                        if (network->bypassDestinationSkewed(
+                                route.dest_router) ||
+                            express_free <= xy_free + 1)
+                            return xy_outport;
+                    } else if (route.packet_flits == 4) {
+                        if (express_free < xy_free ||
+                            (express_free == xy_free &&
+                             express_free < vcs_per_vnet))
+                            return xy_outport;
+                    } else {
+                        if (express_free <= xy_free + 1)
+                            return xy_outport;
+                    }
                 }
             }
             return outport->second;

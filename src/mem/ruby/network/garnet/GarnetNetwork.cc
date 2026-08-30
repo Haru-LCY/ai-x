@@ -79,6 +79,11 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_bypass_adaptive_routing = p.bypass_adaptive_routing;
     m_bypass_adaptive_max_packet_flits =
         p.bypass_adaptive_max_packet_flits;
+    m_bypass_adaptive_policy = p.bypass_adaptive_policy;
+    fatal_if(m_bypass_adaptive_policy != "aggressive" &&
+             m_bypass_adaptive_policy != "conservative",
+             "Unknown bypass adaptive policy: %s",
+             m_bypass_adaptive_policy.c_str());
     m_synthetic_packet_flits = p.synthetic_packet_flits;
     fatal_if(m_synthetic_packet_flits < 0,
              "Synthetic packet flits cannot be negative");

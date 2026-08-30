@@ -63,6 +63,10 @@ class GarnetNetwork(RubyNetwork):
     bypass_adaptive_max_packet_flits = Param.Unsigned(
         32, "largest packet admitted to adaptive express routing (0=unlimited)"
     )
+    bypass_adaptive_policy = Param.String(
+        "conservative",
+        "adaptive express admission policy: aggressive or conservative",
+    )
     synthetic_packet_flits = Param.Int(
         0, "override ordinary synthetic packet size in flits (0 disables)"
     )
