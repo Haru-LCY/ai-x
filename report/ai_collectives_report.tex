@@ -32,7 +32,7 @@ network rather than lowered into unrelated unicast packets.  The study has
 three mechanisms---router-level tree multicast, physical express-link bypass,
 and multi-flit in-network all-reduce---and uses an executed eight-H100
 collective trace as an integrated case study of those mechanisms.  The implementation passes
-all seven correctness gates, 12 trace-tool tests, 162 multicast pairs, 6,144
+all seven correctness check stages, 12 trace-tool tests, 162 multicast pairs, 6,144
   bypass pairs, and the 30-request broadcast and 15-request tensor replays.
 Tree multicast cuts internal-link flits by 39.51\% on average (26.19\%,
 39.22\%, and 53.13\% for 4, 8, and 16 destinations), but its atomic fanout
@@ -111,7 +111,7 @@ when computation cannot proceed until the collective completes.}
 
 \subsection{Variants and baselines}
 
-The released static G9 snapshot uses gem5 v23.0.0.1 (revision
+The released static-oracle snapshot uses gem5 v23.0.0.1 (revision
 \texttt{77fcf26d57}) and deterministic XY routing on a Garnet Mesh.  A
 reported ratio always compares the same
 topology, traffic, packet sequence, and seed; the comparison contract is
@@ -179,7 +179,7 @@ matches the audited route table exactly.
         Manhattan span, a more conservative proxy for a physical wire.
 \end{itemize}
 
-The main G9 runs use the static oracle.  For each source/destination pair, the
+The main bypass runs use the static oracle.  For each source/destination pair, the
 oracle selects at most one express hop when it strictly reduces the remaining
 Manhattan hop count; otherwise the packet starts with XY.  Ordered Vnets retain
 their ordinary static route.  An optional adaptive selector remains available
@@ -195,7 +195,7 @@ behind an explicit flag, but it is not used for the headline results here.
         dependency.
 \end{enumerate}
 
-The G9 screen uses data VNet 2 (four buffers per VC).  The express-link cost is
+The bypass screen uses data VNet 2 (four buffers per VC).  The express-link cost is
 either optimistic (one cycle) or distance-scaled by the link's Manhattan span;
 the latter is the hardware-relevant model used for the main comparison.
 
@@ -288,7 +288,7 @@ in the mesh.  In \texttt{hotspot}, 50\% of packets target one fixed Router
 destinations.  These are controlled stress patterns for route structure and
 contention; they are not claims about four separate application workloads.
 
-The G9 sweep is the primary bypass result.  It compares the same synthetic
+The static-oracle sweep is the primary bypass result.  It compares the same synthetic
 workloads and seeds on Mesh XY and on each physical express-link design, with
 the static oracle selecting at most one source express hop.  The numbers in
 Table~\ref{tab:bypass-screen} are the arithmetic means over all 1,536 paired
@@ -302,7 +302,7 @@ evidence.
 
 \begin{table}[ht]
 \centering
-\caption{G9 topology and wire-model screen over 1,536 paired seed cases per
+\caption{Topology and wire-model screen over 1,536 paired seed cases per
 design.}
 \label{tab:bypass-screen}
 \begin{tabular}{@{}lrrr@{}}
@@ -315,6 +315,10 @@ Stride, distance-scaled & 0.981$\times$ & $-$1.94\% & +15.50\% \\
 Stride, optimistic & 1.103$\times$ & +3.68\% & +10.10\% \\
 \bottomrule
 \end{tabular}
+\par\medskip\footnotesize Traversal change compares each run's \emph{aggregate}
+Router traversals, so a design that delivers more traffic (positive throughput
+change) can show a negative value even though its per-packet paths shorten;
+the column must be read together with the throughput column.
 \end{table}
 
 The cost records explain the design choice.  A 4$\times$4 diagonal placement
@@ -341,7 +345,8 @@ reports throughput change.}
 \clearpage
 
 \paragraph{Multicast--bypass interaction.}
-G10 contains 416 paired cases and all 624 raw runs pass.  Under
+The multicast-bypass interaction contains 416 paired cases over 2$\times$2,
+3$\times$3, and 4$\times$4 Meshes, and all 624 raw runs pass.  Under
 distance-scaled links, bypass averages 0.965$\times$ for replicated unicast
 and 0.988$\times$ for tree multicast; the optimistic values are 1.029$\times$
 and 1.022$\times$.  Tree multicast uses 85,000 express-link flits across the
@@ -382,7 +387,7 @@ bitmap-based \texttt{tree\_multicast} path, although all three exploit shared
 tree prefixes.
 
 All three replay runners use the same static-oracle Mesh\_Bypass arm as the
-main G9 study: diagonal links with a four-link budget and distance-scaled wire
+main bypass study: diagonal links with a four-link budget and distance-scaled wire
 latency.  Mesh XY is the matched no-express baseline.  In this H100 placement
 the oracle selects no express hop, so the bypass comparison is deliberately
 neutral.
@@ -478,7 +483,7 @@ following boundaries:
         it does not model area, power, repeaters, or timing closure.  The
         the static oracle uses at most one source express hop and the suffix is
         deterministic XY.
-  \item G9 uses synthetic unicast traffic on data VNet 2.  The distance-scaled
+  \item The bypass screen uses synthetic unicast traffic on data VNet 2.  The distance-scaled
         screen is the hardware-relevant comparison; optimistic timing is only
         a sensitivity bound.
   \item The H100 input is an executed collective microbenchmark, not a full
@@ -494,9 +499,9 @@ following boundaries:
 
 \section{Division of labor}
 
-Chunyu Liu authored multicast and bypass implementation, gates, trace capture,
+Chunyu Liu authored multicast and bypass implementation, correctness checks, trace capture,
 optimization, and the associated analysis.  Boyan Pu authored the tensor
-all-reduce datapath, replay contract, validator, backpressure gates, and
+all-reduce datapath, replay contract, validator, backpressure stress cases, and
 tensor statistics.  Both authors integrated branches, reviewed regressions,
 reran the final quantitative snapshot, and verified this report.
 
@@ -507,7 +512,7 @@ preview figures are in \path{report/figures/}; raw outputs are git-ignored
 under \path{report/raw-results/head-77fcf26d/}.  The source trace and replay
 hashes, software versions, scaling semantics, and artifact roots are recorded
 in \path{report/data/trace_replay_provenance.txt}.  The compact-data builder
-rejects wrong run counts, non-finite values, failed gates, inconsistent VNet or
+rejects wrong run counts, non-finite values, failed regression stages, inconsistent VNet or
 routing metadata, incomplete multicast pairs, and missing designs before
 writing summary tables or figures.
 
@@ -547,7 +552,8 @@ python3 tests/gem5/lab4/run_tensor_allreduce_paired.py \\
 python3 report/scripts/build_final_report_data.py
 \end{verbatim}
 
-The trace-replay runners use the same static-oracle bypass settings as G9.
+The trace-replay runners use the same static-oracle bypass settings as the
+main bypass study.
 The source tree retains an optional adaptive selector for exploratory runs,
 but no headline number in this report depends on it.
 
