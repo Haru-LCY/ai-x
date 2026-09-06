@@ -1,0 +1,16 @@
+{
+  "name": "lab4-ai-collectives-presentation",
+  "private": true,
+  "scripts": {
+    "dev": "slidev slides.md --open",
+    "build": "slidev build slides.md",
+    "export": "slidev export slides.md --output lab4-ai-collectives.pdf",
+    "export:pptx": "slidev export slides.md --format pptx --output lab4-ai-collectives.pptx",
+    "export:png": "slidev export slides.md --format png --output slide-previews"
+  },
+  "devDependencies": {
+    "@slidev/cli": "latest",
+    "@slidev/theme-default": "latest",
+    "playwright-chromium": "latest"
+  }
+}
