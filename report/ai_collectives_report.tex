@@ -1,7 +1,7 @@
 \documentclass[10pt]{article}
 
 \usepackage[T1]{fontenc}
-\usepackage[margin=0.78in]{geometry}
+\usepackage[margin=0.72in]{geometry}
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{array}
@@ -17,7 +17,7 @@
 % A light-weight barrier marker.  Figures use top/bottom placement; avoiding
 % forced page breaks keeps the report's information density consistent.
 \newcommand{\FloatBarrier}{\par}
-\captionsetup{font=small}
+\captionsetup{font=small,labelfont=bf}
 
 \definecolor{codegray}{RGB}{245,246,248}
 \definecolor{codegreen}{RGB}{28,110,70}
@@ -41,8 +41,8 @@
 \hypersetup{colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black}
 \emergencystretch=2em
 
-\title{Collective Communication for Modern GPU Training in gem5 Garnet\\
-\large An empirical study of multicast, express links, and tensor streaming}
+\title{Collective-Aware Router Microarchitecture in gem5 Garnet\\
+\large Tree multicast and congestion-aware express-link bypass}
 \author{Chunyu Liu and Boyan Pu}
 \date{September 6, 2026}
 
@@ -50,53 +50,51 @@
 \maketitle
 
 \begin{abstract}
-Distributed GPU training repeatedly pauses computation for communication.  We
-study how collective structure can receive direct support in a Garnet Mesh
-network.  The study covers three mechanisms---router-level tree multicast,
-physical express-link bypass, and multi-flit in-network all-reduce---and uses
-an executed eight-H100 collective trace as an integrated case study.  The
-evaluation covers 162 multicast pairs, a 6,144-pair bypass screen plus a
-1,536-pair refinement, and paired
-30-request broadcast and 15-request tensor replays, backed by functional,
-backpressure, and cross-mechanism validation.
-Tree multicast cuts internal-link flits by 39.51\% on average (26.19\%,
-39.22\%, and 53.13\% for 4, 8, and 16 destinations), but its atomic fanout
-path has ten throughput regressions.  In the broad offline route-table topology
-sweep, source-only distance-scaled diagonal links provide a 1.131$\times$
-geometric-mean latency speedup, while source-only stride links are neutral at
-0.999$\times$.  Allowing cycle-aware, dimension-ordered multi-hop stride
-bypass with congestion admission raises the full-matrix result to
-1.430$\times$ and throughput by 21.87\%.  Finally,
-preserving 15 multi-flit
-tensor requests versus serializing 6,720 scalar lanes reduces the scaled replay
-window from 80.638 to 17.055 million ticks (4.728$\times$).  All measurements
-are cycle-level Garnet results: the mechanism studies use controlled synthetic
-traffic, while the integrated case study replays the measured H100 workload.
+Lab~4 Topic~3 asks for two router mechanisms: bypass links that skip
+intermediate Routers and multicast that sends one packet to several
+destinations.  We implement both as physical Garnet datapaths rather than
+traffic-generator approximations.  Tree multicast carries a destination
+bitmap, replicates only at branch Routers, and reduces internal-link flits by
+39.51\% on average across 162 paired cases.  Its atomic fanout nevertheless
+causes ten throughput regressions, exposing a concrete scheduling tradeoff.
+For bypass, a 6,144-pair source-only screen shows that hop count alone is
+misleading: distance-scaled stride links are neutral at 0.999$\times$ latency
+speedup.  A cycle-aware multi-hop route oracle plus conservative congestion
+admission raises the same stride design to 1.430$\times$ geometric-mean
+speedup and 21.87\% higher throughput over 1,536 pairs; the median is
+1.082$\times$ and the worst case is 0.909$\times$.  As an additional Topic~4
+case study, multi-flit tensor streaming shortens a scaled eight-H100 trace
+window by 4.728$\times$ without changing source or Router flit counts.  The
+report separates these claims, states their baselines and units, and retains
+negative cases rather than reporting only favorable workloads.
 \end{abstract}
 
 \section{Introduction}
 
 Modern training gives the network a repeated synchronization contract.  NCCL
 exposes collectives such as broadcast and all-reduce across GPU ranks
-\cite{nccl-guide}.  Each
-GPU computes locally, exchanges a gradient or activation, and waits until the
-collective result is available before the next step can consume it.  The same
-contract produces three distinct network opportunities:
+\cite{nccl-guide}; communication therefore contains structure that ordinary
+destination-by-destination unicast does not expose.  This project asks three
+questions, with the first two directly matching Topic~3:
 
 \begin{enumerate}
-  \item \textbf{Replication:} a broadcast can share a common route prefix and
-        replicate only at branch Routers.
-  \item \textbf{Path length:} a unicast packet can skip intermediate Routers
-        when a physical express link is worth its wire cost and congestion.
-  \item \textbf{Representation:} an all-reduce tensor can remain a streaming
-        multi-flit request in place of thousands of serialized scalar
-        operations.
+  \item Can Router-side replication reduce physical multicast traffic without
+        changing the delivered destination set?
+  \item Do express links still improve latency after their span-dependent wire
+        delay, added radix, and congestion are counted?
+  \item As an extension, can a traced all-reduce remain a multi-flit request
+        instead of thousands of serialized scalar operations?
 \end{enumerate}
 
-This report focuses on Lab 4 Topic 3 (Microarchitecture), which requires both
-Bypass and Multicast.  Tensor all-reduce and replay are an additional Topic 4
-extension that makes the AI-training setting concrete.  The implementation has
-three corresponding parts:
+Our answer is deliberately not ``all mechanisms always win.''  Multicast has
+a robust traffic benefit but an atomic-fanout throughput cost in a small set
+of cases.  Bypass improves loaded structured traffic, but its source-only
+stride form fails once wire delay is modeled.  That failure motivates the
+multi-hop and pressure-aware refinement rather than being hidden.  Tensor
+all-reduce is kept as a separate Topic~4 extension so that it cannot inflate
+the evidence for the two required Topic~3 mechanisms.
+
+The implementation has three corresponding parts:
 
 \begin{itemize}
   \item \textbf{Router-level tree multicast} shares common route prefixes and
@@ -109,18 +107,13 @@ three corresponding parts:
     multi-flit request, reduces lanes in Routers, and broadcasts the result.
 \end{itemize}
 
-The primary performance experiment is the offline route-table bypass screen
-across topologies and wire models.  The multicast matrix provides the matching
-mechanism-level evidence, while the H100 replay supplies a concrete trace case
-study alongside the factorial evaluation.
-
-The mechanisms show different benefit profiles.  Multicast has a robust
-traffic benefit and a workload-dependent throughput benefit.  Bypass gains
-depend on topology, wire cost, and load; structured or loaded traffic benefits
-when admission selects a useful shortcut.  Tensor streaming changes the
-logical request representation while preserving rank contributions and Router
-flit counts.  Each result is reported in its native unit: traffic reduction,
-latency ratio, or trace-window ratio.
+The evaluation follows the same structure.  Multicast is compared with
+replicated unicast on the same Mesh.  Bypass is compared with plain Mesh XY
+under identical packet streams and seeds.  The broad source-only screen is the
+primary topology experiment; the multi-hop experiment is a like-for-like
+refinement prompted by its neutral stride result.  Each claim uses its native
+unit: link-flit reduction, paired latency ratio, throughput change, or trace
+window.
 
 Section~2 defines the mechanisms, baselines, and metrics; Section~3 maps them
 to Garnet components and records the correctness contract.  Section~4 evaluates
@@ -139,11 +132,11 @@ the mechanism descriptions and quantitative results.
 The implementation uses gem5 v23.0.0.1 \cite{gem5-simulator} (base revision
 \texttt{77fcf26d57}) and deterministic XY routing on the cycle-level Garnet
 network model \cite{garnet}.  The source-only bypass screen was rerun at
-project revision \texttt{135768001a97}; the multi-hop refinement is based on
-\texttt{1e8764cde7}.  Both manifests record hashes for every simulator source,
-including uncommitted refinement files.
-A
-reported ratio always compares the same
+project revision \texttt{135768001a97}.  The multi-hop run began at
+\texttt{1e8764cde7}; its manifest hashes match the pressure-aware sources later
+committed as \texttt{ea4c3c9b0f}.  Thus the recorded source snapshot, not only
+the branch name at launch, identifies the evaluated binary.  A reported ratio
+always compares the same
 topology, traffic, packet sequence, payload, request schedule, and seed.  The
 multicast comparison uses replicated unicast as its baseline: the baseline
 injects one complete packet for each destination, while the proposed path
@@ -314,7 +307,7 @@ Multicast & \texttt{flit}, NI, \texttt{Router} & 64-bit destination mask,
 per-packet branch VCs, Router-side replication, exact completion tracking \\
 Bypass & \texttt{Mesh\_Bypass.py}, \texttt{bypass\_oracle.py},
 \texttt{RoutingUnit} & Physical express ports, all-pairs per-Router next-hop
-table, monotonic DOR paths, channel-dependency audit \\
+table, monotonic DOR paths, channel-dependency audit, runtime fallback \\
 Tensor & NI, \texttt{Router}, replay compiler & Per-flit lane ID,
 per-$(\text{collective},\text{lane})$ accumulator, queued backpressure-safe
 reduce/broadcast forwarding \\
@@ -326,69 +319,90 @@ reduce/broadcast forwarding \\
 
 The head flit first computes the pruned-tree children selected by its bitmap.
 The Router commits branch state only if every required output has a free VC;
-body and tail flits reuse those VCs.  Listing~\ref{lst:multicast} shows the
-essential two-phase allocation.  This makes a multi-flit packet exact and
-prevents partial branch allocation, but also explains the measured head-of-line
-coupling: one blocked branch stalls the whole fanout.
+body and tail flits reuse those VCs.  Listing~\ref{lst:multicast} is an excerpt
+from the implemented two-phase allocation.  This makes a multi-flit packet
+exact and prevents partial branch allocation, but also explains the measured
+head-of-line coupling: one blocked branch stalls the whole fanout.
 
-\begin{lstlisting}[float=tb,language=C++,caption={Core of Router-side atomic multicast branch allocation (\texttt{Router.cc}).},label={lst:multicast}]
-for (const auto& output : m_output_unit) {
-    const auto& direction = output->get_direction();
-    if (direction == "Local") continue;
-    const int child = collectiveChildId(direction);
-    if (multicastChildNeeded(mask, m_id, child))
-        destinations.push_back(child);
-}
+\noindent\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C++,caption={Source excerpt: atomic multicast branch allocation (\texttt{Router.cc}).},label={lst:multicast}]
+const int vnet = head_flit->get_vnet();
 for (const int destination : destinations) {
     const int outport = collectiveOutportForChild(destination);
-    if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet))
-        return false;                 // allocate no partial fanout
+    if (outport < 0 || !m_output_unit[outport]->has_free_vc(vnet)) {
+        m_network_ptr->recordMulticastCreditStall();
+        return false;
+    }
 }
 for (const int destination : destinations) {
     const int outport = collectiveOutportForChild(destination);
     const int outvc = m_output_unit[outport]->select_free_vc(vnet);
+    fatal_if(outvc < 0, "Router %d lost multicast VC allocation", m_id);
     m_multicast_branches.push_back({outport, outvc, destination});
 }
 \end{lstlisting}
+\end{minipage}
 
 \subsection{Auditable bypass routing}
 
 Topology construction creates two directed Garnet links for every installed
 physical shortcut and scales their latency by Manhattan span in the
-distance-scaled model.  Listing~\ref{lst:bypass} shows the refined stride
-policy: dynamic programming compares the full ordinary and express suffix
-costs, while the admissibility predicate preserves dimension order.  The same
-full paths feed the dependency audit.
+distance-scaled model.  Listing~\ref{lst:bypass} shows the implemented dynamic
+programming recurrence: it compares complete ordinary and express suffixes,
+and accepts an express edge only when \texttt{dor\_express} proves monotonic
+X-before-Y progress.  Exact-cost ties prefer the ordinary edge, so a bypass
+must save a modeled cycle rather than merely a graph hop.
 
-\begin{lstlisting}[float=tb,language=Python,caption={Cycle-aware multi-hop DOR selection and dependency audit (\texttt{bypass\_oracle.py}).},label={lst:bypass}]
+\begin{lstlisting}[language=Python,caption={Source excerpt: cycle-aware multi-hop DOR selection (\texttt{bypass\_oracle.py}).},label={lst:bypass}]
+@lru_cache(maxsize=None)
 def best_stride_step(current, destination):
     if current == destination:
         return 0, None
     ordinary_next = xy_step(current, destination)
-    suffix, _ = best_stride_step(ordinary_next, destination)
-    choices = [(ordinary_edge_cost + suffix, 0,
+    suffix_cost, _ = best_stride_step(ordinary_next, destination)
+    choices = [(ordinary_edge_cost + suffix_cost, 0,
                 ordinary_next, "", None)]
     for link in outgoing[current]:
         if not dor_express(link, destination):
             continue
-        suffix, _ = best_stride_step(link["dst"], destination)
-        cost = int(link["latency"]) + router_latency + suffix
-        choices.append((cost, 1, link["dst"],
-                        link["name"], link))
+        suffix_cost, _ = best_stride_step(link["dst"], destination)
+        cost = int(link["latency"]) + router_latency + suffix_cost
+        choices.append((cost, 1, link["dst"], link["name"], link))
     cost, _, _, _, selected = min(choices)
     return cost, selected
+\end{lstlisting}
 
-while current != destination:
-    selected = next_links[current * routers + destination]
-    next_router = selected["dst"] if selected else xy_step(
-        current, destination)
-    channels.append(selected["name"] if selected else
-                    f"XY_{current}_to_{next_router}")
-    current = next_router
-for channel, successor in zip(channels, channels[1:]):
-    dependency_graph[channel].add(successor)
-if len(topological_order) != len(dependency_graph):
-    raise ValueError("channel dependency graph is cyclic")
+The builder then materializes every source--destination path, adds each
+successive channel pair to a dependency graph, and requires a topological
+ordering over the entire graph.  This is stronger than checking that each
+individual path terminates: a cycle formed across several routes also fails
+construction.  Runtime adaptation can choose only the table's express edge or
+the monotonic XY edge in the same DOR phase, so it does not introduce a new
+channel class or a dimension reversal.
+
+The performance refinement is completed in \texttt{RoutingUnit.cc}, not in
+the offline oracle alone.  After computing local VC/credit pressure and the
+landing Router's oracle-selected next output, the retained policy executes the
+fallback in Listing~\ref{lst:bypass-admission}.  A sustained many-to-one
+destination, a blocked express/escape output, or a materially healthier XY
+output rejects the shortcut.  Long packets additionally require actual credit
+headroom on both the express and landing outputs.
+
+\begin{lstlisting}[language=C++,caption={Source excerpt: conservative runtime bypass admission (\texttt{RoutingUnit.cc}).},label={lst:bypass-admission}]
+if (network->bypassDestinationSkewed(route.dest_router) ||
+    express_free == 0 || escape_free == 0 ||
+    (long_packet && lookahead_free == 0) ||
+    express_free + 1 < xy_free)
+    return xy_outport;
+
+const int landing_capacity = vcs_per_vnet *
+    network->getBuffersPerDataVC();
+if (long_packet &&
+    ((xy_free == vcs_per_vnet && xy_credits == landing_capacity) ||
+     express_free < xy_free || express_credits < xy_credits ||
+     lookahead_free < vcs_per_vnet ||
+     lookahead_credits < landing_capacity))
+    return xy_outport;
 \end{lstlisting}
 
 \subsection{Streaming tensor reduction}
@@ -399,7 +413,7 @@ entry is released as soon as every local/child contribution arrives; completed
 lanes wait in a FIFO when their next output VC is unavailable, so backpressure
 does not discard reduction state.
 
-\begin{lstlisting}[float=tb,language=C++,caption={Condensed lane-wise Router accumulation for tensor all-reduce (\texttt{Router.cc}).},label={lst:tensor}]
+\begin{lstlisting}[language=C++,caption={Abridged source excerpt: lane-wise tensor accumulation (\texttt{Router.cc}).},label={lst:tensor}]
 const int lane = t_flit->get_lane_id();
 const auto key = std::make_pair(t_flit->get_collective_id(), lane);
 CollectiveLaneState& state = m_collective_lanes[key];
@@ -541,15 +555,15 @@ in the mesh.  In \texttt{hotspot}, 50\% of packets target one fixed Router
 (Router $N/2$ in an $N$-node mesh) and the rest use uniform random
 destinations.  These four patterns isolate route structure and contention.
 
-The original offline route-table sweep compares the
-same synthetic workloads and seeds on Mesh XY and on each physical express-link
-design, with the route table selecting at most one source express hop.  The
-latency column in Table~\ref{tab:bypass-screen} is the geometric mean over all
-1,536 paired seed cases per design; additive changes use arithmetic means.
-The fixed table isolates the value of an admissible shortcut, while the
-regression count exposes how often the average does not transfer to an
-individual workload.  Stride removes more Router traversals, but its physical
-wire cost is higher and its latency benefit is smaller than diagonal links.
+The original offline route-table sweep compares the same synthetic workloads
+and seeds on Mesh XY and on each physical express-link design, with the route
+table selecting at most one source express hop.  The latency column in
+Table~\ref{tab:bypass-screen} is the geometric mean over all 1,536 paired seed
+cases per design; additive changes use arithmetic means.  Reporting the
+median and regression tail later is necessary because saturated baseline
+points can produce very large ratios.  The fixed table isolates the value of
+an admissible shortcut, while the regression count exposes how often the
+aggregate result fails to transfer to an individual workload.
 
 \begin{table}[ht]
 \centering
@@ -558,7 +572,7 @@ paired seed cases per design; latency ratios use geometric means.}
 \label{tab:bypass-screen}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
-Design & Latency speedup & Regressions & Throughput change & Traversal change \\
+Design & Latency speedup & Regressions & Throughput change & Router-work change \\
 \midrule
 Diagonal, distance-scaled & 1.131$\times$ & 350/1,536 & +9.41\% & +5.49\% \\
 Diagonal, optimistic & 1.148$\times$ & 164/1,536 & +9.44\% & +5.53\% \\
@@ -566,11 +580,11 @@ Stride, distance-scaled & 0.999$\times$ & 539/1,536 & +2.72\% & $-$11.35\% \\
 Stride, optimistic & 1.024$\times$ & 321/1,536 & +2.81\% & $-$11.26\% \\
 \bottomrule
 \end{tabular}
-\par\medskip\footnotesize Traversal change is
+\par\medskip\footnotesize Router-work change is
 $F_{\mathrm{new}}/F_{\mathrm{base}}-1$ for each run's \emph{aggregate} Router
 traversals.  Positive throughput can therefore produce a positive traversal
-change even when individual paths shorten; the two columns must be read
-together.
+count even when individual paths shorten; negative values mean less Router
+work.  The throughput and Router-work columns must therefore be read together.
 \end{table}
 
 The cost records explain the design choice.  A 4$\times$4 diagonal placement
@@ -638,7 +652,9 @@ Hotspot & 384 & 1.015$\times$ & +1.28\% & 16.99\% & 1 \\
 \end{table}
 
 Across all 1,536 pairs, the median is 1.082$\times$ and 243 ratios are below
-one, but only one regresses by more than 5\%.  The worst is 0.909$\times$ for
+one, but only one regresses by more than 5\%.  The best ratio, 97.94$\times$,
+comes from a near-saturated baseline and is why we do not report an arithmetic
+mean as the headline.  The worst is 0.909$\times$ for
 4$\times$4, 16-flit hotspot traffic at offered load 0.3.  At offered load at
 most 0.1 the geometric mean is 1.051$\times$; above 0.7 it is
 1.627$\times$.  The 64-flit group now reaches 1.134$\times$ with no regression
@@ -647,6 +663,17 @@ headline is not a claim of universal base-latency improvement: multi-hop
 bypass is most valuable when the skipped Router stages also relieve loaded
 paths, while hotspot admission largely restores the baseline on
 many-to-one traffic.
+
+We also tested a natural follow-up rather than silently tuning around that
+worst case.  On the same 96-pair pilot, disabling bypass only within Manhattan
+radius 1, 2, or 3 of a detected hotspot produced overall geometric means of
+1.6830$\times$, 1.6838$\times$, and 1.6837$\times$, all below the retained
+global guard's 1.6844$\times$.  More importantly, the targeted worst case was
+0.9001$\times$, 0.9090$\times$, and 0.9090$\times$, below the predeclared
+0.95$\times$ acceptance threshold.  We therefore rejected all three before a
+full run.  This negative pilot is retained in
+\path{report/data/bypass_hotspot_radius_pilot.csv} and is not mixed into the
+1,536-pair headline result.
 
 \FloatBarrier
 
@@ -687,14 +714,9 @@ Tree multicast & Optimistic & 8.33\% & 0/104 \\
 
 \section{H100 trace case study}
 
-The H100 replay preserves the measured collective's ordering while exposing a
-request-representation effect: tensor streaming shortens the replay window
-without changing rank contributions or Router work.
-
-This section pairs the factorial multicast and bypass evaluation with a
-trace-specific lowering, validation contract, and replay result.  Its scaled
-tick counts remain in a separate trace workload and the main-study aggregates
-retain their factorial scope.
+This additional Topic~4 case study preserves a measured collective's ordering
+while testing request representation.  Its scaled tick counts remain separate
+from the factorial Topic~3 aggregates.
 
 \subsection{Trace lowering and implementation}
 
@@ -728,25 +750,17 @@ replay lowerings.}
 \label{fig:tensor-allreduce-pipeline}
 \end{figure}
 
-All three replay runners use the same offline route-table Mesh\_Bypass arm as
-the main bypass study: diagonal links with a four-link budget and
-distance-scaled wire latency.  Mesh XY is the matched baseline.  In this H100
-placement every collective path uses the ordinary XY route, so the two arms
-produce a controlled equal-work comparison.
+The replay compares Mesh XY with a four-link, distance-scaled diagonal bypass
+arm.  Every route selected in this 2$\times$4 placement is ordinary XY, making
+the bypass arm a noninterference control rather than evidence of shortcut
+speedup.
 
 \subsection{Replay experiments and results}
 
-The 2$\times$4 replay contains a broadcast plus two lowerings of the same 15
-all-reduce events.  All-reduce converges rank values in Routers and then uses a
-tree broadcast; it shares the prefix-reuse principle with multicast but is a
-distinct implementation.  The configured bypass table selects ordinary XY for
-every trace path.  Consequently, the Mesh Bypass arm is a noninterference
-control, while the 4.728$\times$ result below isolates request representation.
-
 The broadcast replay expands 15 source events into 30 tree-multicast requests;
 both designs complete 6,720 source flits and 210 destination deliveries in a
-17,047,500-tick window.  Every path uses XY in this placement, giving a
-controlled equal-work bypass comparison.
+17,047,500-tick window.  The all-reduce replay compares serialized scalar lanes
+with multi-flit tensor requests under the same route and release schedule.
 
 Table~\ref{tab:h100-replay} records the three replay views.  Both topology arms
 are identical, confirming that unused physical links do not perturb the trace.
@@ -767,14 +781,10 @@ Tensor all-reduce & 15 & 53,760 & 17,054,500 & 2,567,500 \\
 \end{tabular}
 \end{table}
 
-For all-reduce, both physical designs complete 15 logical tensor requests,
-53,760 rank contributions, 53,760 exact lane reductions, 53,760 deliveries,
-and 147,840 Router flits.  The tensor window is 17,054,500 ticks; p50/p95/p99
-logical-request latencies are 647,500/2,567,500/2,567,500 ticks.  These
-percentiles describe multi-flit requests and use a different request unit from
-the scalar-lane p95 of 10,000 ticks.  Figure~\ref{fig:tensor} visualizes the
-cross-lowering measurement window, where both views share the same network
-work.
+Both physical designs complete 53,760 exact lane reductions and deliveries
+with 147,840 Router flits.  Tensor-request p50/p95/p99 latency is
+647,500/2,567,500/2,567,500 ticks; these values cannot be compared directly
+with scalar-lane p95 because the logical request units differ.
 
 \begin{figure}[tb]
 \centering
@@ -847,6 +857,14 @@ rejects wrong run counts, non-finite values, failed regression stages, inconsist
 routing metadata, incomplete multicast pairs, and missing designs before
 writing summary tables or figures.
 
+The original source-only bypass matrix contains 7,680 simulator runs.  The
+accepted multi-hop refinement adds 3,072 runs and stores its exact arguments,
+simulation windows, and source hashes in
+\path{report/data/bypass_multihop_manifest.json}.  The resulting 1,536 paired
+rows are summarized in \path{report/data/bypass_multihop_summary.csv}; the
+policy-selection and rejected-radius pilots are retained separately, so they
+cannot be mistaken for final-matrix samples.
+
 The full command matrix is retained in \path{report/README.md}.  The compact
 snapshot and every figure can be rebuilt with:
 
@@ -864,25 +882,25 @@ fixed trace placement.
 
 \section{Conclusion}
 
-The project evaluates three complementary mechanisms with three matching
-forms of evidence.  Tree multicast shares duplicate prefixes and removes
-39.51\% of internal-link flits on average, with the saving rising to 53.13\%
-at fanout 16; atomic fanout shapes the workload-dependent throughput curve.
-Express-link gains depend on topology, wire model, and load: the
-source-only distance-scaled diagonal route table reaches 1.131$\times$
-geometric-mean latency speedup, while source-only stride links are neutral at
-0.999$\times$.  The cycle-aware multi-hop stride refinement reaches
-1.430$\times$ with 21.87\% higher throughput and only one regression larger
-than 5\%.  Tensor all-reduce
-preserves the collective as 15 multi-flit requests and shortens the scaled
-H100 replay window by 4.728$\times$ while rank contributions and Router flits
-remain fixed.
+Both required Topic~3 mechanisms are implemented and evaluated against matched
+baselines.  Tree multicast shares route prefixes and removes 39.51\% of
+internal-link flits on average, rising to 53.13\% at fanout 16.  Its ten
+throughput regressions show that atomic branch synchronization remains a real
+microarchitectural cost.  For bypass, the source-only distance-scaled screen
+is the diagnostic result: diagonal reaches 1.131$\times$, while stride is
+neutral at 0.999$\times$ despite reducing Router traversals.  Reconsulting an
+audited cycle-cost oracle at every Router and admitting express hops only under
+safe local and landing pressure raises stride to 1.430$\times$ geometric-mean
+speedup and +21.87\% throughput.  The 1.082$\times$ median, 0.909$\times$
+worst case, and rejected radius sweep bound that claim.  The additional tensor
+experiment preserves 15 multi-flit requests and shortens the scaled H100
+window by 4.728$\times$ with identical network work.
 
-Together these results support a narrow but useful design principle for
-collective-aware NoCs: expose structure where it removes demonstrable network
-work, admit physical shortcuts only after accounting for wire cost and the
-target traffic regime, and evaluate request-level streaming with a
-completion contract that makes its units explicit.
+The common lesson is narrower than ``more network features are faster.''
+Collective structure should be exposed only where it removes measurable
+physical work; a shortcut should be selected by modeled cycle cost and current
+pressure rather than hop count; and every speedup should be paired with its
+distribution, regression tail, and completion contract.
 
 \begin{thebibliography}{9}
 

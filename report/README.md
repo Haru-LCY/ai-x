@@ -5,9 +5,11 @@ multicast, bypass express links, real-H100 trace replay, and tensor all-reduce.
 The gem5 base revision is `77fcf26d57`; manifests additionally record hashes
 for every modified source used by the simulator binary.  The multicast/tensor
 snapshot was run on August 10, 2026.  The original geometric-mean bypass screen
-and the subsequent multi-hop stride refinement were run on September 6, 2026
-with refinement based on commit `1e8764cde7`. Raw outputs are git-ignored, while compact
-CSV/JSON snapshots and generated figures are retained.
+and the subsequent multi-hop stride refinement were run on September 6, 2026.
+The refinement was launched from `1e8764cde7`; the manifest's source hashes
+match the pressure-aware implementation committed as `ea4c3c9b0f`. Raw outputs
+are git-ignored, while compact CSV/JSON snapshots and generated figures are
+retained.
 
 ## Contents
 
@@ -21,6 +23,8 @@ CSV/JSON snapshots and generated figures are retained.
 - `data/bypass_multihop_manifest.json`: exact arguments and source hashes for
   the 3,072-run refinement;
 - `data/bypass_refinement_pilot.csv`: like-for-like 96-pair policy selection;
+- `data/bypass_hotspot_radius_pilot.csv`: rejected radius 0/1/2/3 hotspot-guard
+  follow-up on the same 96-pair pilot plus the known worst case;
 - `data/worst_throughput_cases.csv`: ten lowest-throughput comparisons;
 - `data/trace_replay_summary.csv`: compact T3/T4 accepted measurements;
 - `data/trace_replay_provenance.txt`: trace hashes, semantics, and artifact paths;

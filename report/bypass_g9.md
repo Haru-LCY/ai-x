@@ -127,3 +127,16 @@ The refinement raises distance-scaled stride latency speedup from 0.999x to
 16-flit hotspot point is 0.909x.  The strong mean is chiefly a loaded-network
 result; the low-load (offered load <= 0.1) geometric mean is 1.051x.  The
 credit-aware 64-flit group reaches 1.134x with no regression larger than 5%.
+
+### Rejected hotspot-radius follow-up
+
+A subsequent pilot tested whether disabling bypass only within one, two, or
+three Manhattan hops of a hotspot would preserve express capacity elsewhere.
+All variants used the same 96 pairs as the admission-policy pilot.  None beat
+the retained global hotspot guard: radius 1/2/3 achieved 1.6830x, 1.6838x, and
+1.6837x overall geometric-mean speedup, versus 1.6844x for radius 0.  Their
+hotspot geometric means were also lower.  Radius 1 worsened the known worst
+4x4 hotspot case from 0.9090x to 0.9001x.  The radius variants were therefore
+rejected before a full-matrix run, and the accepted routing implementation and
+reported 1,536-pair results remain unchanged.  The compact pilot measurements
+are retained in `report/data/bypass_hotspot_radius_pilot.csv`.
