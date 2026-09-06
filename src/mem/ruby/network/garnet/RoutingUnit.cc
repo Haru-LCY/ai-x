@@ -301,13 +301,16 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                     outportComputeXY(route, inport, "Local");
                 const unsigned max_packet_flits =
                     network->bypassAdaptiveMaxPacketFlits();
-                if (max_packet_flits &&
-                    route.packet_flits > max_packet_flits)
-                    return xy_outport;
+                const bool long_packet = max_packet_flits &&
+                    route.packet_flits > max_packet_flits;
                 const int express_free = m_router->getOutputUnit(
                     outport->second)->count_free_vcs(route.vnet);
                 const int xy_free = m_router->getOutputUnit(
                     xy_outport)->count_free_vcs(route.vnet);
+                const int express_credits = m_router->getOutputUnit(
+                    outport->second)->count_available_credits(route.vnet);
+                const int xy_credits = m_router->getOutputUnit(
+                    xy_outport)->count_available_credits(route.vnet);
                 const int vcs_per_vnet = m_router->getOutputUnit(
                     outport->second)->getVcsPerVnet();
 
@@ -328,32 +331,50 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 const int landing_y = landing / columns;
                 const int destination_x = route.dest_router % columns;
                 const int destination_y = route.dest_router / columns;
-                PortDirection lookahead_direction = "Local";
+                PortDirection escape_direction = "Local";
                 if (landing_x < destination_x) {
-                    lookahead_direction = "East";
+                    escape_direction = "East";
                 } else if (landing_x > destination_x) {
-                    lookahead_direction = "West";
+                    escape_direction = "West";
                 } else if (landing_y < destination_y) {
-                    lookahead_direction = "North";
+                    escape_direction = "North";
                 } else if (landing_y > destination_y) {
-                    lookahead_direction = "South";
+                    escape_direction = "South";
                 }
+                PortDirection lookahead_direction = first_hops[
+                    landing * routers + route.dest_router];
+                if (lookahead_direction == "XY")
+                    lookahead_direction = escape_direction;
                 Router *landing_router = network->getRouter(landing);
-                int lookahead_outport = -1;
-                for (int port = 0;
-                     port < landing_router->get_num_outports(); ++port) {
-                    if (landing_router->getOutportDirection(port) ==
-                        lookahead_direction) {
-                        lookahead_outport = port;
-                        break;
-                    }
-                }
+                const auto find_landing_outport =
+                    [landing_router](const PortDirection& direction) {
+                        for (int port = 0;
+                             port < landing_router->get_num_outports();
+                             ++port) {
+                            if (landing_router->getOutportDirection(port) ==
+                                direction)
+                                return port;
+                        }
+                        return -1;
+                    };
+                const int lookahead_outport =
+                    find_landing_outport(lookahead_direction);
+                const int escape_outport =
+                    find_landing_outport(escape_direction);
                 fatal_if(lookahead_outport < 0,
                          "Bypass landing %d has no %s output for %d -> %d",
                          landing, lookahead_direction.c_str(),
                          route.src_router, route.dest_router);
+                fatal_if(escape_outport < 0,
+                         "Bypass landing %d has no %s escape for %d -> %d",
+                         landing, escape_direction.c_str(),
+                         route.src_router, route.dest_router);
                 const int lookahead_free = landing_router->getOutputUnit(
                     lookahead_outport)->count_free_vcs(route.vnet);
+                const int lookahead_credits = landing_router->getOutputUnit(
+                    lookahead_outport)->count_available_credits(route.vnet);
+                const int escape_free = landing_router->getOutputUnit(
+                    escape_outport)->count_free_vcs(route.vnet);
                 if (network->bypassMultiHopRouting() &&
                     network->bypassAdaptivePolicy() == "conservative") {
                     // Multi-hop DOR already has a static cycle advantage.
@@ -364,8 +385,24 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                     // otherwise amplify hotspot head-of-line blocking.
                     if (network->bypassDestinationSkewed(
                             route.dest_router) ||
-                        express_free == 0 || lookahead_free == 0 ||
+                        express_free == 0 || escape_free == 0 ||
+                        (long_packet && lookahead_free == 0) ||
                         express_free + 1 < xy_free)
+                        return xy_outport;
+                    // Long packets are admitted only when the express edge is
+                    // at least as healthy as XY and the actual oracle-selected
+                    // landing output is completely idle.  This replaces the
+                    // old hard size cutoff while avoiding a long reservation
+                    // behind an occupied second hop.
+                    const int landing_capacity = vcs_per_vnet *
+                        network->getBuffersPerDataVC();
+                    if (long_packet &&
+                        ((xy_free == vcs_per_vnet &&
+                          xy_credits == landing_capacity) ||
+                         express_free < xy_free ||
+                         express_credits < xy_credits ||
+                         lookahead_free < vcs_per_vnet ||
+                         lookahead_credits < landing_capacity))
                         return xy_outport;
                 } else if (network->bypassAdaptivePolicy() == "aggressive") {
                     // Aggressive policy: the historical adaptive rule.  It

@@ -118,6 +118,16 @@ OutputUnit::count_free_vcs(int vnet)
     return free_vcs;
 }
 
+int
+OutputUnit::count_available_credits(int vnet)
+{
+    const int vc_base = vnet * m_vc_per_vnet;
+    int credits = 0;
+    for (int vc = vc_base; vc < vc_base + m_vc_per_vnet; ++vc)
+        credits += outVcState[vc].get_credit_count();
+    return credits;
+}
+
 // Assign a free output VC to the winner of Switch Allocation
 int
 OutputUnit::select_free_vc(int vnet)

@@ -766,7 +766,7 @@ def main():
     )
     parser.add_argument(
         "--bypass-adaptive-max-packet-flits", type=int, default=32,
-        help="largest packet admitted to adaptive express routing (0=unlimited)",
+        help="packet size above which express admission requires idle lookahead (0=disable)",
     )
     parser.add_argument(
         "--bypass-adaptive-policy", choices=["aggressive", "conservative"],

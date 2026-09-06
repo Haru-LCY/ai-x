@@ -64,7 +64,7 @@ class GarnetNetwork(RubyNetwork):
         "select express hops using express-versus-XY free-VC pressure",
     )
     bypass_adaptive_max_packet_flits = Param.Unsigned(
-        32, "largest packet admitted to adaptive express routing (0=unlimited)"
+        32, "packet size above which express admission requires idle lookahead"
     )
     bypass_adaptive_policy = Param.String(
         "conservative",

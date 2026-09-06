@@ -1,32 +1,32 @@
 {
-  "git_revision": "135768001a976fb74e9693446630d71b82992102",
+  "git_revision": "1e8764cde7d4028e157d75053a0d53f4829523ab",
   "source_sha256": {
     "configs/example/garnet_synth_traffic.py": "cc8eab77f022e9907e20f3172c3de10abc725711f7523fb7fecd82c3228d4a0d",
-    "configs/network/Network.py": "2d00adc4ebc005b1e301ae7a85c9160593ea6fcc5801a05520aa1fd69d11e956",
+    "configs/network/Network.py": "c3177893416518126e4f0c3947d0bceca79cea5334db434460fa95dd1c9de87a",
     "configs/topologies/Mesh_Bypass.py": "3dc40211f672661d3d50f4b19471faadb0d9e59e16f708c580003ead340222b2",
     "configs/topologies/bypass_oracle.py": "94a0ba81c9b2c7fde11c15836096b6dc60dd5d9f0271a933a93c6cd2734a0ab5",
     "src/cpu/testers/garnet_synthetic_traffic/GarnetSyntheticTraffic.cc": "d986447252ae30d803df852006bc8ac68b8fa2bf348752b2a5d18ebc282d7497",
     "src/cpu/testers/garnet_synthetic_traffic/GarnetSyntheticTraffic.hh": "c6ee3662f8e8a9e965121c151a1fcba9f7329c068dc6ead44bd630d96733c127",
     "src/cpu/testers/garnet_synthetic_traffic/GarnetSyntheticTraffic.py": "328143548128a133471a6a7b6eccd7892d09fea80d017c3094d009efe6500d93",
-    "src/mem/ruby/network/garnet/GarnetNetwork.cc": "403c7d4c7b1ab6c9356a88b5a07c40cf43d298486b7e6b670c33440198576557",
+    "src/mem/ruby/network/garnet/GarnetNetwork.cc": "98353aee80e652de9bf7b38fe24c6b0c4103340836e572dadc4997a2a25a16f8",
     "src/mem/ruby/network/garnet/GarnetNetwork.hh": "1bca0ae34c2fb3f45fa9ea961d1aea495e2f00b10a5ae96d16cdf656e44c5b03",
-    "src/mem/ruby/network/garnet/GarnetNetwork.py": "91f8eb58850afdaadd28ec959ec3dbe4cd87797145a2ead807f4e6f5bae3d4e4",
+    "src/mem/ruby/network/garnet/GarnetNetwork.py": "a351d5420b8f42a637258ce582dbdd6b017986fd492bedaab0e4502c4c3d4375",
     "src/mem/ruby/network/garnet/CommonTypes.hh": "b86fb5c7761178997484b9867811b61dc4ad0aac8d46a7d73210c0b8f51a05fa",
     "src/mem/ruby/network/garnet/NetworkInterface.cc": "0205a18b5efb33096181741db13136e8fa069af7d7344aee98dc6cf115ca5305",
-    "src/mem/ruby/network/garnet/OutputUnit.cc": "c99f5099d4926920afd783c0ce2392590cd3612af511286a07673ccf6a9c5637",
-    "src/mem/ruby/network/garnet/OutputUnit.hh": "f97e1431ae6c452a9a7de25d881acf6949b996254425ef18a82ff7d892fd66ac",
+    "src/mem/ruby/network/garnet/OutputUnit.cc": "c2cad7959fd56b57e25a13eecdb6ab085c19c425045ce00b5fc55ec20d620ccb",
+    "src/mem/ruby/network/garnet/OutputUnit.hh": "bb56858bb35c25caa703d2e4ddee6cd24c5bfaa476f5adfbfe6f79f6b2d6f8b6",
     "src/mem/ruby/network/garnet/Router.cc": "661207ad417a68176a2a67fcba589c293c9ef1b831d4e5e3d57d16c3a3786a21",
     "src/mem/ruby/network/garnet/Router.hh": "ce7f7632271871dcfa4172b62a7731bb3e740775fd3774e773af4011755cb568",
-    "src/mem/ruby/network/garnet/RoutingUnit.cc": "13c6a8b2d4b2d473d357058b60773c41cc2fd67a4076f9adb363bc7daa430b38",
+    "src/mem/ruby/network/garnet/RoutingUnit.cc": "e2c331303c5adedce3f259262a1c6a30622b80323db361986cfcb4c60cdd3e6e",
     "src/mem/ruby/network/garnet/SwitchAllocator.cc": "06efec0c133a553e00984b76106f8d1050bbdccdb76c0f983091357676b3b3d7",
     "src/mem/ruby/network/garnet/SwitchAllocator.hh": "19823f44720dacd84ba4477b63bdd833baba91c367f3ad6c33491886dd8f73a6",
-    "tests/gem5/lab4/run_bypass_performance.py": "5c4d46f2862847b5eed786f0e1037bdb4edcdd302bea225a1627c3db6e760682"
+    "tests/gem5/lab4/run_bypass_performance.py": "e12d4edb0a1dfe3f0547bb484771c70718bc9c6d79b48501cf42c8572ec97582"
   },
   "cases": 1536,
   "gem5_runs": 3072,
   "arguments": {
-    "gem5": "/mnt/einsia/aws02-nvme/einsia-shared/homes/kaisen/haru/work/ai-x/build/Garnet_standalone/gem5.opt",
-    "output": "report/raw-results/multihop-full",
+    "gem5": "build/Garnet_standalone/gem5.opt",
+    "output": "report/raw-results/refinement-v3-full",
     "sizes": [
       4,
       8
@@ -81,8 +81,8 @@
     "drain": 100000,
     "measurement": 5000,
     "cooldown": 1000000,
-    "jobs": 64,
-    "resume": false,
+    "jobs": 32,
+    "resume": true,
     "retry_failures": false
   },
   "actual_simulation_windows": [

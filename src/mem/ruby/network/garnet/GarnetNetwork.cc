@@ -1172,14 +1172,23 @@ GarnetNetwork::update_traffic_distribution(RouteInfo route)
         // separates sustained many-to-one traffic from random fluctuations.
         ++m_bypass_destination_epoch_packets[dest_node];
         ++m_bypass_destination_epoch_total;
-        const uint64_t epoch_packets = 16 * m_routers.size();
+        const uint64_t epoch_packets = 4 * m_routers.size();
         if (m_bypass_destination_epoch_total >= epoch_packets) {
             for (int destination = 0;
                  destination < m_routers.size(); ++destination) {
-                m_bypass_hot_destinations[destination] =
+                const uint64_t scaled_share =
                     m_bypass_destination_epoch_packets[destination] *
-                        m_routers.size() >=
-                    4 * m_bypass_destination_epoch_total;
+                    m_routers.size();
+                // Enter at four times the uniform share, but retain a hot
+                // classification until it falls below twice the uniform
+                // share.  The shorter epoch reacts before a low-rate hotspot
+                // has already reserved many express paths; hysteresis avoids
+                // toggling on ordinary random variation.
+                const uint64_t threshold =
+                    (m_bypass_hot_destinations[destination] ? 2 : 4) *
+                    m_bypass_destination_epoch_total;
+                m_bypass_hot_destinations[destination] =
+                    scaled_share >= threshold;
                 m_bypass_destination_epoch_packets[destination] = 0;
             }
             m_bypass_destination_epoch_total = 0;

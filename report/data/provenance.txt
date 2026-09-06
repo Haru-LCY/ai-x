@@ -3,7 +3,7 @@ Multicast/tensor snapshot date: 2026-08-10 UTC
 Bypass geometric-mean rerun date: 2026-09-06 UTC
 Bypass multi-hop refinement date: 2026-09-06 UTC
 gem5 base revision: 77fcf26d57a1a6cf402b40fe748d500746f6578c
-Bypass project revision: 135768001a976fb74e9693446630d71b82992102
+Bypass project revision: 1e8764cde7d4028e157d75053a0d53f4829523ab
 Binary: build/Garnet_standalone/gem5.opt
 Correctness result: 208/208 paired cases passed
 Performance result: 162/162 paired cases passed (324 raw runs)

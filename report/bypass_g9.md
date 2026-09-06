@@ -86,7 +86,9 @@ distance-scaled wire model.  A cycle-aware dynamic program selects a monotonic
 stride express link at every Router, rather than at the source only.  An
 all-pairs channel-dependency audit rejects cyclic route tables, while
 conservative runtime admission falls back to XY for blocked/congested express
-outputs and sustained hotspots.  Packets above 32 flits deliberately use XY.
+outputs and sustained hotspots.  Packets above 32 flits use credit-aware
+admission and the actual oracle-selected landing output rather than a hard XY
+fallback.
 
 Artifact: `report/data/bypass_multihop_manifest.json`
 
@@ -94,17 +96,34 @@ Compact results: `report/data/bypass_multihop_summary.csv`
 
 Validated runs: 3,072/3,072 gem5 runs, 1,536 paired seed cases.
 
+### Admission-policy pilot
+
+All variants use the same 96 pairs (sizes 4/8, all four traffic and packet
+groups, loads 0.1/0.7/1.5, seed 7).  The first credit-aware policy maximized
+the mean but produced four severe regressions.  The retained policy requires
+XY pressure before admitting a long packet and keeps an XY escape at the
+landing Router; it is the only variant that improved the mean while eliminating
+the pilot's severe-regression tail.
+
+| policy | geomean | median | 64-flit geomean | hotspot geomean | >5% regressions | worst |
+|---|---:|---:|---:|---:|---:|---:|
+| committed baseline | 1.612x | 1.038x | 1.000x | 0.988x | 1 | 0.787x |
+| true-next + credits v1 | 1.827x | 1.099x | 1.179x | 1.000x | 4 | 0.799x |
+| dual-lookahead v2 | 1.673x | 1.095x | 1.170x | 1.017x | 2 | 0.837x |
+| retained pressure-aware v3 | 1.684x | 1.092x | 1.171x | 1.017x | 0 | 0.954x |
+
 | group | pairs | latency geomean | throughput change | Router/flit reduction | >5% regressions |
 |---|---:|---:|---:|---:|---:|
-| overall | 1,536 | 1.385x | +18.52% | 16.79% | 4 |
-| 4x4 | 768 | 1.264x | +3.91% | 15.98% | 1 |
-| 8x8 | 768 | 1.518x | +33.13% | 17.59% | 3 |
-| uniform random | 384 | 1.722x | +16.43% | 22.43% | 0 |
-| transpose | 384 | 1.176x | +5.51% | 14.06% | 0 |
-| bit complement | 384 | 1.808x | +51.62% | 13.89% | 0 |
-| hotspot | 384 | 1.006x | +0.52% | 16.76% | 4 |
+| overall | 1,536 | 1.430x | +21.87% | 18.10% | 1 |
+| 4x4 | 768 | 1.291x | +4.37% | 17.37% | 1 |
+| 8x8 | 768 | 1.583x | +39.37% | 18.84% | 0 |
+| uniform random | 384 | 1.842x | +19.63% | 24.98% | 0 |
+| transpose | 384 | 1.182x | +5.50% | 15.92% | 0 |
+| bit complement | 384 | 1.892x | +61.07% | 14.54% | 0 |
+| hotspot | 384 | 1.015x | +1.28% | 16.99% | 1 |
 
 The refinement raises distance-scaled stride latency speedup from 0.999x to
-1.385x.  This is not universal: its median is 1.038x, and the worst 8x8,
-16-flit hotspot point is 0.787x.  The strong mean is chiefly a loaded-network
-result; the low-load (offered load <= 0.1) geometric mean is 1.047x.
+1.430x.  This is not universal: its median is 1.082x, and the worst 4x4,
+16-flit hotspot point is 0.909x.  The strong mean is chiefly a loaded-network
+result; the low-load (offered load <= 0.1) geometric mean is 1.051x.  The
+credit-aware 64-flit group reaches 1.134x with no regression larger than 5%.

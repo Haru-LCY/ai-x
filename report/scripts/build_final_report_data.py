@@ -348,12 +348,14 @@ def main() -> int:
         100 * row["throughput_change_mean"] for row in bypass_plot_rows
     ]
     fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.5))
-    axes[0].bar(x, latency, color="#4c78a8")
+    latency_colors = ["#4c78a8"] * (len(latency) - 1) + ["#e07a2d"]
+    axes[0].bar(x, latency, color=latency_colors)
     axes[0].axhline(1, color="#333333", linestyle="--", linewidth=1)
     axes[0].set_ylabel("Latency speedup (geometric mean)")
     axes[0].set_xticks(x, labels, fontsize=8)
     axes[0].grid(axis="y", alpha=0.25)
     colors = ["#3a8f62" if value >= 0 else "#b54a4a" for value in throughput]
+    colors[-1] = "#e07a2d"
     axes[1].bar(x, throughput, color=colors)
     axes[1].axhline(0, color="#333333", linewidth=1)
     axes[1].set_ylabel("Throughput change (%)")

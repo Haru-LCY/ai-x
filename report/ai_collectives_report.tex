@@ -66,7 +66,7 @@ sweep, source-only distance-scaled diagonal links provide a 1.131$\times$
 geometric-mean latency speedup, while source-only stride links are neutral at
 0.999$\times$.  Allowing cycle-aware, dimension-ordered multi-hop stride
 bypass with congestion admission raises the full-matrix result to
-1.385$\times$ and throughput by 18.52\%.  Finally,
+1.430$\times$ and throughput by 21.87\%.  Finally,
 preserving 15 multi-flit
 tensor requests versus serializing 6,720 scalar lanes reduces the scaled replay
 window from 80.638 to 17.055 million ticks (4.728$\times$).  All measurements
@@ -138,8 +138,10 @@ the mechanism descriptions and quantitative results.
 
 The implementation uses gem5 v23.0.0.1 \cite{gem5-simulator} (base revision
 \texttt{77fcf26d57}) and deterministic XY routing on the cycle-level Garnet
-network model \cite{garnet}.  The bypass screen was rerun at project revision
-\texttt{135768001a97}; its manifest records hashes for every simulator source.
+network model \cite{garnet}.  The source-only bypass screen was rerun at
+project revision \texttt{135768001a97}; the multi-hop refinement is based on
+\texttt{1e8764cde7}.  Both manifests record hashes for every simulator source,
+including uncommitted refinement files.
 A
 reported ratio always compares the same
 topology, traffic, packet sequence, payload, request schedule, and seed.  The
@@ -606,8 +608,12 @@ may use several stride links while remaining monotonic in X and then Y.
 For unordered data traffic, conservative admission retains the static shortcut
 unless the express or landing output is blocked, the express output is
 materially more congested than XY, or epoch counters identify the destination
-as a sustained hotspot.  Packets above 32 flits fall back to XY; consequently
-the 64-flit group is an exact 1.000$\times$ noninterference control.
+as a sustained hotspot.  For packets above 32 flits, the selector also checks
+credit headroom and the oracle-selected output at the landing Router, admitting
+the shortcut only when XY is under pressure and the landing output is idle.
+A 96-pair pilot rejected a more aggressive version despite its higher mean
+because it introduced four regressions larger than 5\%; the retained guard had
+none in the same pilot.
 
 \begin{table}[tb]
 \centering
@@ -620,22 +626,23 @@ means.  The last column counts regressions larger than 5\%.}
 \toprule
 Group & Pairs & Speedup & Throughput & Router/flit reduction & $>5\%$ regress. \\
 \midrule
-Overall & 1,536 & 1.385$\times$ & +18.52\% & 16.79\% & 4 \\
-4$\times$4 & 768 & 1.264$\times$ & +3.91\% & 15.98\% & 1 \\
-8$\times$8 & 768 & 1.518$\times$ & +33.13\% & 17.59\% & 3 \\
-Uniform random & 384 & 1.722$\times$ & +16.43\% & 22.43\% & 0 \\
-Transpose & 384 & 1.176$\times$ & +5.51\% & 14.06\% & 0 \\
-Bit complement & 384 & 1.808$\times$ & +51.62\% & 13.89\% & 0 \\
-Hotspot & 384 & 1.006$\times$ & +0.52\% & 16.76\% & 4 \\
+Overall & 1,536 & 1.430$\times$ & +21.87\% & 18.10\% & 1 \\
+4$\times$4 & 768 & 1.291$\times$ & +4.37\% & 17.37\% & 1 \\
+8$\times$8 & 768 & 1.583$\times$ & +39.37\% & 18.84\% & 0 \\
+Uniform random & 384 & 1.842$\times$ & +19.63\% & 24.98\% & 0 \\
+Transpose & 384 & 1.182$\times$ & +5.50\% & 15.92\% & 0 \\
+Bit complement & 384 & 1.892$\times$ & +61.07\% & 14.54\% & 0 \\
+Hotspot & 384 & 1.015$\times$ & +1.28\% & 16.99\% & 1 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Across all 1,536 pairs, the median is 1.038$\times$ and 208 ratios are below
-one, but only four regress by more than 5\%; all four are hotspot or its
-boundary case.  The worst is 0.787$\times$ for 8$\times$8, 16-flit hotspot
-traffic at offered load 0.1.  At offered load at most 0.1 the geometric mean
-is 1.047$\times$; above 0.7 it is 1.565$\times$.  Thus the 1.385$\times$
+Across all 1,536 pairs, the median is 1.082$\times$ and 243 ratios are below
+one, but only one regresses by more than 5\%.  The worst is 0.909$\times$ for
+4$\times$4, 16-flit hotspot traffic at offered load 0.3.  At offered load at
+most 0.1 the geometric mean is 1.051$\times$; above 0.7 it is
+1.627$\times$.  The 64-flit group now reaches 1.134$\times$ with no regression
+larger than 5\%.  Thus the 1.430$\times$
 headline is not a claim of universal base-latency improvement: multi-hop
 bypass is most valuable when the skipped Router stages also relieve loaded
 paths, while hotspot admission largely restores the baseline on
@@ -647,7 +654,7 @@ many-to-one traffic.
 Express links are useful when route structure makes a saved hop valuable, while
 distance-scaled wires and extra radix impose real costs.  Moving from one
 source-only shortcut to audited multi-hop DOR raises geometric-mean speedup
-from 0.999$\times$ to 1.385$\times$ for stride links; congestion admission
+from 0.999$\times$ to 1.430$\times$ for stride links; congestion admission
 reduces the severe-regression tail without weakening the wire model.
 
 \FloatBarrier
@@ -865,7 +872,7 @@ Express-link gains depend on topology, wire model, and load: the
 source-only distance-scaled diagonal route table reaches 1.131$\times$
 geometric-mean latency speedup, while source-only stride links are neutral at
 0.999$\times$.  The cycle-aware multi-hop stride refinement reaches
-1.385$\times$ with 18.52\% higher throughput and only four regressions larger
+1.430$\times$ with 21.87\% higher throughput and only one regression larger
 than 5\%.  Tensor all-reduce
 preserves the collective as 15 multi-flit requests and shortens the scaled
 H100 replay window by 4.728$\times$ while rank contributions and Router flits

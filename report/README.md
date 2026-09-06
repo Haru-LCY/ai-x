@@ -6,7 +6,7 @@ The gem5 base revision is `77fcf26d57`; manifests additionally record hashes
 for every modified source used by the simulator binary.  The multicast/tensor
 snapshot was run on August 10, 2026.  The original geometric-mean bypass screen
 and the subsequent multi-hop stride refinement were run on September 6, 2026
-at project revision `135768001a97`. Raw outputs are git-ignored, while compact
+with refinement based on commit `1e8764cde7`. Raw outputs are git-ignored, while compact
 CSV/JSON snapshots and generated figures are retained.
 
 ## Contents
@@ -20,6 +20,7 @@ CSV/JSON snapshots and generated figures are retained.
 - `data/bypass_multihop_summary.csv`: compact 1,536-pair multi-hop refinement;
 - `data/bypass_multihop_manifest.json`: exact arguments and source hashes for
   the 3,072-run refinement;
+- `data/bypass_refinement_pilot.csv`: like-for-like 96-pair policy selection;
 - `data/worst_throughput_cases.csv`: ten lowest-throughput comparisons;
 - `data/trace_replay_summary.csv`: compact T3/T4 accepted measurements;
 - `data/trace_replay_provenance.txt`: trace hashes, semantics, and artifact paths;
