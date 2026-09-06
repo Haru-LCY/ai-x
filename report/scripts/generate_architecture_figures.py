@@ -220,6 +220,11 @@ def bypass_figure() -> str:
         'edge [fontname="Helvetica", fontsize=8, arrowsize=0.55];',
         mesh_nodes("D", 0.0, source=0, destinations=(15,)),
         mesh_nodes("S", 7.0, source=0, destinations=(15,)),
+        # Invisible waypoint used only to give the curved S0 -> S2 overlay a
+        # normal Graphviz-clipped arrowhead at S2, matching the multicast
+        # figure's directed-edge treatment.
+        's_express_arrow_tail [shape=point, fixedsize=true, width=0.01, '
+        'height=0.01, label="", style=invis, pos="8.45,3.18!"];',
         mesh_edges("D", 0.0),
         mesh_edges("S", 7.0),
         'd_title [shape=plaintext, fixedsize=false, label="Diagonal checkerboard (9 links)", '
@@ -235,7 +240,7 @@ def bypass_figure() -> str:
         'label="0 → 2 (express) → 3 → 7 → 11 → 15\\n'
         'source express hop + deterministic XY suffix", pos="8.9,-0.82!"];',
         'legend [shape=plaintext, fixedsize=false, label="gray = ordinary Mesh edges   orange dashed = installed bidirectional express candidates   '
-        'orange solid = oracle-selected express hop   blue solid = XY suffix   node orange/green = source/destination", '
+        'orange solid arrow = oracle-selected express hop   blue solid = XY suffix   node orange/green = source/destination", '
         'pos="5.4,-1.43!"];',
     ]
     for src, dst in diagonal:
@@ -269,15 +274,24 @@ def bypass_figure() -> str:
     ):
         for src, dst in zip(route, route[1:]):
             color = "#d95f02" if (src, dst) == express else "#1769aa"
-            edge_pos = ""
-            if prefix == "D" and (src, dst) == express:
-                edge_pos = f", {straight_edge_pos(src, dst, 0.0)}"
-            elif prefix == "S" and (src, dst) == express:
-                edge_pos = f", {curved_edge_pos(src, dst, 7.0, bend=0.30)}"
+            if prefix == "S" and (src, dst) == express:
+                # Keep the installed link's bowed geometry clear of Router 1,
+                # then let Graphviz place and clip the final arrow exactly as
+                # it does for the multicast figure's ordinary directed edges.
+                edge_pos = curved_edge_pos(src, dst, 7.0, bend=0.30)
+                lines.append(
+                    f'{prefix}{src} -> {prefix}{dst} [dir=none, '
+                    f'color="{color}", penwidth=3.5, {edge_pos}];'
+                )
+                lines.append(
+                    f's_express_arrow_tail -> {prefix}{dst} '
+                    f'[color="{color}", penwidth=3.5, arrowsize=0.65];'
+                )
+                continue
             lines.append(
                 f'{prefix}{src} -> {prefix}{dst} [color="{color}", '
                 f'penwidth={3.5 if color == "#d95f02" else 2.8}, '
-                f'arrowsize=0.65{edge_pos}];'
+                f'arrowsize=0.65];'
             )
     for prefix in ("D", "S"):
         lines.extend([
