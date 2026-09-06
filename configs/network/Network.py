@@ -88,8 +88,8 @@ def define_options(parser):
         action=argparse.BooleanOptionalAction,
         default=False,
         help=(
-            "at the source of an unordered packet, use an eligible express "
-            "hop only when it has at least as many free VCs as the XY port"
+            "for an unordered packet, use an eligible express hop only when "
+            "its local and landing pressure pass the admission policy"
         ),
     )
     parser.add_argument(
@@ -102,7 +102,7 @@ def define_options(parser):
         "--bypass-adaptive-policy",
         choices=["aggressive", "conservative"],
         default="conservative",
-        help="source-side adaptive express admission policy",
+        help="per-eligible-hop adaptive express admission policy",
     )
     parser.add_argument(
         "--bypass-topology-dump",

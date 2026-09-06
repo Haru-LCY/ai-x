@@ -52,13 +52,16 @@ class GarnetNetwork(RubyNetwork):
     bypass_first_hop_destinations = VectorParam.Int(
         [], "source/destination indexed deterministic bypass first-hop Routers"
     )
+    bypass_multi_hop_routing = Param.Bool(
+        False, "permit audited dimension-ordered express selection at every Router"
+    )
     bypass_link_ids = VectorParam.Int([], "internal links classified as express")
     bypass_link_spans = VectorParam.Int(
         [], "Manhattan physical spans aligned with bypass_link_ids"
     )
     bypass_adaptive_routing = Param.Bool(
         False,
-        "select source express hops using express-versus-XY free-VC pressure",
+        "select express hops using express-versus-XY free-VC pressure",
     )
     bypass_adaptive_max_packet_flits = Param.Unsigned(
         32, "largest packet admitted to adaptive express routing (0=unlimited)"

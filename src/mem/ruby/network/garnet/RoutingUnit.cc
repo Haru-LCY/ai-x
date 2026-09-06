@@ -278,24 +278,23 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
              "Invalid bypass route %d -> %d", route.src_router,
              route.dest_router);
 
-    if (m_router->get_id() == route.src_router) {
+    GarnetNetwork *network = m_router->get_net_ptr();
+    const int current_router = m_router->get_id();
+    if (current_router == route.src_router ||
+        network->bypassMultiHopRouting()) {
         const PortDirection& direction =
-            first_hops[route.src_router * routers + route.dest_router];
+            first_hops[current_router * routers + route.dest_router];
         if (direction != "XY") {
             const auto outport = m_outports_dirn2idx.find(direction);
             fatal_if(outport == m_outports_dirn2idx.end(),
                      "Bypass route %d -> %d requests missing port %s",
-                     route.src_router, route.dest_router, direction.c_str());
+                     current_router, route.dest_router, direction.c_str());
 
             // Express links reduce hop count, but a static oracle can funnel
-            // many destinations onto one source shortcut.  For unordered
-            // traffic, compare source-port pressure and fall back to the
-            // deterministic XY route when its first output has more free
-            // VCs.  The choice is made only at injection, so every selected
-            // suffix remains deterministic XY and the audited channel order
-            // is unchanged.  Ordered vnets retain the static route to avoid
-            // packet reordering.
-            GarnetNetwork *network = m_router->get_net_ptr();
+            // many destinations onto one shortcut. For unordered traffic,
+            // compare local pressure and fall back to the monotonic XY edge.
+            // Both choices remain inside the audited dimension order.
+            // Ordered vnets retain the static route to avoid reordering.
             if (network->bypassAdaptiveRouting() &&
                 !network->isVNetOrdered(route.vnet)) {
                 const int xy_outport =
@@ -320,10 +319,10 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 const auto& first_hop_destinations =
                     network->getBypassFirstHopDestinations();
                 const int landing = first_hop_destinations[
-                    route.src_router * routers + route.dest_router];
+                    current_router * routers + route.dest_router];
                 fatal_if(landing < 0 || landing >= routers,
                          "Missing bypass landing for route %d -> %d",
-                         route.src_router, route.dest_router);
+                         current_router, route.dest_router);
                 const int columns = network->getNumCols();
                 const int landing_x = landing % columns;
                 const int landing_y = landing / columns;
@@ -355,22 +354,34 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                          route.src_router, route.dest_router);
                 const int lookahead_free = landing_router->getOutputUnit(
                     lookahead_outport)->count_free_vcs(route.vnet);
-                const int lookahead_low_watermark = vcs_per_vnet;
-                if (lookahead_free < lookahead_low_watermark)
-                    return xy_outport;
-
-                if (network->bypassAdaptivePolicy() == "aggressive") {
+                if (network->bypassMultiHopRouting() &&
+                    network->bypassAdaptivePolicy() == "conservative") {
+                    // Multi-hop DOR already has a static cycle advantage.
+                    // Preserve it unless the express path is blocked,
+                    // materially less healthy than XY, or converges on a
+                    // detected many-to-one destination. Applying the skew
+                    // guard to every packet size is important: long packets
+                    // otherwise amplify hotspot head-of-line blocking.
+                    if (network->bypassDestinationSkewed(
+                            route.dest_router) ||
+                        express_free == 0 || lookahead_free == 0 ||
+                        express_free + 1 < xy_free)
+                        return xy_outport;
+                } else if (network->bypassAdaptivePolicy() == "aggressive") {
                     // Aggressive policy: the historical adaptive rule.  It
                     // accepts an express hop whenever the express output is
                     // at least as healthy as XY (with a usable tie), after
-                    // the landing-router lookahead above passes.
+                    // a strict landing-router lookahead passes.
+                    if (lookahead_free < vcs_per_vnet)
+                        return xy_outport;
                     if (express_free < xy_free ||
                         (express_free == xy_free &&
                          express_free < vcs_per_vnet))
                         return xy_outport;
                 } else {
-                    // Conservative policy: packet-size and destination-aware
-                    // admission limits tail risk at light load and hotspots.
+                    // Legacy source-only diagonal policy.
+                    if (lookahead_free < vcs_per_vnet)
+                        return xy_outport;
                     if (route.packet_flits == 1) {
                         if (network->bypassDestinationSkewed(
                                 route.dest_router) ||
@@ -390,9 +401,9 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
             return outport->second;
         }
     }
-    // The offline oracle proves the source-express/XY channel ordering.  An
+    // The offline oracle proves the complete express/XY channel ordering. An
     // express input direction is intentionally not one of XY's traditional
-    // compass inports, so use XY only for its deterministic coordinate step.
+    // compass inports, so use XY only for its coordinate step.
     return outportComputeXY(route, inport, "Local");
 }
 

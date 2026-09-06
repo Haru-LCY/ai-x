@@ -106,14 +106,17 @@ class Mesh_Bypass(Mesh_XY):
         oracle_input = {
             "columns": columns,
             "rows": rows,
+            "mode": mode,
+            "link_latency": options.link_latency,
+            "router_latency": options.router_latency,
             "express_links": express_records,
         }
         routing_oracle = build_oracle(oracle_input)
         network.bypass_first_hops = routing_oracle["first_hops"]
-        network.bypass_first_hop_destinations = [
-            (route["path"][1] if route["uses_bypass"] else -1)
-            for route in routing_oracle["routes"]
+        network.bypass_first_hop_destinations = routing_oracle[
+            "next_hop_destinations"
         ]
+        network.bypass_multi_hop_routing = routing_oracle["multi_hop"]
         network.bypass_link_ids = [record["link_id"] for record in express_records]
         network.bypass_link_spans = [
             record["physical_span"] for record in express_records
@@ -222,6 +225,8 @@ class Mesh_Bypass(Mesh_XY):
             "adaptive_policy": getattr(
                 options, "bypass_adaptive_policy", "conservative"
             ),
+            "link_latency": options.link_latency,
+            "router_latency": options.router_latency,
             "rows": rows,
             "columns": columns,
             "routers": columns * rows,

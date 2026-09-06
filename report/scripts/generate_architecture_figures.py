@@ -171,9 +171,9 @@ def multicast_figure() -> str:
         mesh_nodes("R", 6.4),
         mesh_edges("L", 0.0),
         mesh_edges("R", 6.4),
-        'l_title [shape=plaintext, fixedsize=false, label="Naive replicated unicast", '
+        'l_title [shape=plaintext, fixedsize=false, label="(a) Replicated-unicast baseline", '
         'pos="1.5,4.05!"];',
-        'r_title [shape=plaintext, fixedsize=false, label="Tree multicast", '
+        'r_title [shape=plaintext, fixedsize=false, label="(b) Proposed tree multicast", '
         'pos="7.9,4.05!"];',
         'l_note [shape=box, fixedsize=false, style="rounded,filled", fillcolor="#eef2f6", '
         'color="#a5adb7", margin="0.08,0.04", '
@@ -204,6 +204,44 @@ def multicast_figure() -> str:
     return "\n".join(lines)
 
 
+def multicast_panel(kind: str) -> str:
+    """Return one compact 4x4 multicast panel for LaTeX subfigures."""
+    lines = [
+        "digraph multicast_panel {",
+        'graph [outputorder=edgesfirst, overlap=false, pad=0.10, '
+        'bgcolor="white", size="4.8,4.2!"];',
+        'node [shape=circle, fixedsize=true, width=0.38, height=0.38, '
+        'fontname="Helvetica", fontsize=9, style=filled, '
+        'fillcolor="#f7f8fa", color="#68727d", penwidth=1.1];',
+        'edge [fontname="Helvetica", fontsize=8, arrowsize=0.55];',
+        mesh_nodes("M", 0.0, source=5, destinations=(3, 10, 15)),
+        mesh_edges("M", 0.0),
+    ]
+    if kind == "baseline":
+        paths = [
+            ("M5", "M6", "#4c78a8"), ("M6", "M7", "#4c78a8"),
+            ("M7", "M3", "#4c78a8"),
+            ("M5", "M6", "#f28e2b"), ("M6", "M10", "#f28e2b"),
+            ("M5", "M6", "#59a14f"), ("M6", "M7", "#59a14f"),
+            ("M7", "M11", "#59a14f"), ("M11", "M15", "#59a14f"),
+        ]
+        lines.extend(
+            f'{src} -> {dst} [color="{color}", penwidth=2.7, arrowsize=0.6];'
+            for src, dst, color in paths
+        )
+    elif kind == "tree":
+        for src, dst in ((5, 6), (6, 7), (7, 3), (6, 10), (7, 11), (11, 15)):
+            lines.append(
+                f'M{src} -> M{dst} [color="#1769aa", penwidth=3.2, arrowsize=0.65];'
+            )
+        for node in (6, 7, 11):
+            lines.append(f'M{node} [fillcolor="#9ecae1", color="#1769aa", penwidth=2.0];')
+    else:
+        raise ValueError(f"unknown multicast panel: {kind}")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def bypass_figure() -> str:
     diagonal = [(0, 5), (2, 5), (2, 7), (5, 8), (5, 10),
                 (7, 10), (8, 13), (10, 13), (10, 15)]
@@ -227,9 +265,9 @@ def bypass_figure() -> str:
         'height=0.01, label="", style=invis, pos="8.45,3.18!"];',
         mesh_edges("D", 0.0),
         mesh_edges("S", 7.0),
-        'd_title [shape=plaintext, fixedsize=false, label="Diagonal checkerboard (9 links)", '
+        'd_title [shape=plaintext, fixedsize=false, label="(a) Diagonal checkerboard (9 links)", '
         'pos="1.9,4.04!"];',
-        's_title [shape=plaintext, fixedsize=false, label="Stride-2 symmetric (16 links)", '
+        's_title [shape=plaintext, fixedsize=false, label="(b) Stride-2 symmetric (16 links)", '
         'pos="8.9,4.04!"];',
         'd_note [shape=box, fixedsize=false, style="rounded,filled", fillcolor="#fff4e5", '
         'color="#d99a45", margin="0.08,0.04", '
@@ -239,7 +277,7 @@ def bypass_figure() -> str:
         'color="#d99a45", margin="0.08,0.04", '
         'label="0 → 2 (express) → 3 → 7 → 11 → 15\\n'
         'source express hop + deterministic XY suffix", pos="8.9,-0.82!"];',
-        'legend [shape=plaintext, fixedsize=false, label="gray = ordinary Mesh edges   orange dashed = installed bidirectional express candidates   '
+        'legend [shape=plaintext, fixedsize=false, label="gray = ordinary Mesh edges   orange dashed = installed bidirectional bypass links   '
         'orange solid arrow = oracle-selected express hop   blue solid = XY suffix   node orange/green = source/destination", '
         'pos="5.4,-1.43!"];',
     ]
@@ -299,6 +337,56 @@ def bypass_figure() -> str:
             f'{prefix}15 [fillcolor="#b9e3c6", color="#3a8f62", penwidth=2.0];',
         ])
     lines.append("}")
+    return "\n".join(lines)
+
+
+def bypass_panel(kind: str) -> str:
+    """Return one compact 4x4 bypass panel; captions and legends live in LaTeX."""
+    diagonal = [(0, 5), (2, 5), (2, 7), (5, 8), (5, 10),
+                (7, 10), (8, 13), (10, 13), (10, 15)]
+    stride = [(0, 2), (0, 8), (1, 3), (1, 9), (2, 10), (3, 11),
+              (4, 6), (4, 12), (5, 7), (5, 13), (6, 14), (7, 15),
+              (8, 10), (9, 11), (12, 14), (13, 15)]
+    candidates = diagonal if kind == "diagonal" else stride
+    route = [0, 5, 6, 7, 11, 15] if kind == "diagonal" else [0, 2, 3, 7, 11, 15]
+    express = (0, 5) if kind == "diagonal" else (0, 2)
+    lines = [
+        "digraph bypass_panel {",
+        'graph [outputorder=edgesfirst, overlap=false, pad=0.10, '
+        'bgcolor="white", size="4.8,4.2!"];',
+        'node [shape=circle, fixedsize=true, width=0.38, height=0.38, '
+        'fontname="Helvetica", fontsize=9, style=filled, '
+        'fillcolor="#f7f8fa", color="#68727d", penwidth=1.1];',
+        'edge [fontname="Helvetica", fontsize=8, arrowsize=0.55];',
+        mesh_nodes("M", 0.0, source=0, destinations=(15,)),
+        mesh_edges("M", 0.0),
+    ]
+    for src, dst in candidates:
+        pos = ""
+        if kind == "diagonal" and (src, dst) == (0, 5):
+            pos = ", " + straight_edge_pos(src, dst, 0.0)
+        elif kind == "stride":
+            pos = ", " + curved_edge_pos(src, dst, 0.0, bend=0.30)
+        lines.append(
+            f'M{src} -> M{dst} [dir=none, color="#d95f02", '
+            f'style=dashed, penwidth=1.8{pos}];'
+        )
+    for src, dst in zip(route, route[1:]):
+        color = "#d95f02" if (src, dst) == express else "#1769aa"
+        pos = ""
+        if kind == "stride" and (src, dst) == express:
+            pos = ", " + curved_edge_pos(src, dst, 0.0, bend=0.30)
+        elif kind == "diagonal" and (src, dst) == express:
+            pos = ", " + straight_edge_pos(src, dst, 0.0)
+        lines.append(
+            f'M{src} -> M{dst} [color="{color}", penwidth=3.2, '
+            f'arrowsize=0.65{pos}];'
+        )
+    lines.extend([
+        'M0 [fillcolor="#f6c177", color="#b36b00", penwidth=2.0];',
+        'M15 [fillcolor="#b9e3c6", color="#3a8f62", penwidth=2.0];',
+        "}",
+    ])
     return "\n".join(lines)
 
 
@@ -362,8 +450,10 @@ def tensor_figure() -> str:
 
 
 def main() -> None:
-    render("multicast_tree_flow", multicast_figure())
-    render("bypass_topology_oracle", bypass_figure())
+    render("multicast_baseline_4x4", multicast_panel("baseline"))
+    render("multicast_tree_4x4", multicast_panel("tree"))
+    render("bypass_diagonal_4x4", bypass_panel("diagonal"))
+    render("bypass_stride_4x4", bypass_panel("stride"))
     render("tensor_allreduce_pipeline", tensor_figure())
 
 

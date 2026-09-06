@@ -129,7 +129,13 @@ def main() -> int:
         bypass_rows.append({
             "design": design,
             "paired_seed_cases": len(rows),
+            "latency_speedup_geomean": geometric_mean(
+                row["latency_speedup"] for row in rows
+            ),
             "latency_speedup_mean": statistics.fmean(
+                row["latency_speedup"] for row in rows
+            ),
+            "latency_speedup_median": statistics.median(
                 row["latency_speedup"] for row in rows
             ),
             "throughput_change_mean": statistics.fmean(
@@ -146,6 +152,19 @@ def main() -> int:
             ),
         })
     write_csv(DATA / "bypass_overall_summary.csv", bypass_rows)
+    with (DATA / "bypass_multihop_summary.csv").open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        multihop = next(
+            row for row in csv.DictReader(stream) if row["group"] == "overall"
+        )
+    bypass_plot_rows = bypass_rows + [{
+        "design": "stride-multihop-adaptive-scaled",
+        "latency_speedup_geomean": float(
+            multihop["latency_speedup_geomean"]
+        ),
+        "throughput_change_mean": float(multihop["throughput_change_mean"]),
+    }]
 
     optimization_rows = []
     optimization_group_rows = []
@@ -321,15 +340,17 @@ def main() -> int:
 
     labels = [
         row["design"].replace("-", "\n").replace("_", " ")
-        for row in bypass_rows
+        for row in bypass_plot_rows
     ]
     x = np.arange(len(labels))
-    latency = [row["latency_speedup_mean"] for row in bypass_rows]
-    throughput = [100 * row["throughput_change_mean"] for row in bypass_rows]
+    latency = [row["latency_speedup_geomean"] for row in bypass_plot_rows]
+    throughput = [
+        100 * row["throughput_change_mean"] for row in bypass_plot_rows
+    ]
     fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.5))
     axes[0].bar(x, latency, color="#4c78a8")
     axes[0].axhline(1, color="#333333", linestyle="--", linewidth=1)
-    axes[0].set_ylabel("Latency speedup (Mesh / Bypass)")
+    axes[0].set_ylabel("Latency speedup (geometric mean)")
     axes[0].set_xticks(x, labels, fontsize=8)
     axes[0].grid(axis="y", alpha=0.25)
     colors = ["#3a8f62" if value >= 0 else "#b54a4a" for value in throughput]
@@ -338,7 +359,7 @@ def main() -> int:
     axes[1].set_ylabel("Throughput change (%)")
     axes[1].set_xticks(x, labels, fontsize=8)
     axes[1].grid(axis="y", alpha=0.25)
-    fig.suptitle("Bypass results over 6,144 paired seed cases")
+    fig.suptitle("Source-only screen plus 1,536-pair multi-hop refinement")
     save(fig, "bypass_overall")
 
     traffic_order = [
@@ -540,7 +561,7 @@ def main() -> int:
     save(fig, "tensor_measurement_comparison")
 
     print(
-        "PASS: validated 8,628 original matrix/gate runs, 1,536 bypass "
+        "PASS: validated 8,628 original matrix/validation runs, 1,536 bypass "
         "optimization runs, and 4 tensor comparison runs; compact data and "
         "figures generated"
     )

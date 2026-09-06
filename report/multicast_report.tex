@@ -279,7 +279,7 @@ G10 explicitly tests multicast interaction in 624 runs.  Replicated unicast
 can select express links, but distance-scaled bypass averages 0.965$\times$
 latency speedup and becomes worse as packets grow.  Tree multicast preserves
 its ordinary XY sharing tree and reports 1.000$\times$ with zero express
-flits.  A later directed cost-aware gate proves the joint path is active:
+flits.  A later directed cost-aware test confirms that the joint path is active:
 a sparse diagonal-only 2$\times$2 destination completes in 3,500 rather than
 4,000 ticks (12.5\% faster), whereas a shared three-destination tree retains
 ordinary XY edges.  On the full all-rank broadcast replay the policy also
@@ -420,7 +420,7 @@ throughput.  Bypass links are functional and measurably help a sparse directed
 case, yet distance-scaled and tree-sharing results reject a universal speedup
 claim.  Finally, the committed H100 trace completely drives Garnet broadcast
 and in-network scalar all-reduce with exact request, flit, merge, delivery,
-latency, and provenance gates.  The appropriate conclusion is therefore a
+latency, and provenance checks.  The appropriate conclusion is therefore a
 validated interconnection mechanism and replay framework, not completed
 vector collective hardware or end-to-end AI training acceleration.
 

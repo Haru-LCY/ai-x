@@ -74,6 +74,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_routing_algorithm = p.routing_algorithm;
     m_bypass_first_hops = p.bypass_first_hops;
     m_bypass_first_hop_destinations = p.bypass_first_hop_destinations;
+    m_bypass_multi_hop_routing = p.bypass_multi_hop_routing;
     m_bypass_link_ids = p.bypass_link_ids;
     m_bypass_link_spans = p.bypass_link_spans;
     m_bypass_adaptive_routing = p.bypass_adaptive_routing;
@@ -259,8 +260,24 @@ GarnetNetwork::multicastChildNeeded(uint64_t destinations, int router_id,
          destination < m_multicast_destinations.size(); ++destination) {
         if (!multicastDestination(destinations, destination))
             continue;
-        bool use_express = use_bypass_tree && bypass_first_hops[
-            m_multicast_source * m_routers.size() + destination] >= 0;
+        bool use_express = false;
+        if (use_bypass_tree) {
+            int probe = m_multicast_source;
+            while (probe != destination) {
+                const int express_next =
+                    (m_bypass_multi_hop_routing ||
+                     probe == m_multicast_source)
+                    ? bypass_first_hops[
+                        probe * m_routers.size() + destination]
+                    : -1;
+                if (express_next >= 0) {
+                    use_express = true;
+                    probe = express_next;
+                } else {
+                    probe = xy_next(probe, destination);
+                }
+            }
+        }
         if (use_express) {
             // Keep the ordinary XY branch when another destination already
             // uses any edge on this destination's XY path. In that case the
@@ -290,20 +307,16 @@ GarnetNetwork::multicastChildNeeded(uint64_t destinations, int router_id,
         }
         int node = m_multicast_source;
         while (node != destination) {
-            const int x = node % cols;
             int next;
-            if (use_express && node == m_multicast_source) {
-                // The deterministic bypass oracle uses an express link only
-                // on the source's first hop; all later hops are XY.
-                next = bypass_first_hops[
-                    m_multicast_source * m_routers.size() + destination];
-                if (next < 0)
-                    next = xy_next(node, destination);
-            } else if (x != destination % cols) {
-                next = xy_next(node, destination);
-            } else {
-                next = xy_next(node, destination);
-            }
+            const int express_next =
+                (use_express &&
+                 (m_bypass_multi_hop_routing ||
+                  node == m_multicast_source))
+                ? bypass_first_hops[
+                    node * m_routers.size() + destination]
+                : -1;
+            next = express_next >= 0
+                ? express_next : xy_next(node, destination);
             if (node == router_id && next == child_id)
                 return true;
             node = next;

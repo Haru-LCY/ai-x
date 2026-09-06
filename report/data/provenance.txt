@@ -1,15 +1,21 @@
 Final Lab4 quantitative snapshot
-Date: 2026-08-10 UTC
-Simulator source commit: 77fcf26d57a1a6cf402b40fe748d500746f6578c
+Multicast/tensor snapshot date: 2026-08-10 UTC
+Bypass geometric-mean rerun date: 2026-09-06 UTC
+Bypass multi-hop refinement date: 2026-09-06 UTC
+gem5 base revision: 77fcf26d57a1a6cf402b40fe748d500746f6578c
+Bypass project revision: 135768001a976fb74e9693446630d71b82992102
 Binary: build/Garnet_standalone/gem5.opt
 Correctness result: 208/208 paired cases passed
 Performance result: 162/162 paired cases passed (324 raw runs)
 Bypass result: 7680/7680 runs passed (6144 paired seed cases)
+Bypass multi-hop result: 3072/3072 runs passed (1536 paired seed cases)
+Combined bypass evidence: 10752/10752 gem5 runs passed
 Multicast x bypass result: 624/624 runs passed (416 pairs)
 Tensor paired result: 80638000 vs 17054500 ticks (4.728x)
-Full gate result: 7/7 gates passed
+Full validation result: 7/7 checks passed
 Trace-tool unit tests: 12/12 passed
 Raw artifact root: report/raw-results/head-77fcf26d
 Compact data validator: report/scripts/build_final_report_data.py
-Post-build simulator changes: none
+Bypass rerun: 7680/7680 runs passed; source hashes recorded in bypass_manifest.json
+Multi-hop refinement: source hashes and exact arguments recorded in bypass_multihop_manifest.json
 Post-build test-only change: G10 oracle-derived expected Router-flit count

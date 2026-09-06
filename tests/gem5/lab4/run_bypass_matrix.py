@@ -76,9 +76,11 @@ def g4_cases():
         ("diagonal-3x3-no-shortcut", 9, 16, 3, "diagonal", "checkerboard",
          0, 1, [0, 1]),
         ("stride2-4x4-0to3", 16, 16, 4, "stride", "symmetric", 0, 3,
-         [0, 2, 3]),
+         [0, 1, 3]),
         ("stride2-4x4-3to0", 16, 16, 4, "stride", "symmetric", 3, 0,
-         [3, 1, 0]),
+         [3, 2, 0]),
+        ("stride2-4x4-multihop-0to15", 16, 16, 4, "stride", "symmetric",
+         0, 15, [0, 1, 3, 7, 15]),
         ("fixed-4x4-0to15", 16, 16, 4, "diagonal", f"file:{fixed}", 0, 15,
          [0, 10, 11, 15]),
     ]
@@ -492,6 +494,10 @@ def run_g3_case(gem5, output_root, case):
         errors.append(
             f"bypass pair count {rebuilt['bypass_pairs']} != {expected_bypass_pairs}"
         )
+    if mode == "stride" and not any(
+        route["express_hops"] >= 2 for route in routes
+    ):
+        errors.append("stride oracle did not construct any multi-hop route")
     dependency = rebuilt["channel_dependency"]
     if not dependency["dag"]:
         errors.append("channel dependency graph is not a DAG")
@@ -506,6 +512,8 @@ def run_g3_case(gem5, output_root, case):
         "all_pairs": rebuilt["all_pairs"],
         "nonlocal_pairs": rebuilt["nonlocal_pairs"],
         "bypass_pairs": rebuilt["bypass_pairs"],
+        "bypass_hops": rebuilt["bypass_hops"],
+        "multi_hop": rebuilt["multi_hop"],
         "channels": dependency["channels"],
         "dependencies": dependency["dependencies"],
         "dag": dependency["dag"],
@@ -701,7 +709,9 @@ def run_g5_contention_case(gem5, output_root, case):
         }
         traffic_args = ["--synthetic=bit_complement"]
     else:
-        source_destinations = {0: 15, 2: 0}
+        # Exercise both directions of the same stride express channel under
+        # the deterministic multi-hop DOR tie-breaking policy.
+        source_destinations = {1: 3, 3: 1}
         mapping = ",".join(
             f"{source}:{destination}"
             for source, destination in source_destinations.items()

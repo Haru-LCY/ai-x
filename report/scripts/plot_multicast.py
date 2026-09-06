@@ -68,6 +68,10 @@ def write_tables(df: pd.DataFrame, output: Path) -> None:
             {
                 "metric": metric,
                 "mean": values.mean(),
+                "geometric_mean": (
+                    float(np.exp(np.log(values).mean()))
+                    if metric == "latency_speedup" else ""
+                ),
                 "median": values.median(),
                 "minimum": values.min(),
                 "maximum": values.max(),

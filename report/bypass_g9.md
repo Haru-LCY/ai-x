@@ -1,38 +1,38 @@
 # Bypass G9 — cost-aware performance conclusion
 
 Artifact: `report/raw-results/head-77fcf26d/bypass-performance`
-Git revision: `77fcf26d57a1a6cf402b40fe748d500746f6578c`
+Git revision: `135768001a976fb74e9693446630d71b82992102`
 Validated runs: 7680 gem5 runs, 6144 paired seed cases, 2048 aggregate points. Offered-vector mismatches: 0.
 
-## Gate evidence
+## Validation evidence
 
 - All raw result error arrays are empty; every curve has at least 4 points after the detected saturation point.
 - The experiment contains 4×4 and 8×8 meshes, four traffic patterns, four packet sizes, 16 offered-load points, and seeds 1/7/17.
-- The 17 cases that required a longer cooldown are recorded in `manifest.json` with their actual one-million-cycle window.
+- Every run used the warm-up, measurement, drain, and cooldown windows recorded in `manifest.json`.
 
-## Mean paired result by design
+## Paired result by design
 
-| design | points | latency speedup | throughput change | traversal change | regressions |
-|---|---:|---:|---:|---:|---:|
-| diagonal-distance_scaled | 512 | 1.629× | 6.41% | -2.82% | 225 |
-| diagonal-optimistic | 512 | 1.723× | 10.61% | -7.03% | 48 |
-| stride-distance_scaled | 512 | 0.981× | -1.94% | 15.50% | 319 |
-| stride-optimistic | 512 | 1.103× | 3.68% | 10.10% | 99 |
+| design | seed pairs | latency geomean | median | throughput change | traversal change | regressions |
+|---|---:|---:|---:|---:|---:|---:|
+| diagonal-distance_scaled | 1,536 | 1.131× | 1.046× | 9.41% | -5.49% | 350 |
+| diagonal-optimistic | 1,536 | 1.148× | 1.064× | 9.44% | -5.53% | 164 |
+| stride-distance_scaled | 1,536 | 0.999× | 1.041× | 2.72% | 11.35% | 539 |
+| stride-optimistic | 1,536 | 1.024× | 1.064× | 2.81% | 11.26% | 321 |
 
-The optimistic model is an upper bound: it gives small average gains, while distance-scaled latency can erase them. Router traversal reduction therefore does not imply lower end-to-end latency.
+Latency ratios use geometric means; additive changes use arithmetic means. The optimistic model is an upper bound, while distance-scaled latency can erase shortcut gains. Router traversal reduction therefore does not imply lower end-to-end latency.
 
 ## Low-load and distance-scaled evidence
 
 The table below averages offered load ≤0.1, where queue saturation does not dominate the latency comparison.
 
-| design | bypass latency (cycles) | latency speedup | p95 speedup | regressions / 128 |
-|---|---:|---:|---:|---:|
-| diagonal-distance_scaled | 150.296 | 0.962× | 0.928× | 97 / 128 |
-| diagonal-optimistic | 138.750 | 1.021× | 1.017× | 5 / 128 |
-| stride-distance_scaled | 158.112 | 0.936× | 0.911× | 97 / 128 |
-| stride-optimistic | 137.710 | 1.042× | 1.041× | 5 / 128 |
+| design | latency geomean | median | regressions / 384 |
+|---|---:|---:|---:|
+| diagonal-distance_scaled | 0.999× | 1.015× | 179 / 384 |
+| diagonal-optimistic | 1.036× | 1.041× | 15 / 384 |
+| stride-distance_scaled | 0.993× | 0.996× | 193 / 384 |
+| stride-optimistic | 1.060× | 1.059× | 21 / 384 |
 
-Distance-scaled diagonal and stride are the hardware-relevant results. Their low-load mean speedups are respectively below 1×; these are regressions, not missing data.
+Distance-scaled diagonal and stride are the hardware-relevant results. Their low-load geometric means are approximately neutral; gains in the full sweep come from favorable loaded cases.
 
 ## Hotspot transfer
 
@@ -54,9 +54,9 @@ At offered load ≤0.1, hotspot traffic is compared with uniform_random using th
 | diagonal-optimistic | 4×4 bit_complement f1 load=1.0 | 0.031× | worst |
 | diagonal-optimistic | 4×4 transpose f1 load=1.0 | 37.536× | best |
 | stride-distance_scaled | 4×4 bit_complement f1 load=1.0 | 0.026× | worst |
-| stride-distance_scaled | 4×4 uniform_random f1 load=1.5 | 6.828× | best |
+| stride-distance_scaled | 4×4 uniform_random f4 load=1.5 | 14.625× | best |
 | stride-optimistic | 4×4 bit_complement f1 load=1.0 | 0.026× | worst |
-| stride-optimistic | 4×4 uniform_random f1 load=1.5 | 8.058× | best |
+| stride-optimistic | 4×4 uniform_random f4 load=1.5 | 15.716× | best |
 
 ## Static hardware cost
 
@@ -78,3 +78,33 @@ At offered load ≤0.1, hotspot traffic is compared with uniform_random using th
 3. Diagonal uses fewer links than stride, while stride removes more Router traversals; both add radix, ports, buffers, and wire length.
 4. Results are synthetic unicast Garnet traffic. They do not model energy, repeaters, physical timing closure, area, or application traces.
 5. The next architectural iteration should optimize placement under a wire/radix budget or add a capacity-matched baseline; it should not claim a general speedup from hop count alone.
+
+## Multi-hop stride refinement
+
+The follow-up implements that architectural iteration without changing the
+distance-scaled wire model.  A cycle-aware dynamic program selects a monotonic
+stride express link at every Router, rather than at the source only.  An
+all-pairs channel-dependency audit rejects cyclic route tables, while
+conservative runtime admission falls back to XY for blocked/congested express
+outputs and sustained hotspots.  Packets above 32 flits deliberately use XY.
+
+Artifact: `report/data/bypass_multihop_manifest.json`
+
+Compact results: `report/data/bypass_multihop_summary.csv`
+
+Validated runs: 3,072/3,072 gem5 runs, 1,536 paired seed cases.
+
+| group | pairs | latency geomean | throughput change | Router/flit reduction | >5% regressions |
+|---|---:|---:|---:|---:|---:|
+| overall | 1,536 | 1.385x | +18.52% | 16.79% | 4 |
+| 4x4 | 768 | 1.264x | +3.91% | 15.98% | 1 |
+| 8x8 | 768 | 1.518x | +33.13% | 17.59% | 3 |
+| uniform random | 384 | 1.722x | +16.43% | 22.43% | 0 |
+| transpose | 384 | 1.176x | +5.51% | 14.06% | 0 |
+| bit complement | 384 | 1.808x | +51.62% | 13.89% | 0 |
+| hotspot | 384 | 1.006x | +0.52% | 16.76% | 4 |
+
+The refinement raises distance-scaled stride latency speedup from 0.999x to
+1.385x.  This is not universal: its median is 1.038x, and the worst 8x8,
+16-flit hotspot point is 0.787x.  The strong mean is chiefly a loaded-network
+result; the low-load (offered load <= 0.1) geometric mean is 1.047x.

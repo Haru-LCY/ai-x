@@ -96,6 +96,7 @@ class GarnetNetwork : public Network
     {
         return m_bypass_first_hop_destinations;
     }
+    bool bypassMultiHopRouting() const { return m_bypass_multi_hop_routing; }
     bool bypassAdaptiveRouting() const { return m_bypass_adaptive_routing; }
     unsigned bypassAdaptiveMaxPacketFlits() const
     {
@@ -268,6 +269,7 @@ class GarnetNetwork : public Network
     int m_routing_algorithm;
     std::vector<std::string> m_bypass_first_hops;
     std::vector<int> m_bypass_first_hop_destinations;
+    bool m_bypass_multi_hop_routing;
     std::vector<int> m_bypass_link_ids;
     std::vector<int> m_bypass_link_spans;
     bool m_bypass_adaptive_routing;
