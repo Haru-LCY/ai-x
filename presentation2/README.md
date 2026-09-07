@@ -19,6 +19,22 @@ Topic 4 H100 trace replay closes the evaluation section.
 Speaker notes in presenter mode contain the suggested script and timing
 (about 8 minutes total).
 
+## Slide source layout
+
+`slides.md` remains the Slidev entry point. It holds global frontmatter and
+imports the page files in presentation order:
+
+```text
+slides.md
+pages/01-cover.md
+pages/02-overview.md
+...
+pages/17-scope-and-reproducibility.md
+```
+
+Each file in `pages/` contains exactly one slide. Add, remove, or reorder pages
+by changing the `src:` entries in `slides.md`.
+
 ## Run locally
 
 ```sh
@@ -46,5 +62,5 @@ npm run export
 
 The figures in `public/` are copies of the accepted report figures under
 `report/figures/`; the training-loop motivation figure on the architecture
-opener comes from `report/training_to_network..png`. Headline values come
+opener comes from `report/training_to_network.png`. Headline values come
 from the compact snapshots under `report/data/`.
