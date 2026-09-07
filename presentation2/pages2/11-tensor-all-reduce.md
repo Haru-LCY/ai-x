@@ -42,5 +42,5 @@
 <div class="take vi"><span class="lab">Controlled comparison</span>Scalar lowering repeats one-flit rounds; tensor lowering creates one multi-flit request per event and rank.</div>
 
 <!--
-Timing 35 s. Topic 4 uses a measured eight-H100 NCCL trace. After scaling, scalar lowering serializes lanes into independent rounds, while tensor lowering keeps one multi-flit request per event. Routers accumulate by collective and lane ID and preserve backpressure.
+Timing 35 s. 第三个机制来自 Topic 4。我们采集了 8× H100 的 NCCL microbenchmark，保留 15 次 broadcast 和 15 次 all-reduce，再把 payload 和 release time 缩放到 Garnet 可以 replay 的范围。关键变量不是传了多少 bytes，而是 request representation：scalar lowering 把每个 lane 拆成独立的一 flit round，tensor lowering 保留一个 event-level multi-flit request。Router 按 collective ID 和 lane ID 做 accumulation，同时继续遵守 backpressure。
 -->

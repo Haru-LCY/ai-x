@@ -353,6 +353,19 @@
   color: var(--purple);
   margin-right: 10px;
 }
+.take.take-focus {
+  margin-top: 6px;
+  margin-bottom: 18px;
+  border-top: 0;
+  padding-top: 0;
+  font-size: 21px;
+  line-height: 1.28;
+  font-weight: 650;
+  color: var(--purple);
+  text-align: center;
+}
+.scaleout-metrics { gap: 12px; }
+.scaleout-body .cap { margin-top: 4px; }
 
 /* ---------- agenda as an academic list ---------- */
 

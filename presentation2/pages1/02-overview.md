@@ -32,5 +32,5 @@
 <!-- <div class="take"><span class="lab">Rule</span>Every performance number is paired: the proposed arm and its baseline use the same workload realization, packet size, load, and seed.</div> -->
 
 <!--
-Timing 20 s. The presentation follows the report. First the common methodology, then multicast, bypass, and the H100 trace extension. The pairing rule applies to all three studies.
+Timing 20 s. 今天按 report 的顺序来讲。先说明研究背景和统一的 paired comparison rule，然后依次看 multicast、bypass，最后看 H100 trace replay。所有性能数字都来自配对实验，也就是 proposed arm 和 baseline 使用相同的 workload、packet size、load 和 seed，这样差异才主要来自机制本身。
 -->

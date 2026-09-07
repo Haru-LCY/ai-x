@@ -53,5 +53,5 @@
 <div class="take am"><span class="lab">Honest boundary</span>The gain is not iso-area, iso-power, or iso-wire. It says what the added links buy under matched traffic, not that the design is physically free.</div>
 
 <!--
-Timing 45 s. On 4x4, geometric-mean latency speedup is 1.291x and mean throughput improves 4.37 percent. On 8x8, those values are 1.583x and 39.37 percent. Router traversals fall by about 18 percent. The table also reports the added links, wire span, degree, and buffer proxies.
+Timing 50 s. 先看左表的性能。4×4 的 geometric-mean latency speedup 是 1.291×，throughput 平均提升 4.37%，8×8 则是 1.583× 和 39.37%。Router traversals 分别减少约 17.37% 和 18.84%，说明 shortcut 确实减少了中间 Router。右表列出代价：express links、wire-span sum、最大 network degree，以及 buffer-slot proxy。8×8 的收益更大，是因为路径更长，stride hops 能绕开更多 loaded stages。但这不是 iso-area 或 iso-power 结论，而是 workload-matched、added-resource 的结果。
 -->

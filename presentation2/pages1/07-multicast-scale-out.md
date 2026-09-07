@@ -1,10 +1,10 @@
-# Multicast scale-out
+# Higher fanout, stronger speedup
 
-<p class="lede">Larger fanouts expose more shared prefixes.</p>
+<p class="lede">As fanout grows, multicast gains become more pronounced.</p>
 
-<div class="body" style="grid-template-rows:auto 1fr;gap:14px">
+<div class="body scaleout-body" style="grid-template-rows:auto 1fr;gap:8px">
 
-<div class="metrics">
+<div class="metrics scaleout-metrics">
   <div class="metric cy">
     <span class="v">−62.41%</span>
     <span class="k">link flits at fanout 32</span>
@@ -29,15 +29,15 @@
 
 <div>
 
-  <div class="fig" style="height:260px"><img src="/latency_speedup_by_group.png" alt="Multicast latency speedup by topology, fanout, and packet size" /></div>
+  <div class="fig" style="height:320px"><img src="/latency_speedup_by_group.png" alt="Multicast latency speedup by topology, fanout, and packet size" /></div>
   <div class="cap">Scale-out means: +895.54% throughput at fanout 32 and +1,888.29% at fanout 64. These groups are not pooled with the common-fanout mean.</div>
 
 </div>
 
 </div>
 
-<div class="take cy"><span class="lab">Interpretation</span>The gain grows because more destinations share prefixes. The scale-out numbers characterize 8×8; they are not a cross-topology average.</div>
+<div class="take take-focus cy">Overall, larger fanout makes multicast speedups more pronounced.</div>
 
 <!--
-Timing 30 s. The separate 8x8 scale-out study reaches 62.41 percent traffic reduction at fanout 32 and 75.39 percent at fanout 64. Latency speedups are 11.25x and 21.62x. We keep these groups separate from the common-fanout comparison.
+Timing 30 s. 接着把 fanout 从常见的 4、8、16 扩大到 32 和 64。这里是单独的 8×8 scale-out study，不和前面的 common-fanout 平均值混合。fanout 32 时 link flits 少 62.41%，latency 是 11.25×；fanout 64 时分别达到 75.39% 和 21.62×。右图还按 packet size 区分 1、4、16 flits。总体结论很简单：fanout 越大，更多目的地可以共享同一棵树，multicast 的加速越明显。
 -->

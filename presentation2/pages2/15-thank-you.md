@@ -13,5 +13,5 @@ class: end-slide
 </div>
 
 <!--
-Timing 5 s. Thank you. I can return to the backup slides for exact comparisons and limitations.
+Timing 5 s. 谢谢大家。最简短地总结就是：multicast shares the tree，bypass pays for distance and checks pressure，tensor replay preserves the event。如果大家想看严格的 baseline、resource boundary 或 reproducibility，我可以回到后面的 backup slides。
 -->

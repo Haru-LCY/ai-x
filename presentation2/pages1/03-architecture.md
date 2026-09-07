@@ -4,66 +4,30 @@
 
 <div class="body bg-body">
 
-<div class="training-flow">
-
-  <div class="flow-node compute">
-    <span class="node-tag">COMPUTE</span>
-    <b>GPU ranks</b>
-    <small>forward / backward</small>
-  </div>
-
-  <div class="flow-link">
-    <span>gradient tensor</span>
-    <i></i>
-  </div>
-
-  <div class="flow-node collective">
-    <span class="node-tag">COMMUNICATE</span>
-    <b>Collective operation</b>
-    <small>all-reduce / broadcast</small>
-  </div>
-
-  <div class="flow-link">
-    <span>synchronize</span>
-    <i></i>
-  </div>
-
-  <div class="flow-node compute">
-    <span class="node-tag">CONTINUE</span>
-    <b>Next training step</b>
-    <small>uses the global result</small>
-  </div>
-
-  <div class="study-focus">
-    <i></i>
-    <div>
-      <b>OUR STUDY FOCUSES ON THIS LAYER</b>
-      <small>Mesh NoC · router datapath · packets / flits</small>
-    </div>
-  </div>
-
+<div class="training-figure">
+  <img src="/training_to_network.png" alt="Training computation and communication flow into the Mesh NoC" />
 </div>
 
 <div class="study-grid">
   <div class="study-card">
     <span class="study-num">01</span>
     <div>
-      <h3>Duplicated traffic</h3>
-      <p><b>Tree multicast</b> shares common paths and replicates only at useful branches.</p>
+      <h3>Shared-path delivery</h3>
+      <p><b>Multicast delivery</b> shares common paths and replicates only where destinations split.</p>
     </div>
   </div>
   <div class="study-card">
     <span class="study-num">02</span>
     <div>
-      <h3>Long multi-hop routes</h3>
-      <p><b>Express-link bypass</b> skips intermediate routers when admission is safe.</p>
+      <h3>Shorter network routes</h3>
+      <p><b>Shortcut routing</b> skips intermediate routers when admission is safe.</p>
     </div>
   </div>
   <div class="study-card">
     <span class="study-num">03</span>
     <div>
-      <h3>Real collective demand</h3>
-      <p><b>H100 all-reduce replay</b> maps measured tensor events into network traffic.</p>
+      <h3>Measured workloads</h3>
+      <p><b>Trace-driven replay</b> maps measured tensor events into network traffic.</p>
     </div>
   </div>
 </div>
@@ -76,130 +40,27 @@
 .bg-body {
   align-content: stretch;
   gap: 12px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
-.training-flow {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 112px 1.16fr 112px 1fr;
+.training-figure {
+  min-height: 0;
+  padding: 10px 22px;
+  display: flex;
   align-items: center;
-  min-height: 230px;
-  padding: 18px 26px 72px;
-  background: linear-gradient(110deg, #f6f2f7 0%, #fff 48%, #faf6ed 100%);
+  justify-content: center;
+  background: #fff;
   border-top: 2px solid var(--purple);
   border-bottom: 1px solid var(--line);
+  overflow: hidden;
 }
 
-.flow-node {
-  min-height: 92px;
-  padding: 13px 15px 12px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.86);
+.training-figure img {
+  display: block;
+  width: min(100%, 1120px);
+  max-height: 100%;
+  object-fit: contain;
 }
-
-.flow-node.collective {
-  border-color: rgba(102, 8, 116, 0.5);
-  border-top: 3px solid var(--purple);
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(83, 6, 95, 0.08);
-}
-
-.node-tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  color: var(--purple);
-}
-
-.flow-node b {
-  margin-top: 3px;
-  font-size: 17px;
-  line-height: 1.2;
-  color: var(--ink);
-}
-
-.flow-node small {
-  margin-top: 3px;
-  font-size: 12.5px;
-  color: var(--dim);
-}
-
-.flow-link {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-}
-
-.flow-link span {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
-  color: var(--dim);
-  white-space: nowrap;
-}
-
-.flow-link i {
-  position: relative;
-  width: 76px;
-  height: 2px;
-  background: var(--purple);
-}
-
-.flow-link i::after {
-  content: '';
-  position: absolute;
-  right: -1px;
-  top: -4px;
-  border-left: 8px solid var(--purple);
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-}
-
-.study-focus {
-  position: absolute;
-  left: 50%;
-  bottom: 11px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-
-.study-focus > i {
-  position: relative;
-  width: 2px;
-  height: 17px;
-  background: var(--purple);
-}
-
-.study-focus > i::after {
-  content: '';
-  position: absolute;
-  left: -4px;
-  bottom: -1px;
-  border-top: 7px solid var(--purple);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-}
-
-.study-focus > div {
-  min-width: 306px;
-  padding: 6px 14px 7px;
-  background: var(--purple);
-  color: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
-}
-
-.study-focus b { font-size: 9.5px; letter-spacing: 0.12em; }
-.study-focus small { margin-top: 2px; font-size: 10.5px; opacity: 0.8; }
 
 .study-grid {
   display: grid;
@@ -238,5 +99,5 @@
 </style>
 
 <!--
-Timing 35 s. GPU computation produces gradient tensors, collective communication synchronizes them, and the global result enables the next training step. Our study focuses on how those collectives become packets and flits in the Mesh NoC. We implement tree multicast, express-link bypass, and H100 all-reduce trace replay at this network layer.
+Timing 30 s. 先看动机。GPU 完成一轮 computation 后会产生 gradient tensors，collective communication 要把这些数据同步起来，完成后才能进入下一轮 training。图里从 training computation，到 collective，再到 Mesh NoC 中的 packets 和 flits。我们的研究范围就在这个 network layer，分别实现 multicast delivery、shortcut routing，以及 H100 all-reduce trace replay。
 -->

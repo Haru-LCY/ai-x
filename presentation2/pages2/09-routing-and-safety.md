@@ -44,5 +44,5 @@
 <div class="take am"><span class="lab">Safety claim</span>The placement is rejected if its channel-dependency graph is cyclic; adaptation cannot reverse dimension or leave the current DOR phase.</div>
 
 <!--
-Timing 35 s. The route table is static and cycle-aware. At runtime, unordered traffic can fall back to XY under pressure. Long packets require credit headroom. Safety comes from materializing every path and requiring an acyclic channel-dependency graph.
+Timing 35 s. 加 shortcut 后，重点就变成 routing safety。我们先离线生成 static、cycle-aware route table，把每个 current router 到 destination 的路径都展开。运行时如果 unordered traffic 遇到 express output 或 landing output 拥塞，可以保守地 fallback 到 ordinary XY。Hotspot counter 处理持续的 destination skew，长 packet 还要预留 credit headroom。最后对所有连续 channel pair 建 dependency graph，只接受 acyclic、保持 DOR 顺序的路径，因此不会引入 deadlock cycle。
 -->

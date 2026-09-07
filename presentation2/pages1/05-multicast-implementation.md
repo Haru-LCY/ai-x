@@ -43,5 +43,5 @@
 <div class="take cy"><span class="lab">Validated properties</span>Payload values, destination sets, flit ordering, and completion under backpressure.</div>
 
 <!--
-Timing 30 s. Implementation is a two-phase allocation. The head computes useful branches; branch VCs commit together; body and tail reuse them. Validation covers 240 executions, while performance uses 324 common pairs plus 108 scale-out pairs.
+Backup note, 30 s. 这一页是 multicast 的实现细节。Head flit 先根据 bitmap 计算 pruned tree；然后 Router 把所有需要的 output VCs 一起分配，body 和 tail 复用这组 branch state；tail 到达后释放 reservation。右侧的 240 / 240 是 functional executions 全部通过，性能实验则包括 324 组 common pairs 和 108 组 8×8 scale-out pairs。主讲时如果时间紧，可以只用上一页的示意图说明这个 two-phase allocation。
 -->

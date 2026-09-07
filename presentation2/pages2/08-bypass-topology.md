@@ -43,5 +43,5 @@
 </div>
 
 <!--
-Timing 40 s. Mesh_Bypass keeps the ordinary mesh and adds bidirectional stride-two links. A route-table builder may use multiple express hops in X and then Y, but only when the distance-scaled edge lowers the remaining path cost. The diagonal placement is an alternative, not the primary result.
+Timing 35 s. 第二个机制是 express-link bypass。我们保留普通 Mesh，再加入双向 stride-2 links，让 packet 可以跳过中间 Router。左边的 diagonal placement 是备选方案，右边的 repeated stride-2 hops 才是主设计。Route table 仍然遵守先 X 后 Y 的 DOR 顺序，而且只有当考虑 wire span 后，express edge 确实降低剩余路径成本时才会选它。Baseline 是更少资源的 plain Mesh XY，所以这是 added-resource comparison。
 -->

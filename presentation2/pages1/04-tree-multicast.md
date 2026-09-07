@@ -51,5 +51,5 @@
 <div class="take cy"><span class="lab">Correctness contract</span>Every destination receives the complete packet exactly once, in flit order, with no missing or duplicate delivery.</div>
 
 <!--
-Timing 35 s. The baseline repeats a packet for every destination. Tree multicast sends one packet with a destination bitmap. Routers prune the tree and copy only on useful branches. Atomic fanout is necessary for exact multi-flit delivery, but it couples branch progress.
+Timing 40 s. 先看 tree multicast。Baseline 是 replicated unicast：NI 给每个远端 destination 注入一个独立 packet，所以共享路径会重复搬运同样的 payload。Proposed 只发送一个带 64-bit destination bitmap 的 packet，沿途每个 Router 只保留真正通向 destination 的 branches，需要分叉时才复制。这里的 tradeoff 是 atomic fanout：一个 flit 要等所有选中的 output VC 都有 credit 才能一起前进。这样能保证多 flit packet 完整且有序，但一个拥塞分支可能让其他分支也等待。
 -->

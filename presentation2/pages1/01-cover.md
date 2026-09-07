@@ -25,5 +25,5 @@ class: title-slide
 </div>
 
 <!--
-Timing 10 s. We report three related mechanisms: router-side multicast, pressure-aware express-link bypass, and trace-driven tensor all-reduce. The common thread is preserving collective structure inside the network.
+Timing 20 s. 大家好，我们是 Chunyu Liu 和 Boyan Pu。今天介绍三个和 collective communication 相关的机制：router-side multicast、pressure-aware express-link bypass，以及 trace-driven tensor all-reduce。它们的共同点是把 collective 的结构保留在 network 内部，减少重复工作，同时保持正确性。
 -->

@@ -34,5 +34,5 @@
 </div>
 
 <!--
-Timing 15 s. Chunyu built the multicast and bypass mechanisms and the trace capture. Boyan built the tensor datapath, replay tooling, and validation. Integration and final reporting were done together.
+Timing 15 s. 分工上，Chunyu Liu 负责 Garnet collective plumbing、tree multicast、express-link bypass、H100 trace capture，以及 aggregate analysis。Boyan Pu 负责 tensor all-reduce datapath、replay tooling、backpressure 和 correctness validation。最后的 integration、figures 和 report 一起完成。
 -->

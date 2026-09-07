@@ -22,5 +22,5 @@
 </div>
 
 <!--
-Backup. This table records the exact paired comparison behind each headline number.
+Backup note. 这页用来回答“每个 headline number 到底和谁比”。Tree multicast 对比同一 Mesh 上的 replicated unicast；express bypass 对比资源更少的 plain Mesh XY；tensor replay 对比 6,720 个 scalar-lane rounds。下面三个公式分别是 latency speedup、flit reduction 和 throughput improvement 的定义。
 -->

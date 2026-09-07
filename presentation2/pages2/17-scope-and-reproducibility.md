@@ -17,5 +17,5 @@
 <div class="take"><span class="lab">Rebuild</span><code>plot_multicast.py</code> and <code>generate_architecture_figures.py</code> rebuild figures; <code>run_lab4_full_gate.py</code> runs the functional, backpressure, and trace suites.</div>
 
 <!--
-Backup. Use this slide for questions about resource fairness, scale-out pooling, trace scaling, or revisions.
+Backup note. 如果有人问实验边界，就看这页。Bypass 是 added-resource、workload-matched comparison，不声称 iso-area 或 iso-power；multicast 的 common-fanout 和 8×8 scale-out 不混合；H100 trace 的 payload 和 release time 都按 1/1024 缩放，时间单位是 Garnet simulation ticks；tensor trace 的 route 实际走 ordinary XY，所以 bypass arm 在这里是 neutral 的。最后列出各部分的 revision hash，方便复现。
 -->

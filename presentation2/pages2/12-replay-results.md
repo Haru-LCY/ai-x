@@ -36,5 +36,5 @@
 <div class="take vi"><span class="lab">Boundary</span>The win comes from replacing 6,720 independently admitted scalar rounds with 15 event-level requests. Mesh XY and the bypass arm are identical here because selected routes follow ordinary XY and express flits are zero.</div>
 
 <!--
-Timing 40 s. Tensor replay reduces the window from 80.638 million to 17.0545 million ticks, 4.728 times. Source and Router-forwarded flit counts are identical, so this is a request-representation and scheduling result, not an H100 hardware speedup.
+Timing 35 s. 这一页是 tensor replay 的核心结果。注意它不是减少 bytes：scalar all-reduce 和 tensor all-reduce 的 source flits 都是 53,760，Router-forwarded flits 也完全相同。差别在 logical requests：scalar 把 15 个 trace events 展开成 6,720 个独立 requests，窗口是 80.638 million ticks；tensor 保留 15 个 event-level requests，窗口只有 17.0545 million ticks，也就是 4.728× shorter。换句话说，这是 request representation 和 scheduling 的收益，不是 native H100 的硬件 speedup。
 -->

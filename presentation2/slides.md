@@ -36,10 +36,7 @@ src: ./pages1/04-tree-multicast.md
 
 ---
 
----
-src: ./pages1/05-multicast-implementation.md
-
----
+<!-- Multicast implementation is kept as a backup slide but omitted from the main sequence. -->
 
 ---
 src: ./pages1/06-multicast-results.md
