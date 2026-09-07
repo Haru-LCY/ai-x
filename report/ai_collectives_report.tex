@@ -558,6 +558,40 @@ Mesh & Pairs & Speedup & Median & Throughput & Router/flit red. & $>5\%$ regress
 \end{tabular}
 \end{table}
 
+Figure~\ref{fig:bypass-topology-comparison} makes the scaling difference
+visible without pooling the two networks.  The latency geometric mean rises
+from 1.291$\times$ to 1.583$\times$ and mean throughput improvement rises from
+4.37\% to 39.37\%, whereas Router-traversal reduction changes only from
+17.37\% to 18.84\%.  The extra 8$\times$8 gain therefore cannot be explained
+by hop removal alone; longer paths and loaded Router stages make the saved
+traversals more valuable.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.94\linewidth]{bypass_topology_comparison.pdf}
+\caption{Final bypass results separated by Mesh size.  Latency bars report
+paired-ratio geometric means and medians; throughput and Router-traversal bars
+report arithmetic mean changes over 768 matched pairs per topology.}
+\label{fig:bypass-topology-comparison}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\caption{Bypass robustness and added-resource proxies by Mesh size.}
+\label{tab:bypass-robustness-cost}
+\small
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Mesh & Ratios $<1$ & $>5\%$ regress. & Worst & Added links & Wire span & Max degree & Buffer slots \\
+\midrule
+4$\times$4 & 117/768 & 1 & 0.909$\times$ & 16 & 32 & 6 & 768 \\
+8$\times$8 & 126/768 & 0 & 0.954$\times$ & 96 & 192 & 8 & 4,608 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
 These gains use added hardware rather than an iso-resource baseline.  Relative
 to plain Mesh, the 4$\times$4 and 8$\times$8 stride topologies add 16 and 96
 undirected links, wire-span sums of 32 and 192, maximum network degrees of 6
@@ -712,10 +746,11 @@ software versions, exact arguments, measurement windows, source hashes, and
 raw-result locations.  The analysis scripts verify counts, finite metrics,
 pair completeness, and VNet/routing metadata before producing summaries.
 
-Multicast and architecture figures can be rebuilt from committed inputs with:
+Report figures can be rebuilt from committed inputs with:
 
 \begin{verbatim}
 python3 report/scripts/plot_multicast.py
+python3 report/scripts/plot_bypass_topology.py
 python3 report/scripts/generate_architecture_figures.py
 \end{verbatim}
 

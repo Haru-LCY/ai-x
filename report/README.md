@@ -34,6 +34,7 @@ retained.
 - `figures/*.pdf`: vector figures used by LaTeX;
 - `figures/*.png`: preview-friendly copies;
 - `scripts/plot_multicast.py`: multicast validation and plotting;
+- `scripts/plot_bypass_topology.py`: final 4x4/8x8 bypass comparison figure;
 - `scripts/build_final_report_data.py`: cross-artifact validation and
   bypass/tensor plotting.
 - `scripts/generate_architecture_figures.py`: reproducible Graphviz diagrams
@@ -44,11 +45,12 @@ retained.
 
 The aggregate builder expects the raw artifact root named in
 `data/provenance.txt`; restore that git-ignored directory before running all
-three commands.  The compact CSV/JSON files are sufficient to inspect the
+four commands.  The compact CSV/JSON files are sufficient to inspect the
 accepted measurements but intentionally do not contain every raw run.
 
 ```sh
 python3 report/scripts/plot_multicast.py
+python3 report/scripts/plot_bypass_topology.py
 python3 report/scripts/build_final_report_data.py
 python3 report/scripts/generate_architecture_figures.py
 ```
