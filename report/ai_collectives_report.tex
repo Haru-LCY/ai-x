@@ -640,9 +640,8 @@ arithmetic, routes, and counted network work are held fixed.}
 \label{fig:tensor-allreduce-pipeline}
 \end{figure}
 
-The replay runs on Mesh XY and on a four-link, distance-scaled diagonal bypass
-topology.  Every selected route in this 2$\times$4 placement follows ordinary
-XY, so the second topology checks that unused links leave the replay unchanged.
+The reported replay runs on Mesh XY so that the Topic~4 comparison isolates
+the request representation from topology changes.
 
 \subsection{Correctness and backpressure validation}
 
@@ -657,14 +656,13 @@ Router-forwarded flits; every lane ID and deterministic sum matches.
 \subsection{Replay experiments and results}
 
 The broadcast compiler expands 15 source events into 30 tree-multicast packets
-because each scaled 16-KiB event is represented by four 4-KiB packets.  Both
-topology arms complete 6,720 source flits and 210 request-destination
+because each scaled 16-KiB event is represented by four 4-KiB packets.  The
+Mesh-XY replay completes 6,720 source flits and 210 request-destination
 deliveries in a 17,047,500-tick window.  The all-reduce comparison holds the
 route and scaled release schedule fixed while changing scalar-lane versus
 event-level packetization.
 
-Table~\ref{tab:h100-replay} records the three replay representations.  Both
-topologies produce identical results.
+Table~\ref{tab:h100-replay} records the three Mesh-XY replay representations.
 
 \begin{table}[ht]
 \centering
@@ -685,7 +683,7 @@ Tensor all-reduce & 15 & 15 & 53,760 & 17,054,500 \\
 
 All accumulator entries are released at completion.  Event-level tensor
 packetization reduces the replay window in Table~\ref{tab:h100-replay} from 80,638,000 to
-17,054,500 ticks, a 4.728$\times$ improvement on both topologies.  Since the
+17,054,500 ticks, a 4.728$\times$ improvement on Mesh XY.  Since the
 two representations inject and forward the same number of flits, the
 difference comes from replacing 6,720 independently admitted scalar-lane rounds
 with 15 event-level collective requests.  The experiment therefore measures
