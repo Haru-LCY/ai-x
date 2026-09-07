@@ -107,6 +107,7 @@ class Mesh_Bypass(Mesh_XY):
             "columns": columns,
             "rows": rows,
             "mode": mode,
+            "placement": options.bypass_placement,
             "link_latency": options.link_latency,
             "router_latency": options.router_latency,
             "express_links": express_records,

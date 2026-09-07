@@ -329,6 +329,27 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                 const int columns = network->getNumCols();
                 const int landing_x = landing % columns;
                 const int landing_y = landing / columns;
+                const int current_x = current_router % columns;
+                const int current_y = current_router / columns;
+                const bool diagonal_express =
+                    current_x != landing_x && current_y != landing_y;
+                // Short packets can synchronize across an entire checkerboard
+                // chain and overload its central links.  Retain the legacy
+                // one-express-hop behavior for single-flit traffic and for
+                // four-flit traffic on the narrow 4x4 placement.  Larger
+                // networks have enough path diversity for four-flit packets
+                // to benefit from the complete audited diagonal chain.
+                const bool short_diagonal_packet =
+                    route.packet_flits == 1 ||
+                    (route.packet_flits == 4 && routers <= 16);
+                if (diagonal_express && short_diagonal_packet &&
+                    current_router != route.src_router)
+                    return xy_outport;
+                if (diagonal_express && short_diagonal_packet) {
+                    if (network->bypassDestinationSkewed(route.dest_router))
+                        return xy_outport;
+                    return outport->second;
+                }
                 const int destination_x = route.dest_router % columns;
                 const int destination_y = route.dest_router / columns;
                 PortDirection escape_direction = "Local";
@@ -388,6 +409,15 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
                         express_free == 0 || escape_free == 0 ||
                         (long_packet && lookahead_free == 0) ||
                         express_free + 1 < xy_free)
+                        return xy_outport;
+                    // A checkerboard diagonal chain can attract several
+                    // opposite-corner flows onto the same central links.
+                    // React after the first pressure imbalance instead of
+                    // allowing the one-VC slack used by aligned stride links.
+                    // Exact ties still take the statically cheaper diagonal.
+                    if (diagonal_express &&
+                        (express_free < xy_free ||
+                         express_credits < xy_credits))
                         return xy_outport;
                     // Long packets are admitted only when the express edge is
                     // at least as healthy as XY and the actual oracle-selected

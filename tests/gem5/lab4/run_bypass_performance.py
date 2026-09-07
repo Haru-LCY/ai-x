@@ -187,16 +187,22 @@ def run_one(gem5, root, case, design, args):
     output = root / case_name(case, design)
     result_path = output / "result.json"
     if args.resume and result_path.is_file():
-        saved = json.loads(result_path.read_text(encoding="utf-8"))
-        if not saved.get("errors") or not args.retry_failures:
-            if "simulation_windows" not in saved:
-                saved["simulation_windows"] = command_windows(
-                    json.loads((output / "command.json").read_text())
-                )
-                result_path.write_text(
-                    json.dumps(saved, indent=2) + "\n", encoding="utf-8"
-                )
-            return saved
+        try:
+            saved = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            # A killed run or full filesystem can leave an empty/truncated
+            # checkpoint.  Treat it as incomplete and regenerate the case.
+            saved = None
+        if saved is not None:
+            if not saved.get("errors") or not args.retry_failures:
+                if "simulation_windows" not in saved:
+                    saved["simulation_windows"] = command_windows(
+                        json.loads((output / "command.json").read_text())
+                    )
+                    result_path.write_text(
+                        json.dumps(saved, indent=2) + "\n", encoding="utf-8"
+                    )
+                return saved
     output.mkdir(parents=True, exist_ok=True)
     command = command_for(gem5, output, case, design, args)
     (output / "command.json").write_text(

@@ -9,10 +9,25 @@ def build_oracle(topology):
     rows = topology["rows"]
     routers = columns * rows
     mode = topology.get("mode", "diagonal")
-    multi_hop = mode == "stride"
+    placement = topology.get(
+        "placement", "checkerboard" if mode == "diagonal" else ""
+    )
     link_latency = int(topology.get("link_latency", 1))
     router_latency = int(topology.get("router_latency", 1))
     express = topology.get("express_links", [])
+    # The regular checkerboard family consists exclusively of unit diagonal
+    # links.  It can use the phase-ordered multi-hop policy below.  Preserve
+    # the legacy source-only semantics for arbitrary file placements: their
+    # long or non-diagonal links need a placement-specific dependency proof.
+    unit_diagonal = bool(express) and all(
+        abs(link["src"] % columns - link["dst"] % columns) == 1
+        and abs(link["src"] // columns - link["dst"] // columns) == 1
+        for link in express
+    )
+    multi_hop_diagonal = (
+        mode == "diagonal" and placement == "checkerboard" and unit_diagonal
+    )
+    multi_hop = mode == "stride" or multi_hop_diagonal
     outgoing = [[] for _ in range(routers)]
     for link in express:
         outgoing[link["src"]].append(link)
@@ -86,6 +101,57 @@ def build_oracle(topology):
                 candidates.append((cost, link["dst"], link["name"], link))
         return min(candidates, default=(0, 0, "", None))[-1]
 
+    @lru_cache(maxsize=None)
+    def best_diagonal_chain(current, destination):
+        """Return the cheapest all-diagonal suffix that finishes X progress.
+
+        A route may take ordinary X hops before entering this suffix.  Once it
+        enters, every diagonal hop must reduce both coordinate distances, and
+        the suffix must continue until X is aligned with the destination.
+        Ordinary Y routing then completes the route.  Consequently every
+        generated path has the phase order X* -> diagonal* -> Y* without
+        carrying phase state in a flit.
+        """
+        current_x, current_y = current % columns, current // columns
+        target_x = destination % columns
+        if current_x == target_x:
+            return distance(current, destination) * ordinary_edge_cost, None
+
+        current_dx = abs(target_x - current_x)
+        current_dy = abs(destination // columns - current_y)
+        choices = []
+        for link in outgoing[current]:
+            next_router = link["dst"]
+            next_x, next_y = next_router % columns, next_router // columns
+            next_dx = abs(target_x - next_x)
+            next_dy = abs(destination // columns - next_y)
+            if next_dx >= current_dx or next_dy >= current_dy:
+                continue
+            suffix = best_diagonal_chain(next_router, destination)
+            if suffix is None:
+                continue
+            suffix_cost, _ = suffix
+            choices.append((
+                int(link["latency"]) + router_latency + suffix_cost,
+                next_router,
+                link["name"],
+                link,
+            ))
+        if not choices:
+            return None
+        cost, _, _, selected = min(choices)
+        return cost, selected
+
+    def phase_ordered_diagonal(current, destination):
+        """Select the first hop of a profitable complete diagonal chain."""
+        chain = best_diagonal_chain(current, destination)
+        if chain is None:
+            return None
+        chain_cost, selected = chain
+        baseline = distance(current, destination) * ordinary_edge_cost
+        # As for stride, exact ties stay on the ordinary Mesh.
+        return selected if selected is not None and chain_cost < baseline else None
+
     next_links = [None] * (routers * routers)
     first_hops = ["XY"] * (routers * routers)
     next_hop_destinations = [-1] * (routers * routers)
@@ -95,7 +161,9 @@ def build_oracle(topology):
                 continue
             selected = (
                 best_stride_step(current, destination)[1]
-                if multi_hop
+                if mode == "stride"
+                else phase_ordered_diagonal(current, destination)
+                if multi_hop_diagonal
                 else source_express(current, destination)
             )
             if selected is not None:
@@ -177,8 +245,78 @@ def build_oracle(topology):
         )
         raise ValueError(f"channel dependency graph is cyclic: {cyclic}")
 
+    # Runtime admission for the regular diagonal family may choose either the
+    # oracle express output or the ordinary XY output.  Audit that complete
+    # choice union rather than relying only on the deterministic static paths.
+    adaptive_dependency_graph = {}
+    if multi_hop_diagonal:
+        adaptive_dependency_graph = {
+            channel: set() for channel in dependency_graph
+        }
+        for source in range(routers):
+            for destination in range(routers):
+                if source == destination:
+                    continue
+                pending = [(source, None)]
+                visited = set()
+                while pending:
+                    current, incoming = pending.pop()
+                    state = (current, incoming)
+                    if state in visited:
+                        continue
+                    visited.add(state)
+                    ordinary_next = xy_step(current, destination)
+                    options = [
+                        (ordinary_next, f"XY_{current}_to_{ordinary_next}")
+                    ]
+                    selected = next_links[current * routers + destination]
+                    if selected is not None:
+                        options.append((selected["dst"], selected["name"]))
+                    for next_router, channel in options:
+                        adaptive_dependency_graph.setdefault(channel, set())
+                        if incoming is not None:
+                            adaptive_dependency_graph.setdefault(
+                                incoming, set()
+                            ).add(channel)
+                        if next_router != destination:
+                            pending.append((next_router, channel))
+
+        adaptive_indegree = {
+            channel: 0 for channel in adaptive_dependency_graph
+        }
+        for successors in adaptive_dependency_graph.values():
+            for successor in successors:
+                adaptive_indegree[successor] += 1
+        adaptive_ready = deque(sorted(
+            channel for channel, degree in adaptive_indegree.items()
+            if degree == 0
+        ))
+        adaptive_order = []
+        while adaptive_ready:
+            channel = adaptive_ready.popleft()
+            adaptive_order.append(channel)
+            for successor in sorted(adaptive_dependency_graph[channel]):
+                adaptive_indegree[successor] -= 1
+                if adaptive_indegree[successor] == 0:
+                    adaptive_ready.append(successor)
+        if len(adaptive_order) != len(adaptive_dependency_graph):
+            cyclic = sorted(
+                channel for channel, degree in adaptive_indegree.items()
+                if degree > 0
+            )
+            raise ValueError(
+                "adaptive diagonal channel dependency graph is cyclic: "
+                f"{cyclic}"
+            )
+
     return {
-        "policy": "multi_hop_dor" if multi_hop else "source_express_then_xy",
+        "policy": (
+            "multi_hop_dor"
+            if mode == "stride"
+            else "multi_hop_phase_ordered_diagonal"
+            if multi_hop_diagonal
+            else "source_express_then_xy"
+        ),
         "multi_hop": multi_hop,
         "cost_model": {
             "ordinary_link_latency": link_latency,
@@ -204,5 +342,15 @@ def build_oracle(topology):
                 for channel in sorted(dependency_graph)
                 for successor in sorted(dependency_graph[channel])
             ],
+        },
+        "adaptive_channel_dependency": {
+            "audited": multi_hop_diagonal,
+            "channels": len(adaptive_dependency_graph),
+            "dependencies": sum(
+                len(value) for value in adaptive_dependency_graph.values()
+            ),
+            "dag": not multi_hop_diagonal or
+                len(adaptive_order) == len(adaptive_dependency_graph),
+            "topological_order": adaptive_order if multi_hop_diagonal else [],
         },
     }

@@ -2,6 +2,7 @@
 
 import argparse
 import concurrent.futures
+import json
 import os
 import random
 import subprocess
@@ -24,8 +25,20 @@ CASES = (
     ("4x4-local", 16, 16, 4, 5, "5"),
     ("4x4-sparse", 16, 16, 4, 0, "3,5,10,15"),
     ("4x4-random", 16, 16, 4, 15, "random:12"),
+    ("8x8-local", 64, 64, 8, 27, "27"),
+    ("8x8-sparse", 64, 64, 8, 0, "7,9,27,36,54,63"),
+    ("8x8-random", 64, 64, 8, 63, "random:32"),
+    ("8x8-full", 64, 64, 8, 27, "all"),
 )
 MODES = ("tree_multicast", "naive_unicast")
+
+
+def portable_path(path):
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(resolved)
 
 
 def destinations(spec, cpus, seed):
@@ -72,7 +85,9 @@ def parse_stats(path):
     return stats
 
 
-def run_case(gem5, output_root, rounds, seed, packet_flits, mode, case):
+def run_case(
+    gem5, output_root, rounds, seed, packet_flits, sim_cycles, mode, case
+):
     name, cpus, dirs, rows, source, spec = case
     name = f"{mode}-{name}-f{packet_flits}"
     output = output_root / name
@@ -81,7 +96,7 @@ def run_case(gem5, output_root, rounds, seed, packet_flits, mode, case):
         str(gem5), "-d", str(output), str(CONFIG),
         "--network=garnet", "--topology=Mesh_XY",
         f"--num-cpus={cpus}", f"--num-dirs={dirs}", f"--mesh-rows={rows}",
-        "--routing-algorithm=1", "--sim-cycles=10000000",
+        "--routing-algorithm=1", f"--sim-cycles={sim_cycles}",
         f"--multicast-mode={mode}",
         f"--multicast-source={source}",
         f"--multicast-destinations={spec}",
@@ -147,17 +162,29 @@ def main():
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--jobs", type=int, default=8)
+    parser.add_argument("--sim-cycles", type=int, default=100_000_000)
+    parser.add_argument(
+        "--output", type=Path,
+        help="persistent artifact directory (default: a temporary directory)",
+    )
     parser.add_argument(
         "--packet-flits", type=int, nargs="+", default=[1]
     )
     args = parser.parse_args()
-    if (args.rounds < 1 or args.jobs < 1 or
+    if (args.rounds < 1 or args.jobs < 1 or args.sim_cycles < 1 or
             any(packet_flits < 1 for packet_flits in args.packet_flits)):
-        parser.error("--rounds, --jobs, and --packet-flits must be positive")
+        parser.error(
+            "--rounds, --jobs, --sim-cycles, and --packet-flits must be positive"
+        )
     if not args.gem5.is_file():
         parser.error(f"gem5 binary does not exist: {args.gem5}")
 
-    output_root = Path(tempfile.mkdtemp(prefix="lab4-multicast-matrix-"))
+    output_root = (
+        args.output.resolve()
+        if args.output
+        else Path(tempfile.mkdtemp(prefix="lab4-multicast-matrix-"))
+    )
+    output_root.mkdir(parents=True, exist_ok=True)
     print(f"artifacts: {output_root}")
     cases = list(CASES)
     for mask in range(1, 1 << 4):
@@ -168,7 +195,7 @@ def main():
         futures = [
             pool.submit(
                 run_case, args.gem5, output_root, args.rounds, args.seed,
-                packet_flits, mode, case
+                packet_flits, args.sim_cycles, mode, case
             )
             for packet_flits in args.packet_flits
             for mode in MODES
@@ -181,12 +208,38 @@ def main():
                 print(f"FAIL {name}: {'; '.join(errors)}")
             else:
                 print(f"PASS {name}")
+    executions = len(cases) * len(MODES) * len(args.packet_flits)
+    comparisons = len(cases) * len(args.packet_flits)
+    summary = {
+        "schema_version": 1,
+        "result": "FAIL" if failures else "PASS",
+        "gem5": portable_path(args.gem5),
+        "rounds": args.rounds,
+        "seed": args.seed,
+        "sim_cycles": args.sim_cycles,
+        "packet_flits": args.packet_flits,
+        "modes": list(MODES),
+        "base_cases": len(CASES),
+        "exhaustive_2x2_masks": 15,
+        "cases_per_mode": len(cases) * len(args.packet_flits),
+        "mode_matched_comparisons": comparisons,
+        "executions": executions,
+        "passed_executions": executions - len(failures),
+        "failures": [
+            {"name": name, "errors": errors} for name, errors in failures
+        ],
+        "artifact_root": portable_path(output_root),
+    }
+    (output_root / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
     if failures:
-        total = len(cases) * len(MODES) * len(args.packet_flits)
-        print(f"{len(failures)}/{total} cases failed")
+        print(f"{len(failures)}/{executions} executions failed")
         return 1
-    total = len(cases) * len(MODES) * len(args.packet_flits)
-    print(f"PASS: all {total} paired multicast cases")
+    print(
+        f"PASS: all {executions} executions "
+        f"({comparisons} mode-matched comparisons)"
+    )
     return 0
 
 

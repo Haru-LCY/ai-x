@@ -70,9 +70,9 @@ def g4_cases():
         ("none-4x4-0to15", 16, 16, 4, "none", "checkerboard", 0, 15,
          [0, 1, 2, 3, 7, 11, 15]),
         ("diagonal-3x3-0to8", 9, 16, 3, "diagonal", "checkerboard", 0, 8,
-         [0, 4, 5, 8]),
+         [0, 4, 8]),
         ("diagonal-3x3-8to0", 9, 16, 3, "diagonal", "checkerboard", 8, 0,
-         [8, 4, 3, 0]),
+         [8, 4, 0]),
         ("diagonal-3x3-no-shortcut", 9, 16, 3, "diagonal", "checkerboard",
          0, 1, [0, 1]),
         ("stride2-4x4-0to3", 16, 16, 4, "stride", "symmetric", 0, 3,
@@ -494,15 +494,24 @@ def run_g3_case(gem5, output_root, case):
         errors.append(
             f"bypass pair count {rebuilt['bypass_pairs']} != {expected_bypass_pairs}"
         )
-    if mode == "stride" and not any(
+    expects_multi_hop = rebuilt["multi_hop"] and (
+        mode == "stride" or cpus >= 9
+    )
+    if expects_multi_hop and not any(
         route["express_hops"] >= 2 for route in routes
     ):
-        errors.append("stride oracle did not construct any multi-hop route")
+        errors.append(f"{mode} oracle did not construct any multi-hop route")
     dependency = rebuilt["channel_dependency"]
     if not dependency["dag"]:
         errors.append("channel dependency graph is not a DAG")
     if len(dependency["topological_order"]) != dependency["channels"]:
         errors.append("channel topological order is incomplete")
+    adaptive_dependency = rebuilt.get("adaptive_channel_dependency", {})
+    if mode == "diagonal" and rebuilt["multi_hop"]:
+        if not adaptive_dependency.get("audited"):
+            errors.append("adaptive diagonal dependency union was not audited")
+        if not adaptive_dependency.get("dag"):
+            errors.append("adaptive diagonal dependency union is not a DAG")
     oracle_path = output / "route-oracle.json"
     oracle_path.write_text(
         json.dumps(rebuilt, indent=2, sort_keys=True) + "\n", encoding="utf-8"

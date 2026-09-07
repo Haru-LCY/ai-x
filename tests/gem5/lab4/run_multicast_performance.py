@@ -14,6 +14,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONFIG = REPO_ROOT / "configs" / "example" / "garnet_synth_traffic.py"
 MODES = ("naive_unicast", "tree_multicast")
+TOPOLOGIES = {
+    "4x4": {"cpus": 16, "dirs": 16, "rows": 4, "source": 5},
+    "8x8": {"cpus": 64, "dirs": 64, "rows": 8, "source": 27},
+}
 
 
 def parse_stats(path):
@@ -29,20 +33,21 @@ def parse_stats(path):
 
 
 def run_one(gem5, root, case, mode, args):
-    group, packet_flits, rate, background, seed = case
-    spec = "all" if group == args.cpus else f"random:{group}"
+    (topology, cpus, dirs, rows, source, scope, group, packet_flits, rate,
+     background, seed) = case
+    spec = "all" if group == cpus else f"random:{group}"
     name = (
-        f"{mode}-g{group}-f{packet_flits}-r{rate:g}-"
+        f"{mode}-{topology}-g{group}-f{packet_flits}-r{rate:g}-"
         f"b{background:g}-s{seed}"
     )
     output = root / name
     command = [
         str(gem5), "-d", str(output), str(CONFIG),
         "--network=garnet", "--topology=Mesh_XY",
-        f"--num-cpus={args.cpus}", f"--num-dirs={args.dirs}",
-        f"--mesh-rows={args.rows}", "--routing-algorithm=1",
+        f"--num-cpus={cpus}", f"--num-dirs={dirs}",
+        f"--mesh-rows={rows}", "--routing-algorithm=1",
         "--sim-cycles=1000000000", f"--multicast-mode={mode}",
-        f"--multicast-source={args.source}",
+        f"--multicast-source={source}",
         f"--multicast-destinations={spec}",
         f"--multicast-packet-flits={packet_flits}",
         f"--multicast-seed={seed}", "--multicast-workload=throughput",
@@ -78,9 +83,11 @@ def run_one(gem5, root, case, mode, args):
     measured = stats[prefix + "multicast_measured_requests"]
     span = stats[prefix + "multicast_measurement_ticks"]
     return {
-        "mode": mode, "group_size": group, "packet_flits": packet_flits,
+        "topology": topology, "nodes": cpus, "mesh_rows": rows,
+        "source": source, "scope": scope, "mode": mode,
+        "group_size": group, "packet_flits": packet_flits,
         "injection_rate": rate, "background_rate": background,
-        "seed": seed, "source": args.source,
+        "seed": seed,
         "measured_requests": measured,
         "average_completion_ticks": sum(measured_latencies) / len(measured_latencies),
         "min_completion_ticks": min(measured_latencies),
@@ -112,11 +119,17 @@ def main():
         default=REPO_ROOT / "build" / "Garnet_standalone" / "gem5.opt",
     )
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--cpus", type=int, default=16)
-    parser.add_argument("--dirs", type=int, default=16)
-    parser.add_argument("--rows", type=int, default=4)
-    parser.add_argument("--source", type=int, default=5)
+    parser.add_argument(
+        "--topologies", nargs="+", choices=tuple(TOPOLOGIES),
+        default=list(TOPOLOGIES),
+        help="square Mesh topologies in the main performance study",
+    )
     parser.add_argument("--groups", type=int, nargs="+", default=[4, 8, 16])
+    parser.add_argument(
+        "--scaleout-8x8-groups", type=int, nargs="+", default=[32, 64],
+        help="additional 8x8-only fanouts, reported separately from the "
+             "cross-topology matrix",
+    )
     parser.add_argument("--packet-flits", type=int, nargs="+", default=[1, 4, 16])
     parser.add_argument("--rates", type=float, nargs="+", default=[0.1, 0.5, 1.0])
     parser.add_argument("--background-rates", type=float, nargs="+", default=[0.0, 0.1])
@@ -129,19 +142,36 @@ def main():
     args = parser.parse_args()
     if not args.gem5.is_file():
         parser.error(f"gem5 binary does not exist: {args.gem5}")
-    if args.cpus != args.rows * args.rows:
-        parser.error("performance runner currently requires a square Mesh")
-    if any(group < 1 or group > args.cpus for group in args.groups):
-        parser.error("group size lies outside the Mesh")
+    if len(set(args.topologies)) != len(args.topologies):
+        parser.error("--topologies contains duplicates")
+    if any(group < 1 for group in args.groups + args.scaleout_8x8_groups):
+        parser.error("group sizes must be positive")
+    for topology in args.topologies:
+        nodes = TOPOLOGIES[topology]["cpus"]
+        if any(group > nodes for group in args.groups):
+            parser.error(f"common group size lies outside {topology}")
+    if ("8x8" in args.topologies and
+            any(group > 64 for group in args.scaleout_8x8_groups)):
+        parser.error("8x8 scale-out group size exceeds 64 Routers")
     root = args.output or Path(tempfile.mkdtemp(prefix="lab4-multicast-perf-"))
     root.mkdir(parents=True, exist_ok=True)
     print(f"artifacts: {root}")
-    cases = [
-        (group, packet, rate, background, seed)
-        for group in args.groups for packet in args.packet_flits
-        for rate in args.rates for background in args.background_rates
-        for seed in args.seeds
-    ]
+    cases = []
+    for topology in args.topologies:
+        config = TOPOLOGIES[topology]
+        groups = [("common", group) for group in args.groups]
+        if topology == "8x8":
+            groups.extend(
+                ("scaleout", group) for group in args.scaleout_8x8_groups
+                if group not in args.groups
+            )
+        cases.extend(
+            (topology, config["cpus"], config["dirs"], config["rows"],
+             config["source"], scope, group, packet, rate, background, seed)
+            for scope, group in groups for packet in args.packet_flits
+            for rate in args.rates for background in args.background_rates
+            for seed in args.seeds
+        )
     raw = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {
@@ -153,19 +183,24 @@ def main():
             raw.append(row)
             print("PASS", Path(row["artifact"]).name)
     indexed = {
-        (row["group_size"], row["packet_flits"], row["injection_rate"],
-         row["background_rate"], row["seed"], row["mode"]): row
+        (row["topology"], row["group_size"], row["packet_flits"],
+         row["injection_rate"], row["background_rate"], row["seed"],
+         row["mode"]): row
         for row in raw
     }
     paired = []
     for case in cases:
-        key = case
+        (topology, cpus, _, rows, source, scope, group, packet, rate,
+         background, seed) = case
+        key = (topology, group, packet, rate, background, seed)
         naive = indexed[key + ("naive_unicast",)]
         tree = indexed[key + ("tree_multicast",)]
         paired.append({
-            "group_size": case[0], "packet_flits": case[1],
-            "injection_rate": case[2], "background_rate": case[3],
-            "seed": case[4],
+            "topology": topology, "nodes": cpus, "mesh_rows": rows,
+            "source": source, "scope": scope,
+            "group_size": group, "packet_flits": packet,
+            "injection_rate": rate, "background_rate": background,
+            "seed": seed,
             "naive_latency_ticks": naive["average_completion_ticks"],
             "tree_latency_ticks": tree["average_completion_ticks"],
             "latency_speedup": naive["average_completion_ticks"] / tree["average_completion_ticks"],
@@ -180,11 +215,30 @@ def main():
             "naive_artifact": naive["artifact"], "tree_artifact": tree["artifact"],
         })
     with (root / "summary.csv").open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=paired[0].keys())
+        writer = csv.DictWriter(
+            stream, fieldnames=paired[0].keys(), lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(paired)
     (root / "summary.json").write_text(
-        json.dumps({"paired": paired, "raw": raw}, indent=2), encoding="utf-8"
+        json.dumps({
+            "schema_version": 2,
+            "matrix": {
+                "topologies": args.topologies,
+                "common_groups": args.groups,
+                "scaleout_8x8_groups": args.scaleout_8x8_groups,
+                "packet_flits": args.packet_flits,
+                "rates": args.rates,
+                "background_rates": args.background_rates,
+                "seeds": args.seeds,
+                "warmup": args.warmup,
+                "measurement": args.measurement,
+                "cooldown": args.cooldown,
+                "max_outstanding": args.max_outstanding,
+            },
+            "paired": paired,
+            "raw": raw,
+        }, indent=2), encoding="utf-8"
     )
     print(f"PASS: {len(paired)} paired cases; summaries written to {root}")
     return 0

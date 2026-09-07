@@ -2,14 +2,15 @@
 
 Current multicast status (2026-08-07): both `naive_unicast` and
 `tree_multicast` are implemented. The implementation is not restricted to a
-single flit: the final correctness gate passed 208/208 paired cases at 1, 4,
-16, and 64 flits, while the legacy collective matrix passed 11/11. The paired
-performance gate passed 162/162 cases and emitted 324 raw runs. These are
-mechanism/regression results; an expanded experiment matrix is still required
-before making final performance claims.
+single flit: the expanded correctness matrix passes all 240 executions at 1,
+4, 16, and 64 flits, including 8x8 local, sparse, random, and full-group cases.
+The legacy collective matrix passes 11/11.  The performance study passes all
+432 paired cases and 864 raw runs: 324 balanced 4x4/8x8 comparisons at fanouts
+4/8/16, plus 108 8x8 scale-out comparisons at fanouts 32/64.
 
 `run_collective_matrix.py` validates scalar all-reduce and multicast on 2x2,
-3x3, and 4x4 `Mesh_XY` networks. The matrix covers corner and interior roots,
+3x3, and 4x4 `Mesh_XY` networks. `run_multicast_matrix.py` extends multicast
+validation through 8x8. The matrices cover corner and interior roots,
 uses completion-driven multi-round execution, and checks exact collective
 statistics rather than accepting a timeout-based exit.
 
@@ -39,12 +40,15 @@ Run the full paired multicast correctness matrix with:
 ```sh
 LD_LIBRARY_PATH=/path/to/python/lib \
   python3 tests/gem5/lab4/run_multicast_matrix.py \
-    --jobs 32 --rounds 10 --packet-flits 1 4 16 64
+    --jobs 32 --rounds 10 --packet-flits 1 4 16 64 \
+    --output report/raw-results/multicast-correctness-8x8
 ```
 
-The multicast matrix now covers both `naive_unicast` and `tree_multicast`,
-exhaustively checks all non-empty 2x2 destination sets, and accepts one or
-more packet sizes through `--packet-flits`.
+The multicast matrix covers both `naive_unicast` and `tree_multicast`,
+exhaustively checks all non-empty 2x2 destination sets, exercises the 64-bit
+destination mask with a full 8x8 group, and accepts one or more packet sizes
+through `--packet-flits`. With `--output`, it also writes a persistent
+`summary.json` that records the execution/comparison counts and parameters.
 
 Run paired throughput experiments and emit `summary.csv` plus `summary.json`:
 
@@ -55,7 +59,8 @@ LD_LIBRARY_PATH=/path/to/python/lib \
 
 Every paired case uses the same source, destination seed, packet size,
 injection rate, phase lengths, and background rate. A run that reaches its
-tick limit without completion is rejected.
+tick limit without completion is rejected. By default the runner uses source 5
+on 4x4 and source 27 on 8x8, common fanouts 4/8/16, and 8x8-only fanouts 32/64.
 
 Bypass/express links G1--G10 are implemented and accepted. Run the full paired
 study with `run_bypass_performance.py`; its JSON/CSV artifacts and the
