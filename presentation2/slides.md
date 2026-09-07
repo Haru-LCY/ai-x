@@ -1,186 +1,141 @@
 ---
 theme: default
-title: Bypass & Multicast in a Mesh NoC
+title: Collective-Aware Router Microarchitecture in gem5 Garnet
 info: |
-  Lab 4 · Topic 3 (Microarchitecture: bypass + multicast) and Topic 4
-  (trace-based traffic) · 8-minute presentation.
+  Lab 4 · Topic 3 (bypass and multicast) and Topic 4 (trace-based traffic).
   Chunyu Liu and Boyan Pu.
 author: Chunyu Liu and Boyan Pu
 aspectRatio: 16/9
 canvasWidth: 1280
 transition: fade-out
-colorSchema: dark
+colorSchema: light
 fonts:
-  sans: IBM Plex Sans
+  sans: Gill Sans MT
   mono: IBM Plex Mono
 defaults:
   layout: default
 class: title-slide
 ---
 
-<div class="titlewrap">
+<div class="titlewrap single">
 
 <div>
 
-<div class="sec">Lab 4 · Topic 3 + Topic 4 · gem5 Garnet</div>
+<!-- <div class="sec">Lab 4 · Topic 3 + Topic 4 · gem5 Garnet</div> -->
 
-# <span class="accent">Bypass</span> &amp; <span class="accent">Multicast</span><br>in a Mesh NoC
+# Collective-Aware Router<br>Microarchitecture in gem5 Garnet
 
-<p class="sub">Two router-level microarchitecture mechanisms — express-link bypass and tree
-multicast — built in gem5 Garnet and evaluated against matched baselines,
-plus a real H100 trace-replay case study.</p>
+<p class="sub">Multicast, express-link bypass, and tensor all-reduce evaluated against matched baselines.</p>
 
 <div class="who"><b>Chunyu Liu</b><i></i><b>Boyan Pu</b></div>
 
-<div class="tags">
-  <span class="tag cy">Topic 3 · Multicast 1 → N</span>
-  <span class="tag am">Topic 3 · Express-link bypass</span>
-  <span class="tag vi">Topic 4 · H100 trace replay</span>
-</div>
-
-</div>
-
-<div>
-
-<div class="svgwrap">
-<svg viewBox="0 0 400 272" width="100%" role="img" aria-label="Mesh NoC with a multicast tree and express links">
-  <!-- ordinary mesh links -->
-  <g stroke="#23405c" stroke-width="2">
-    <line x1="70" y1="55" x2="165" y2="55"/><line x1="165" y1="55" x2="260" y2="55"/><line x1="260" y1="55" x2="355" y2="55"/>
-    <line x1="70" y1="120" x2="165" y2="120"/><line x1="165" y1="120" x2="260" y2="120"/><line x1="260" y1="120" x2="355" y2="120"/>
-    <line x1="70" y1="185" x2="165" y2="185"/><line x1="165" y1="185" x2="260" y2="185"/><line x1="260" y1="185" x2="355" y2="185"/>
-    <line x1="70" y1="250" x2="165" y2="250"/><line x1="165" y1="250" x2="260" y2="250"/><line x1="260" y1="250" x2="355" y2="250"/>
-    <line x1="70" y1="55" x2="70" y2="120"/><line x1="70" y1="120" x2="70" y2="185"/><line x1="70" y1="185" x2="70" y2="250"/>
-    <line x1="165" y1="55" x2="165" y2="120"/><line x1="165" y1="120" x2="165" y2="185"/><line x1="165" y1="185" x2="165" y2="250"/>
-    <line x1="260" y1="55" x2="260" y2="120"/><line x1="260" y1="120" x2="260" y2="185"/><line x1="260" y1="185" x2="260" y2="250"/>
-    <line x1="355" y1="55" x2="355" y2="120"/><line x1="355" y1="120" x2="355" y2="185"/><line x1="355" y1="185" x2="355" y2="250"/>
-  </g>
-  <!-- express links -->
-  <g stroke="#ffb757" stroke-width="2.5" stroke-dasharray="6 5">
-    <line x1="260" y1="55" x2="355" y2="120"/>
-    <line x1="70" y1="250" x2="260" y2="250"/>
-  </g>
-  <!-- multicast tree -->
-  <g stroke="#56d9ff" stroke-width="3">
-    <line x1="165" y1="120" x2="70" y2="120"/>
-    <line x1="165" y1="120" x2="165" y2="55"/>
-    <line x1="165" y1="120" x2="165" y2="185"/>
-    <line x1="165" y1="185" x2="260" y2="185"/>
-    <line x1="260" y1="185" x2="355" y2="185"/>
-  </g>
-  <!-- routers -->
-  <g fill="#0a1522" stroke="#54759a" stroke-width="2">
-    <circle cx="70" cy="55" r="7"/><circle cx="260" cy="55" r="7"/><circle cx="70" cy="120" r="7"/>
-    <circle cx="70" cy="185" r="7"/><circle cx="165" cy="185" r="7"/><circle cx="260" cy="185" r="7"/>
-    <circle cx="355" cy="55" r="7"/><circle cx="355" cy="120" r="7"/><circle cx="165" cy="250" r="7"/>
-    <circle cx="260" cy="250" r="7"/><circle cx="355" cy="250" r="7"/><circle cx="70" cy="250" r="7"/>
-    <circle cx="260" cy="120" r="7"/><circle cx="355" cy="185" r="7"/><circle cx="165" cy="55" r="7"/>
-  </g>
-  <!-- multicast root and destinations -->
-  <circle cx="165" cy="120" r="9" fill="#0a1522" stroke="#eef5fc" stroke-width="2.5"/>
-  <circle cx="70" cy="120" r="7" fill="#56d9ff"/>
-  <circle cx="165" cy="55" r="7" fill="#56d9ff"/>
-  <circle cx="355" cy="185" r="7" fill="#56d9ff"/>
-</svg>
-</div>
-<div class="legend">
-  <span><i class="l-gray"></i>mesh XY</span>
-  <span><i class="l-cyan"></i>multicast tree</span>
-  <span><i class="l-amber"></i>express link</span>
-</div>
-<div class="cap">One 4×4 Mesh carries all three ideas: XY routes, a replicated multicast tree, express shortcuts.</div>
+<!-- <div class="tags">
+  <span class="tag cy">Tree multicast</span>
+  <span class="tag am">Pressure-aware bypass</span>
+  <span class="tag vi">H100 tensor replay</span>
+</div> -->
 
 </div>
 
 </div>
 
 <!--
-Timing 15 s. We are Chunyu Liu and Boyan Pu. Our lab covers Topic 3, bypass and multicast in a Mesh network-on-chip, and a Topic 4 trace case study.
+Timing 10 s. We report three related mechanisms: router-side multicast, pressure-aware express-link bypass, and trace-driven tensor all-reduce. The common thread is preserving collective structure inside the network.
 -->
 
 ---
 
-<div class="sec">Roadmap · 8 minutes</div>
+# Overview
 
-# Four parts
+<p class="lede">Four paired studies, in report order.</p>
 
 <div class="body tight">
 
 <div class="agenda">
   <div class="row">
-    <div class="num cy">01</div>
-    <div><b>Architecture</b><span>The baseline Garnet Mesh XY network, and where multicast and bypass plug into it.</span></div>
-    <div class="t">≈ 2 min</div>
+    <div class="num">01</div>
+    <div><b>Common substrate and metrics</b><span>What is paired, what is counted, and what each comparison does not claim.</span></div>
+    <!-- <div class="t">1 min</div> -->
   </div>
   <div class="row">
-    <div class="num am">02</div>
-    <div><b>Implementation</b><span>How each mechanism is built, verified, and kept deadlock-free — plus the Topic 4 trace pipeline.</span></div>
-    <div class="t">≈ 2 min</div>
+    <div class="num cy">02</div>
+    <div><b>Tree multicast</b><span>Replicate at pruned-tree branches; validate exact delivery; evaluate 4×4 and 8×8.</span></div>
+    <!-- <div class="t">2 min</div> -->
   </div>
   <div class="row">
-    <div class="num vi">03</div>
-    <div><b>Evaluation</b><span>Paired comparisons against matched baselines — including the negative results.</span></div>
-    <div class="t">≈ 3 min</div>
+    <div class="num am">03</div>
+    <div><b>Pressure-aware express-link bypass</b><span>Distance-scaled stride links, multi-hop DOR routes, and conservative admission.</span></div>
+    <!-- <div class="t">2 min</div> -->
   </div>
   <div class="row">
-    <div class="num rs">04</div>
-    <div><b>Division of Labor</b><span>Who built what, and what we verified together.</span></div>
-    <div class="t">≈ 30 s</div>
+    <div class="num vi">04</div>
+    <div><b>H100 tensor all-reduce</b><span>Replay measured collectives; compare scalar-lane and event-level representations.</span></div>
+    <!-- <div class="t">2 min</div> -->
   </div>
 </div>
 
 </div>
 
-<div class="take"><span class="lab">One rule throughout</span>Every number is a <b>paired comparison</b> — the new mechanism against an unmodified baseline with identical traffic, seeds and exit conditions.</div>
+<!-- <div class="take"><span class="lab">Rule</span>Every performance number is paired: the proposed arm and its baseline use the same workload realization, packet size, load, and seed.</div> -->
 
 <!--
-Timing 20 s. Four parts: architecture, implementation, evaluation, division of labor. The single rule to remember: every number you will see is a paired comparison against an untouched baseline.
+Timing 20 s. The presentation follows the report. First the common methodology, then multicast, bypass, and the H100 trace extension. The pairing rule applies to all three studies.
 -->
 
 ---
 
-<div class="sec cy"><span class="n">01</span>Architecture</div>
+# Architecture
 
-# The layer we evaluate: gem5 Garnet, Mesh XY
+<p class="lede">The common substrate is gem5 Garnet: a cycle-level Mesh router with deterministic XY routing. Each mechanism changes one part of that router and is compared with a matched baseline.</p>
 
-<div class="body" style="grid-template-rows:auto 1fr;gap:12px">
+<div class="body">
+
+<div class="grid2">
 
 <div>
-  <div class="fig" style="height:296px"><img src="/training_to_network.png" alt="Training step lowers collectives onto the Mesh NoC" /></div>
-  <div class="cap">Every training step lowers a collective into packets/flits on the Mesh NoC — traffic, latency and completion correctness of this layer is our subject.</div>
+
+  <div class="fig" style="height:295px"><img src="/training_to_network.png" alt="GPU training collectives lowered onto a Mesh network-on-chip" /></div>
+  <div class="cap">Training synchronization maps collective operations onto packets and flits; this work evaluates that Router layer.</div>
+
 </div>
 
-<div class="cards3">
-  <div class="card cy">
-    <span class="mark">PLATFORM</span>
-    <h3>gem5 Garnet 2.0 NoC</h3>
-    <p>Cycle-accurate router pipeline · wormhole flits (<code>HEAD / BODY / TAIL</code>) · virtual channels with credit-based flow control.</p>
-  </div>
-  <div class="card cy">
-    <span class="mark">ROUTING</span>
-    <h3>Deterministic XY</h3>
-    <p>2D Mesh, along X then Y — a corner-to-corner packet costs 6 links and 7 router traversals. We study 2×2–8×8, so results stay hand-auditable.</p>
-  </div>
+<div class="stack">
+
   <div class="card gr">
-    <span class="mark">DISCIPLINE</span>
-    <h3>The baseline never moves</h3>
-    <p><code>Mesh_XY</code> stays unmodified. Every mechanism arm runs against it with the <b>same</b> topology, workload, seeds and completion condition.</p>
+    <span class="mark">SUBSTRATE</span>
+    <h3>gem5 v23.0.0.1 / Garnet</h3>
+    <p>Cycle-level router pipelines, wormhole flits, virtual channels, and credit-based flow control. Plain Mesh and collective trees use deterministic X-first XY routing.</p>
   </div>
+
+  <div class="card gr">
+    <span class="mark">PAIRED METRICS</span>
+    <h3>Traffic, latency, throughput</h3>
+    <p>Internal-link flit reduction is additive; paired latency uses <code>L_base/L_new</code>; logical throughput uses <code>Q_new/Q_base−1</code>. Regressions remain in the inventory.</p>
+  </div>
+
+  <div class="card gr">
+    <span class="mark">BASELINES</span>
+    <h3>One changed variable per study</h3>
+    <p>Tree multicast compares to replicated unicast. Bypass compares to plain Mesh XY. Tensor replay compares event-level packets with scalar-lane rounds.</p>
+  </div>
+
+</div>
+
 </div>
 
 </div>
 
-<div class="take cy"><span class="lab">Topic 3</span>Add two things to this network: <b>shortcut links</b> that cross intermediate nodes (bypass) and <b>one packet → N destinations</b> delivery (multicast).</div>
+<div class="take"><span class="lab">Scope</span>These are network-layer results. They are not end-to-end GPU training speedups.</div>
 
 <!--
-Timing 35 s. Here is where our work sits. Every training step produces gradients that must be all-reduced or broadcast; those collectives lower into packets and flits on the Mesh NoC, and the traffic, latency and completion correctness of exactly that layer is what we evaluate. Concretely we build on gem5's Garnet network: wormhole flits, virtual channels, credit flow control, deterministic XY routing. One corner-to-corner packet costs six links and seven router traversals. The baseline Mesh_XY is never modified - every new arm is paired against it.
+Timing 30 s. All experiments use gem5 Garnet and deterministic XY routing. Each study changes one mechanism and keeps workload realization, packet size, load, and seed paired. We keep traffic, latency, and throughput claims separate.
 -->
 
 ---
 
-<div class="sec cy"><span class="n">01</span>Architecture · Multicast</div>
+# Tree multicast
 
-# Replicate inside the network, not at the source
+<p class="lede">Replicate inside pruned-tree branches.</p>
 
 <div class="body">
 
@@ -189,25 +144,38 @@ Timing 35 s. Here is where our work sits. Every training step produces gradients
 <div class="stack">
 
   <div class="card">
-    <span class="mark">BASELINE · REPLICATED UNICAST</span>
-    <h3>One packet per destination</h3>
-    <div class="pkts"><span>dst A</span><span>dst B</span><span>dst C</span><span>dst D</span></div>
-    <p>The NI injects N independent XY packets. Every shared route prefix carries the same payload N times.</p>
+    <span class="mark">BASELINE</span>
+    <h3>Replicated unicast</h3>
+    <p>The NI injects one packet per remote destination and records a selected local destination. Shared path prefixes carry the same payload repeatedly.</p>
   </div>
 
   <div class="card cy">
-    <span class="mark">NEW · TREE MULTICAST</span>
-    <h3>One packet, replicated at branches</h3>
-    <div class="bitmap"><b>HEAD</b><span>64-bit destination bitmap</span></div>
-    <p>A single packet enters the network. Each router delivers locally if selected and copies flits <b>only onto branches that still lead to a destination</b>.</p>
+    <span class="mark">PROPOSED</span>
+    <h3>One bitmap packet</h3>
+    <p>A 64-bit destination bitmap travels in the head flit. Each Router computes only the child branches that still lead to a destination and delivers locally when selected.</p>
+  </div>
+
+  <div class="card cy">
+    <span class="mark">TRADEOFF</span>
+    <h3>Exact, but synchronized</h3>
+    <p>Fanout is atomic: a flit advances only after every selected output VC has credit. This preserves multi-flit delivery, but a blocked branch can hold the others.</p>
   </div>
 
 </div>
 
 <div>
 
-  <div class="fig" style="height:330px"><img src="/multicast_tree_flow.png" alt="Replicated unicast versus tree multicast on a 4x4 mesh" /></div>
-  <div class="cap">4×4 Mesh, same destinations: replicated unicast (left) vs. bitmap tree multicast (right).</div>
+  <div class="figpair">
+    <div>
+      <div class="fig" style="height:285px"><img src="/multicast_baseline_4x4.png" alt="Replicated-unicast baseline on a four-by-four mesh" /></div>
+      <div class="cap"><b>(a)</b> Replicated-unicast baseline</div>
+    </div>
+    <div>
+      <div class="fig" style="height:285px"><img src="/multicast_tree_4x4.png" alt="Proposed pruned-tree multicast path on a four-by-four mesh" /></div>
+      <div class="cap"><b>(b)</b> Proposed tree multicast</div>
+    </div>
+  </div>
+  <div class="cap">Illustrative 4×4 multicast baseline and proposed path.</div>
 
 </div>
 
@@ -215,97 +183,48 @@ Timing 35 s. Here is where our work sits. Every training step produces gradients
 
 </div>
 
-<div class="take cy"><span class="lab">Key idea</span>The shared prefix is transmitted <b>once</b>; duplication happens <b>as late as possible</b> — at the branch routers. Each destination must receive exactly one copy.</div>
+<div class="take cy"><span class="lab">Correctness contract</span>Every destination receives the complete packet exactly once, in flit order, with no missing or duplicate delivery.</div>
 
 <!--
-Timing 40 s. Multicast. The baseline lowers one logical multicast into N unicast packets, so shared prefixes carry the same payload repeatedly. Our design injects a single packet with a 64-bit destination bitmap. Routers deliver locally when selected and copy only onto branches that still contain destinations.
+Timing 35 s. The baseline repeats a packet for every destination. Tree multicast sends one packet with a destination bitmap. Routers prune the tree and copy only on useful branches. Atomic fanout is necessary for exact multi-flit delivery, but it couples branch progress.
 -->
 
 ---
 
-<div class="sec cy"><span class="n">01</span>Architecture · Bypass</div>
+# Multicast implementation
 
-# Express links: pay wire to skip routers
-
-<div class="body">
-
-<div class="grid2">
-
-<div>
-
-  <div class="fig" style="height:330px"><img src="/bypass_topology_oracle.png" alt="Diagonal and stride-2 express-link placements on a 4x4 mesh" /></div>
-  <div class="cap">Diagonal (9 links) and stride-2 (16 links) placements on 4×4, with oracle-selected first hops.</div>
-
-</div>
-
-<div class="stack">
-
-  <div class="card am">
-    <span class="mark">MECHANISM</span>
-    <h3>Extra links on top of the full Mesh</h3>
-    <p>Every ordinary router and XY link is kept. We add <b>bidirectional express links</b> — diagonal <code>(x,y) ↔ (x±1, y±1)</code> or <b>stride-S</b> along a row/column. One traversal crosses the intermediate nodes.</p>
-  </div>
-
-  <div class="card am">
-    <span class="mark">TWO PLACEMENTS ON 4×4</span>
-    <h3>Diagonal vs. stride-2</h3>
-    <p>Diagonal: 9 links, wire proxy 18, max radix 8 · Stride-2: 16 links, wire proxy 32, max radix 6.</p>
-  </div>
-
-  <div class="card">
-    <span class="mark">THE TRADE</span>
-    <h3>Fewer traversals, more hardware</h3>
-    <p>Extra ports, longer wires, credit links — and a routing + deadlock problem that must be solved before any speedup counts.</p>
-  </div>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="take am"><span class="lab">Design constraint</span>A shortcut must win under a <b>hardware-relevant wire model</b>, not just hop count. That constraint shapes the routing design on the next slides.</div>
-
-<!--
-Timing 40 s. Bypass keeps the entire mesh and adds explicit express links: diagonal links, like the topic's example, and stride links along rows or columns. On 4x4 the diagonal placement costs 9 links and radix 8; stride-2 costs 16 links. The point of the study: a shortcut must pay for its wire, not just remove hops.
--->
-
----
-
-<div class="sec am"><span class="n">02</span>Implementation · Multicast</div>
-
-# Five mechanisms, one correctness contract
+<p class="lede">Two-phase allocation, then validation.</p>
 
 <div class="body">
 
 <div class="grid2 rev">
 
 <div class="steps cy" style="align-content:start">
-  <div class="row"><em>1</em><div><b>Bitmap rides every flit</b><span>The 64-bit destination mask travels with <code>HEAD/BODY/TAIL</code>, so replication state survives serialization and backpressure.</span></div></div>
-  <div class="row"><em>2</em><div><b>Pruned branch routing</b><span>The routing unit derives required output branches from the mask; branches with no destinations never see a flit.</span></div></div>
-  <div class="row"><em>3</em><div><b>Replication at branch routers</b><span>A router with ≥ 2 selected branches copies each flit per branch; it ejects a local copy if its own bit is set.</span></div></div>
-  <div class="row warn"><em>4</em><div><b>Atomic fanout</b><span>A flit advances only when <b>every</b> selected branch has VC credit — no drop, duplicate or reorder, even at 64 flits.</span></div></div>
-  <div class="row"><em>5</em><div><b>Tail-driven release + tracker</b><span>Tail frees branch state and upstream credits; per-round expected/received bitmaps must match exactly, otherwise fatal.</span></div></div>
+
+  <div class="row"><em>1</em><div><b>Head computes the pruned tree</b><span>The bitmap selects child branches; branches with no destination never receive a flit.</span></div></div>
+  <div class="row"><em>2</em><div><b>Branch state commits atomically</b><span>The Router allocates all required output VCs together; body and tail flits reuse those VCs.</span></div></div>
+  <div class="row"><em>3</em><div><b>Tail releases the reservation</b><span>Per-round expected and received delivery sets must match exactly before the case is accepted.</span></div></div>
+
 </div>
 
 <div class="stack">
 
-  <div class="card cy">
-    <span class="mark">GATES M1–M5</span>
-    <h3>Built in acceptance order</h3>
-    <p>Unified request tracker → replicated-unicast baseline → subset pruning → multi-flit under backpressure → performance modes with warmup/cooldown.</p>
+  <div class="metric">
+    <span class="v">240 / 240</span>
+    <span class="k">functional executions pass</span>
+    <span class="n">120 mode-matched comparisons · 2×2–8×8 · two implementations · four packet sizes</span>
   </div>
 
-  <div class="metric">
-    <span class="v">208 / 208</span>
-    <span class="k">paired correctness cases green</span>
-    <span class="n">2×2 / 3×3 / 4×4 · all destination subsets · 1–64 flits · restricted VC/buffer configs</span>
+  <div class="metric cy">
+    <span class="v">324 + 108</span>
+    <span class="k">paired performance cases</span>
+    <span class="n">324 common cross-topology pairs · 108 additional 8×8 scale-out pairs</span>
   </div>
 
   <div class="card">
-    <span class="mark">SCOPE</span>
-    <h3>≤ 64 routers per bitmap</h3>
-    <p>One bit per router in the destination mask — exactly covers the largest 8×8 network we evaluate.</p>
+    <span class="mark">DOMAIN BOUND</span>
+    <h3>64 routers per bitmap</h3>
+    <p>The compact mask covers the largest evaluated 8×8 network exactly.</p>
   </div>
 
 </div>
@@ -314,41 +233,192 @@ Timing 40 s. Bypass keeps the entire mesh and adds explicit express links: diago
 
 </div>
 
-<div class="take cy"><span class="lab">Contract</span>Completion = every destination in the set received the payload <b>exactly once</b>; duplicates, misses or misroutes abort the run. A timeout is a failure, never a result.</div>
+<div class="take cy"><span class="lab">Validated properties</span>Payload values, destination sets, flit ordering, and completion under backpressure.</div>
 
 <!--
-Timing 45 s. Implementation of multicast, five mechanisms. The bitmap rides every flit, so state survives backpressure. Routing is pruned per branch. Routers copy flits at branches and eject locally. Fanout is atomic: a flit moves only when all branches have credit - that is what keeps 64-flit packets exact under pressure, and it is also the cause of the regressions you will see later. Gates M1 to M5, 208 of 208 correctness cases.
+Timing 30 s. Implementation is a two-phase allocation. The head computes useful branches; branch VCs commit together; body and tail reuse them. Validation covers 240 executions, while performance uses 324 common pairs plus 108 scale-out pairs.
 -->
 
 ---
 
-<div class="sec am"><span class="n">02</span>Implementation · Bypass</div>
+# Multicast results
 
-# New topology, offline oracle, provable deadlock freedom
+<p class="lede">Common-fanout gains, with regressions retained.</p>
+
+<div class="body">
+
+<div class="grid2">
+
+<div>
+
+  <div class="fig" style="height:275px"><img src="/traffic_reduction_by_group.png" alt="Internal-link flit reduction by topology and destination count" /></div>
+  <div class="cap">4×4 and 8×8 common-fanout results are reported separately; fanout 32 and 64 are scale-out only.</div>
+
+</div>
+
+<div class="stack">
+
+  <table class="tbl">
+    <thead><tr><th>Mesh</th><th class="r">Link-flit red.</th><th class="r">Latency</th><th class="r">Throughput</th><th class="r">Regress.</th></tr></thead>
+    <tbody>
+      <tr><td>4×4 · 162 pairs</td><td class="num">39.51%</td><td class="num">3.638×</td><td class="num">+190.89%</td><td class="num bad">10</td></tr>
+      <tr><td>8×8 · 162 pairs</td><td class="num">34.95%</td><td class="num">3.472×</td><td class="num">+208.34%</td><td class="num good">0</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cap" style="text-align:left">Latency is geometric mean; link-flit reduction and throughput are arithmetic means. Medians: 41.18%/29.63% traffic and 3.588×/2.667× latency.</div>
+
+  <div class="card cy">
+    <span class="mark">WHY THE 4×4 CASES SLOW</span>
+    <h3>Atomic branch coupling</h3>
+    <p>All ten regressions are fanout-4 cases; the worst is <b>−18.24%</b>. A congested output can hold the reservation while other branches wait.</p>
+  </div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="take cy"><span class="lab">Reading</span>Link-flit saving is structural. Latency includes the dedicated Router datapath. Throughput exposes synchronization cost rather than being folded into a single score.</div>
+
+<!--
+Timing 45 s. At common fanouts, 4x4 removes 39.51 percent of internal-link flits and 8x8 removes 34.95 percent. Latency speedups are 3.638x and 3.472x. Mean throughput improves in both studies, but 4x4 has ten fanout-four regressions caused by atomic branch coupling; 8x8 has none.
+-->
+
+---
+
+# Multicast scale-out
+
+<p class="lede">Larger fanouts expose more shared prefixes.</p>
+
+<div class="body" style="grid-template-rows:auto 1fr;gap:14px">
+
+<div class="metrics">
+  <div class="metric cy">
+    <span class="v">−62.41%</span>
+    <span class="k">link flits at fanout 32</span>
+    <span class="n">8×8 scale-out study</span>
+  </div>
+  <div class="metric cy">
+    <span class="v">11.25×</span>
+    <span class="k">geometric-mean latency speedup</span>
+    <span class="n">fanout 32</span>
+  </div>
+  <div class="metric cy">
+    <span class="v">−75.39%</span>
+    <span class="k">link flits at fanout 64</span>
+    <span class="n">8×8 scale-out study</span>
+  </div>
+  <div class="metric cy">
+    <span class="v">21.62×</span>
+    <span class="k">geometric-mean latency speedup</span>
+    <span class="n">fanout 64</span>
+  </div>
+</div>
+
+<div>
+
+  <div class="fig" style="height:260px"><img src="/latency_speedup_by_group.png" alt="Multicast latency speedup by topology, fanout, and packet size" /></div>
+  <div class="cap">Scale-out means: +895.54% throughput at fanout 32 and +1,888.29% at fanout 64. These groups are not pooled with the common-fanout mean.</div>
+
+</div>
+
+</div>
+
+<div class="take cy"><span class="lab">Interpretation</span>The gain grows because more destinations share prefixes. The scale-out numbers characterize 8×8; they are not a cross-topology average.</div>
+
+<!--
+Timing 30 s. The separate 8x8 scale-out study reaches 62.41 percent traffic reduction at fanout 32 and 75.39 percent at fanout 64. Latency speedups are 11.25x and 21.62x. We keep these groups separate from the common-fanout comparison.
+-->
+
+---
+
+# Bypass topology
+
+<p class="lede">Stride-2 links priced by wire span.</p>
+
+<div class="body" style="grid-template-rows:auto 1fr;gap:14px">
+
+<div class="grid2">
+
+<div>
+
+  <div class="fig" style="height:270px"><img src="/bypass_diagonal_4x4.png" alt="Phase-ordered diagonal bypass alternative on a 4 by 4 mesh" /></div>
+  <div class="cap">Diagonal alternative: X*, diagonal*, then Y*.</div>
+
+</div>
+
+<div>
+
+  <div class="fig" style="height:270px"><img src="/bypass_stride_4x4.png" alt="Proposed stride-2 bypass topology on a 4 by 4 mesh" /></div>
+  <div class="cap">Primary design: repeated stride-2 hops while preserving DOR.</div>
+
+</div>
+
+</div>
+
+<div class="cards3">
+  <div class="card am">
+    <span class="mark">MESH_BYPASS</span>
+    <h3>Ordinary Mesh plus shortcuts</h3>
+    <p>Bidirectional stride-2 links are appended; ordinary routers and XY links remain.</p>
+  </div>
+  <div class="card am">
+    <span class="mark">CYCLE-AWARE TABLE</span>
+    <h3>Multi-hop X then Y</h3>
+    <p>Express latency scales with Manhattan span. An edge is selected only when it lowers the complete remaining path cost.</p>
+  </div>
+  <div class="card">
+    <span class="mark">BASELINE</span>
+    <h3>Plain Mesh XY</h3>
+    <p>The comparator has fewer links, ports, VCs, and buffers. This is an added-resource comparison, not iso-area or iso-power.</p>
+  </div>
+</div>
+
+</div>
+
+<!--
+Timing 40 s. Mesh_Bypass keeps the ordinary mesh and adds bidirectional stride-two links. A route-table builder may use multiple express hops in X and then Y, but only when the distance-scaled edge lowers the remaining path cost. The diagonal placement is an alternative, not the primary result.
+-->
+
+---
+
+# Routing and safety
+
+<p class="lede">Consult the table, then check pressure.</p>
 
 <div class="body">
 
 <div class="grid2 rev">
 
 <div class="steps am" style="align-content:start">
-  <div class="row"><em>1</em><div><b>Separate topology file</b><span><code>Mesh_Bypass</code> with <code>mode=none</code> must be graph-identical to <code>Mesh_XY</code> (gate G1); express + credit links are added explicitly, with stable names.</span></div></div>
-  <div class="row"><em>2</em><div><b>Static routing oracle</b><span>Offline enumeration of all (src, dst): at most <b>one</b> express hop, taken at the source, accepted only if <code>1 + dist(landing, dst) &lt; dist(src, dst)</code>; the suffix is plain XY.</span></div></div>
-  <div class="row"><em>3</em><div><b>Deadlock audit before simulation</b><span>Build the all-pairs channel-dependency graph; a placement is accepted only if it is a <b>DAG</b>. Cyclic placements are rejected — not "it didn't hang".</span></div></div>
-  <div class="row"><em>4</em><div><b>Two wire models</b><span><b>Optimistic</b>: every express link costs 1 cycle (upper bound) · <b>Distance-scaled</b>: link and credit latency scale with Manhattan span. Every headline claim includes distance-scaled.</span></div></div>
+
+  <div class="row"><em>1</em><div><b>Static, cycle-aware route</b><span>Every current-router/destination pair is materialized before simulation; exact-cost ties prefer the ordinary edge.</span></div></div>
+  <div class="row"><em>2</em><div><b>Conservative fallback</b><span>Unordered traffic may return to monotonic XY when an express or landing output is blocked or materially more congested.</span></div></div>
+  <div class="row"><em>3</em><div><b>Hotspot and long-packet guards</b><span>Epoch counters detect sustained destination skew; packets above 32 flits need express and landing credit headroom.</span></div></div>
+  <div class="row"><em>4</em><div><b>Deadlock check by construction</b><span>All successive channel pairs form a graph that must have a topological order; runtime choices remain DOR-preserving.</span></div></div>
+
 </div>
 
 <div class="stack">
 
-  <div class="card am">
-    <span class="mark">GATES G1–G10</span>
-    <h3>Baseline equivalence → interaction</h3>
-    <p>G1 graph equivalence, G2 link construction, G3 routing audit, G4–G7 function/backpressure/stats/full matrix, G8 performance, G9 cost-aware conclusion, G10 multicast interaction.</p>
-  </div>
-
   <div class="metric am">
-    <span class="v">7,680</span>
-    <span class="k">gem5 runs in the G8 sweep</span>
-    <span class="n">6,144 paired seed cases · 4 designs × 2 mesh sizes × 4 traffics × 16 loads × 3 seeds</span>
+    <span class="v">1,536</span>
+    <span class="k">matched performance pairs</span>
+    <span class="n">768 per mesh · 4 traffics × 4 packet sizes × 16 loads × 3 seeds</span>
+  </div>
+
+  <div class="card am">
+    <span class="mark">VALIDATION</span>
+    <h3>5 / 8 / 14 cases</h3>
+    <p>Route and dependency, traversal, and multi-flit/backpressure suites respectively.</p>
+  </div>
+
+  <div class="card">
+    <span class="mark">PILOT DECISION</span>
+    <h3>Retain the conservative guard</h3>
+    <p>A more aggressive policy had a higher mean but four regressions above 5%; the retained guard had none in the same 96-pair pilot.</p>
   </div>
 
 </div>
@@ -357,41 +427,107 @@ Timing 45 s. Implementation of multicast, five mechanisms. The bitmap rides ever
 
 </div>
 
-<div class="take am"><span class="lab">Why so strict</span>Long links can create channel-dependency cycles that appear only under specific routes — so safety is <b>proved by construction</b>, and every shortcut is priced under both wire models.</div>
+<div class="take am"><span class="lab">Safety claim</span>The placement is rejected if its channel-dependency graph is cyclic; adaptation cannot reverse dimension or leave the current DOR phase.</div>
 
 <!--
-Timing 45 s. Bypass implementation. A separate topology file keeps the baseline untouched. A static oracle enumerates every source-destination pair and allows at most one source express hop, only when it strictly reduces remaining hops. Before any simulation, we build the channel-dependency graph and reject cyclic placements, which is the deadlock-safety argument. And we always price wires two ways; only the distance-scaled model counts for headline claims.
+Timing 35 s. The route table is static and cycle-aware. At runtime, unordered traffic can fall back to XY under pressure. Long packets require credit headroom. Safety comes from materializing every path and requiring an acyclic channel-dependency graph.
 -->
 
 ---
 
-<div class="sec am"><span class="n">02</span>Implementation · Topic 4</div>
+# Bypass results
 
-# Trace-based traffic: a real H100 collective in Garnet
+<p class="lede">Larger meshes amplify the benefit.</p>
 
 <div class="body">
 
-<div class="grid2 rev">
+<div class="grid2">
 
-<div class="steps vi" style="align-content:start">
-  <div class="row"><em>1</em><div><b>Capture</b><span>NCCL all-reduce microbenchmark <b>executed on 8× NVIDIA H100</b> (PyTorch 2.8 / CUDA 12.8 / NCCL 2.27.3): 15 all-reduce events with sizes and release times.</span></div></div>
-  <div class="row"><em>2</em><div><b>Scale into Garnet</b><span>Bytes and timestamps scaled by 1/1024 into a 4×4 Garnet Mesh; trace hashes and semantics recorded for provenance.</span></div></div>
-  <div class="row"><em>3</em><div><b>Two lowerings, same traffic</b><span><b>Scalar</b>: 6,720 single-flit requests · <b>Tensor</b>: 15 multi-flit requests that keep each tensor whole.</span></div></div>
-  <div class="row"><em>4</em><div><b>All-reduce inside the routers</b><span>Convergence tree: each router stores <code>parent</code>, <code>children</code>, <code>expected_fanin</code> from XY routes to the root — contributions merge upward, the result broadcasts back.</span></div></div>
+<div class="stack">
+
+  <table class="tbl">
+    <thead><tr><th>Mesh</th><th class="r">Speedup</th><th class="r">Median</th><th class="r">Throughput</th><th class="r">Router/flit</th><th class="r">&gt;5% slow</th></tr></thead>
+    <tbody>
+      <tr><td>4×4</td><td class="num">1.291×</td><td class="num">1.068×</td><td class="num">+4.37%</td><td class="num">−17.37%</td><td class="num amb">1</td></tr>
+      <tr><td>8×8</td><td class="num">1.583×</td><td class="num">1.132×</td><td class="num">+39.37%</td><td class="num">−18.84%</td><td class="num good">0</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cap" style="text-align:left">Each row has 768 matched pairs. Worst latency ratios: 0.909× on 4×4 and 0.954× on 8×8; 117 and 126 individual ratios are below one.</div>
+
+  <div class="card am">
+    <span class="mark">WHY 8×8 IMPROVES MORE</span>
+    <h3>Longer paths, same guard</h3>
+    <p>Repeated stride hops relieve loaded Router stages on longer routes, while conservative admission limits the negative tail.</p>
+  </div>
+
+</div>
+
+<div class="stack">
+
+  <table class="tbl">
+    <thead><tr><th>Added resource</th><th class="r">4×4</th><th class="r">8×8</th></tr></thead>
+    <tbody>
+      <tr><td>Undirected express links</td><td class="num">16</td><td class="num">96</td></tr>
+      <tr><td>Wire-span sum</td><td class="num">32</td><td class="num">192</td></tr>
+      <tr><td>Max network degree</td><td class="num">6</td><td class="num">8</td></tr>
+      <tr><td>Buffer-slot proxy</td><td class="num">768</td><td class="num">4,608</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card">
+    <span class="mark">COMPARISON TYPE</span>
+    <h3>Workload-matched, added-resource</h3>
+    <p>Physical area and power remain outside Garnet; these proxies make the extra topology explicit.</p>
+  </div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="take am"><span class="lab">Honest boundary</span>The gain is not iso-area, iso-power, or iso-wire. It says what the added links buy under matched traffic, not that the design is physically free.</div>
+
+<!--
+Timing 45 s. On 4x4, geometric-mean latency speedup is 1.291x and mean throughput improves 4.37 percent. On 8x8, those values are 1.583x and 39.37 percent. Router traversals fall by about 18 percent. The table also reports the added links, wire span, degree, and buffer proxies.
+-->
+
+---
+
+# Tensor all-reduce
+
+<p class="lede">Preserve all-reduce as tensor events.</p>
+
+<div class="body">
+
+<div class="grid2">
+
+<div>
+
+  <div class="fig" style="height:335px"><img src="/tensor_allreduce_pipeline.png" alt="Pipeline from traced all-reduce events through scalar and tensor lowerings to router reduction" /></div>
+  <div class="cap">The manipulated variable is request representation; lane arithmetic, routes, release schedule, and counted network work stay fixed.</div>
+
 </div>
 
 <div class="stack">
 
   <div class="card vi">
-    <span class="mark">VALIDATION</span>
-    <h3>Identical work by construction</h3>
-    <p>Both lowerings must inject the same <b>53,760</b> rank contributions and produce the same <b>147,840</b> router-generated flits — otherwise the run is rejected.</p>
+    <span class="mark">TRACE SOURCE</span>
+    <h3>8× H100 NCCL microbenchmark</h3>
+    <p>PyTorch 2.8.0+cu128, CUDA 12.8, NCCL 2.27.3. The compiler keeps 15 broadcasts and 15 all-reduces: five repetitions each at 1, 4, and 16 MiB.</p>
   </div>
 
-  <div class="card">
-    <span class="mark">BROADCAST ARM</span>
-    <h3>30-request replay</h3>
-    <p>The same trace also replays as multicast broadcasts: 30 requests, 6,720 source flits, 210 deliveries — exercising the Topic 3 mechanism on real traffic.</p>
+  <div class="card vi">
+    <span class="mark">REPLAY SCALE</span>
+    <h3>16-byte flits, 1/1024 scaling</h3>
+    <p>Payload bytes and relative release times are scaled to a tractable Garnet replay. Results are simulation ticks, not native H100 timings.</p>
+  </div>
+
+  <div class="card vi">
+    <span class="mark">TENSOR PATH</span>
+    <h3>Lane-wise accumulation</h3>
+    <p>Each flit carries a collective and lane ID. Routers accumulate the key, then forward or broadcast completed lanes; full outputs wait under backpressure.</p>
   </div>
 
 </div>
@@ -400,282 +536,94 @@ Timing 45 s. Bypass implementation. A separate topology file keeps the baseline 
 
 </div>
 
-<div class="take vi"><span class="lab">Question asked</span>With traffic held <b>identical</b>, what does the <b>representation</b> of a request — 6,720 scalar lanes vs. 15 tensor requests — change in a cycle-level NoC?</div>
+<div class="take vi"><span class="lab">Controlled comparison</span>Scalar lowering repeats one-flit rounds; tensor lowering creates one multi-flit request per event and rank.</div>
 
 <!--
-Timing 35 s. Topic 4 is a trace case study. We executed an NCCL all-reduce microbenchmark on eight H100s, scaled the trace into Garnet, and lowered it two ways: 6,720 scalar single-flit requests versus 15 multi-flit tensor requests, reduced inside the routers on a convergence tree. Validation holds the injected work identical, so any difference is purely representation.
+Timing 35 s. Topic 4 uses a measured eight-H100 NCCL trace. After scaling, scalar lowering serializes lanes into independent rounds, while tensor lowering keeps one multi-flit request per event. Routers accumulate by collective and lane ID and preserve backpressure.
 -->
 
 ---
 
-<div class="sec vi"><span class="n">03</span>Evaluation · Methodology</div>
+# Replay results
 
-# Everything is paired, every arm is matched
+<p class="lede">A scheduling win, not fewer bytes.</p>
 
 <div class="body">
-
-<div class="grid2 rev">
-
-<div class="stack">
-
-  <div class="card gr">
-    <span class="mark">PAIRED CONTRACT</span>
-    <h3>Same everything but the mechanism</h3>
-    <p>Same topology size, source, <b>destination sequence</b>, packet size, injection schedule, background traffic, seed and completion condition. A sim-cycle timeout is a <b>failure</b>, never a result.</p>
-  </div>
-
-  <div class="card">
-    <span class="mark">METRICS KEPT SEPARATE</span>
-    <h3>Three different claims</h3>
-    <p><b>Link-flit traffic</b> — structural · <b>Completion latency</b> — implemented system · <b>Throughput &amp; wire cost</b> — workload- and hardware-dependent.</p>
-  </div>
-
-</div>
-
-<div>
-
-  <table class="tbl">
-    <thead><tr><th>Study</th><th>Arms (new vs. baseline)</th><th class="r">Paired scale</th></tr></thead>
-    <tbody>
-      <tr><td>Multicast</td><td>Tree bitmap vs. replicated unicast</td><td class="num">162 pairs · 324 runs</td></tr>
-      <tr><td>Bypass</td><td>4 express designs vs. plain Mesh</td><td class="num">6,144 pairs · 7,680 runs</td></tr>
-      <tr><td>Interaction</td><td>2×2 factorial: mode × topology</td><td class="num">416 pairs · 624 runs</td></tr>
-      <tr><td>Trace replay</td><td>Tensor vs. scalar · bypass vs. XY</td><td class="num">30-req broadcast + all-reduce</td></tr>
-    </tbody>
-  </table>
-  <div class="cap">Multicast: 4/8/16 destinations × 4 packet sizes × loads × backgrounds × 3 seeds · Bypass: 4 traffic patterns × 16 offered loads × 2 mesh sizes × 3 seeds, per design.</div>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="take"><span class="lab">Why it matters</span>Identical inputs and seeds make each pair a controlled experiment — so a regression is a <b>property of the mechanism</b>, not noise.</div>
-
-<!--
-Timing 30 s. Methodology. Every study is paired: same destination sequence, seeds, packet sizes, exit conditions; timeouts are failures. Three claim types are kept separate - traffic, latency, throughput. Scale: 162 multicast pairs, 6,144 bypass pairs, 416 interaction pairs.
--->
-
----
-
-<div class="sec vi"><span class="n">03</span>Evaluation · Multicast</div>
-
-# Traffic saving is structural; throughput is not free
-
-<div class="body" style="grid-template-rows:auto 1fr;gap:14px">
 
 <div class="metrics">
-  <div class="metric">
-    <span class="v">−39.5%</span>
-    <span class="k">mean internal-link flits</span>
-    <span class="n">162 paired cases · median −41.2%</span>
-  </div>
-  <div class="metric">
-    <span class="v">3.59×</span>
-    <span class="k">median completion-latency speedup</span>
-    <span class="n">mean 4.79× · min 1.2× (implemented system)</span>
-  </div>
-  <div class="metric warn">
-    <span class="v">10 / 162</span>
-    <span class="k">throughput regressions</span>
-    <span class="n">all at 4 destinations · worst −18.2%</span>
-  </div>
-</div>
-
-<div class="grid2">
-
-<div>
-  <div class="fig" style="height:250px"><img src="/traffic_reduction_by_group.png" alt="Internal-link flit reduction by destination count" /></div>
-  <div class="cap">Link-flit saving vs. destination count — monotone in fanout.</div>
-</div>
-
-<div class="stack">
-  <table class="tbl">
-    <thead><tr><th>Destinations</th><th class="r">Link-flit saving</th><th class="r">Regressions</th></tr></thead>
-    <tbody>
-      <tr><td>4</td><td class="num amb">−26.2%</td><td class="num bad">10 / 54</td></tr>
-      <tr><td>8</td><td class="num good">−39.2%</td><td class="num">0 / 54</td></tr>
-      <tr><td>16</td><td class="num good">−53.1%</td><td class="num">0 / 54</td></tr>
-    </tbody>
-  </table>
-  <div class="cap">Saving grows with fanout (pure tree sharing). Every regression sits in the smallest, most loaded group — atomic fanout couples the branches.</div>
-</div>
-
-</div>
-
-</div>
-
-<div class="take cy"><span class="lab">Reading</span>Link flits are the <b>structural</b> claim. Latency is an <b>implemented-system</b> number — collective flits use a dedicated router fast path. Regressions are reported, not hidden.</div>
-
-<!--
-Timing 45 s. Multicast results. Across 162 paired cases, tree multicast removes 39.5 percent of internal-link flits on average, growing from 26 percent at four destinations to 53 percent at sixteen - that is pure tree sharing and it is structural. Median completion latency improves 3.59x. But ten cases regress in throughput, all at four destinations: atomic fanout couples branches, and at small fanout there is little sharing to pay for it.
--->
-
----
-
-<div class="sec vi"><span class="n">03</span>Evaluation · Bypass</div>
-
-# Saved hops do not automatically become saved time
-
-<div class="body">
-
-<div class="grid2">
-
-<div>
-  <div class="fig" style="height:235px"><img src="/bypass_overall.png" alt="Latency speedup and throughput change for four bypass designs" /></div>
-  <div class="cap">1,536 paired seed cases per design · 4 traffics × 16 loads × 2 mesh sizes × 3 seeds.</div>
-</div>
-
-<div class="stack">
-
-  <table class="tbl">
-    <thead><tr><th>Design</th><th class="r">Latency</th><th class="r">Slower cases</th></tr></thead>
-    <tbody>
-      <tr class="pick"><td>Diagonal · distance-scaled</td><td class="num amb">1.629×</td><td class="num amb">687 / 1536</td></tr>
-      <tr><td>Diagonal · optimistic</td><td class="num">1.723×</td><td class="num">160 / 1536</td></tr>
-      <tr><td>Stride · distance-scaled</td><td class="num bad">0.981×</td><td class="num bad">968 / 1536</td></tr>
-      <tr><td>Stride · optimistic</td><td class="num">1.103×</td><td class="num">311 / 1536</td></tr>
-    </tbody>
-  </table>
-
-  <div class="card am">
-    <span class="mark">WHY</span>
-    <h3>Hops vs. wire</h3>
-    <p>Stride removes <b>more</b> router traversals (−15.5% vs. −2.8% for diagonal) but its 2× wire budget erases the win under distance-scaled wires. The mean also hides a wide distribution.</p>
-  </div>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="take am"><span class="lab">Honest reading</span>Diagonal bypass wins the <b>mean</b> with hardware-relevant wires — yet is still slower in <b>687 of 1,536</b> cases. Bypass is a <b>conditional</b> mechanism, not a general speedup.</div>
-
-<!--
-Timing 45 s. Bypass results. The headline: distance-scaled diagonal links give 1.629x mean latency speedup. But look at the third column - even the winning design is slower in 687 of 1536 paired cases. Stride removes more router traversals yet averages 0.981x under distance-scaled wires because it pays twice the wire budget. So we report bypass as conditional, not as a general win.
--->
-
----
-
-<div class="sec vi"><span class="n">03</span>Evaluation · Interaction</div>
-
-# The two mechanisms do not add up
-
-<div class="body" style="grid-template-rows:auto auto;gap:16px">
-
-<div class="duo">
-  <div class="box cy">
-    <div class="h">MULTICAST</div>
-    <b>Removes duplicated work</b>
-    <span>Shares route prefixes — most redundant traversals are already gone <b>before</b> any shortcut exists.</span>
-  </div>
-  <div class="box am">
-    <div class="h">BYPASS</div>
-    <b>Shortens long routes</b>
-    <span>Helps distant or structured unicast traffic — when the wire cost of the shortcut is justified.</span>
-  </div>
-</div>
-
-<div class="stat3">
-  <div><span class="v">416</span><span class="k">paired interaction cases (2×2, 3×3, 4×4 · 2×2 factorial)</span></div>
-  <div><span class="v">0.965×</span><span class="k">replicated unicast + distance-scaled bypass</span></div>
-  <div><span class="v">0.988×</span><span class="k">tree multicast + distance-scaled bypass</span></div>
-</div>
-
-</div>
-
-<div class="take"><span class="lab">Design decision</span>Our policy <b>rejects a shortcut that breaks a route prefix shared with another destination</b> — on the directed gate this costs 3,500 vs. 4,000 ticks. The H100 broadcast replay therefore uses <b>0 express flits by policy</b>, not by accident.</div>
-
-<!--
-Timing 30 s. Do the mechanisms compose? No. In the two-by-two factorial, distance-scaled bypass averages 0.965 with replicated unicast and 0.988 with tree multicast - both slightly below one. So we made multicast cost-aware: it refuses an express hop that would break a shared prefix, which is why the H100 replay uses zero express flits by policy.
--->
-
----
-
-<div class="sec vi"><span class="n">03</span>Evaluation · Topic 4</div>
-
-# A representation win, not a traffic win
-
-<div class="body">
-
-<div class="grid2">
-
-<div>
-  <div class="fig" style="height:250px"><img src="/tensor_measurement_comparison.png" alt="Scalar versus tensor replay measurement window" /></div>
-  <div class="cap">Same trace, same traffic — only the request representation changes.</div>
-</div>
-
-<div class="stack">
-
   <div class="metric vi">
     <span class="v">4.728×</span>
-    <span class="k">shorter measurement window</span>
+    <span class="k">shorter replay window</span>
     <span class="n">80,638,000 → 17,054,500 ticks</span>
   </div>
+  <div class="metric vi">
+    <span class="v">53,760</span>
+    <span class="k">source flits in both arms</span>
+    <span class="n">same rank-lane deliveries</span>
+  </div>
+  <div class="metric vi">
+    <span class="v">147,840</span>
+    <span class="k">Router-forwarded flits</span>
+    <span class="n">identical in both representations</span>
+  </div>
+</div>
 
-  <table class="tbl">
-    <thead><tr><th>Held identical</th><th class="r">Both lowerings</th></tr></thead>
-    <tbody>
-      <tr><td>Rank contributions</td><td class="num">53,760</td></tr>
-      <tr><td>Router-generated flits</td><td class="num">147,840</td></tr>
-      <tr><td>Wire-flit distance</td><td class="num">94,080</td></tr>
-      <tr><td>Express-link flits</td><td class="num">0 (both arms)</td></tr>
-    </tbody>
-  </table>
+<table class="tbl">
+  <thead><tr><th>Replay view</th><th class="r">Trace events</th><th class="r">Logical requests</th><th class="r">Source flits</th><th class="r">Window</th></tr></thead>
+  <tbody>
+    <tr><td>Broadcast</td><td class="num">15</td><td class="num">30</td><td class="num">6,720</td><td class="num">17,047,500</td></tr>
+    <tr><td>Scalar all-reduce</td><td class="num">15</td><td class="num">6,720</td><td class="num">53,760</td><td class="num">80,638,000</td></tr>
+    <tr class="pick"><td>Tensor all-reduce</td><td class="num">15</td><td class="num">15</td><td class="num">53,760</td><td class="num">17,054,500</td></tr>
+  </tbody>
+</table>
 
 </div>
 
-</div>
-
-</div>
-
-<div class="take vi"><span class="lab">Boundary</span>15 tensor requests vs. 6,720 scalar lanes remove <b>request serialization</b> — the bytes moved are the same. The all-reduce tree uses ordinary Mesh edges, so the topology arm is intentionally <b>neutral</b>. Not an H100 or training speedup.</div>
+<div class="take vi"><span class="lab">Boundary</span>The win comes from replacing 6,720 independently admitted scalar rounds with 15 event-level requests. Mesh XY and the bypass arm are identical here because selected routes follow ordinary XY and express flits are zero.</div>
 
 <!--
-Timing 35 s. Topic 4 results. Keeping traffic byte-identical, the tensor lowering finishes the same trace with a 4.728x shorter measurement window - 80.6 million to 17 million ticks. Contributions, router flits and wire distance are identical, so this is purely a representation win: removing request serialization, not moving fewer bytes.
+Timing 40 s. Tensor replay reduces the window from 80.638 million to 17.0545 million ticks, 4.728 times. Source and Router-forwarded flit counts are identical, so this is a request-representation and scheduling result, not an H100 hardware speedup.
 -->
 
 ---
 
-<div class="sec">Conclusion</div>
+# Conclusion
 
-# Three claims, kept separate
+<p class="lede">Three claims, kept separate.</p>
 
 <div class="body">
 
 <div class="cards3">
   <div class="card cy">
-    <span class="mark">−39.5% LINK FLITS</span>
-    <h3>Expose shared structure</h3>
-    <p>Tree multicast reliably removes duplicated link traffic; the saving grows with fanout. Cost: atomic fanout can stall small, loaded groups.</p>
+    <span class="mark">TREE MULTICAST</span>
+    <h3>Sharing is structural</h3>
+    <p>Common-fanout traffic falls 39.51% on 4×4 and 34.95% on 8×8; scale-out reaches 75.39% at fanout 64. Atomic fanout explains the ten 4×4 regressions.</p>
   </div>
   <div class="card am">
-    <span class="mark">1.629× CONDITIONAL</span>
-    <h3>Price every shortcut</h3>
-    <p>Diagonal bypass wins the mean under distance-scaled wires; stride's larger wire budget erases its hop advantage. Regressions included.</p>
+    <span class="mark">PRESSURE-AWARE BYPASS</span>
+    <h3>Useful, not free</h3>
+    <p>Distance-scaled stride links give 1.291× and 1.583× mean latency speedup, with explicit added links, ports, wire span, and buffer proxies.</p>
   </div>
   <div class="card vi">
-    <span class="mark">4.728× WINDOW</span>
-    <h3>Preserve request semantics</h3>
-    <p>Tensor streaming removes scalar serialization while injecting exactly the same contributions and router flits.</p>
+    <span class="mark">TENSOR ALL-REDUCE</span>
+    <h3>Representation matters</h3>
+    <p>Event-level requests finish the scaled trace 4.728× sooner while injecting and forwarding exactly the same flit counts.</p>
   </div>
 </div>
 
 </div>
 
-<div class="take"><span class="lab">Design principle</span>Expose collective structure where it removes <b>demonstrable</b> network work · admit shortcuts only with <b>cost and safety checks</b> · report every mechanism against a <b>matched baseline</b> — negative cases included.</div>
+<div class="take"><span class="lab">Design principle</span>Expose collective structure only where it removes demonstrable network work or request serialization; keep every claim beside its matched baseline and its resource boundary.</div>
 
 <!--
-Timing 25 s. Conclusion, three separate claims. Multicast removes duplicated work. Bypass helps only when its wire cost is paid for - a conditional mechanism. And preserving request semantics removes serialization without touching traffic.
+Timing 25 s. Multicast removes duplicated link work, especially at high fanout. Bypass improves latency with added hardware and conservative admission. Tensor streaming preserves event structure and removes scalar serialization.
 -->
 
 ---
 
-<div class="sec rs"><span class="n">04</span>Division of Labor</div>
+# Division of labor
 
-# Built separately, integrated and verified together
+<p class="lede">Built separately, integrated together.</p>
 
 <div class="body">
 
@@ -685,10 +633,10 @@ Timing 25 s. Conclusion, three separate claims. Multicast removes duplicated wor
     <div>
       <h3>Chunyu Liu</h3>
       <ul>
-        <li>Tree multicast datapath + replicated-unicast baseline</li>
-        <li>Bypass topologies, routing oracle, cost-aware policy</li>
-        <li>Correctness matrices and paired performance sweeps</li>
-        <li>H100 trace capture and broadcast replay</li>
+        <li>Garnet collective plumbing and tree multicast</li>
+        <li>Express-link bypass design and evaluation</li>
+        <li>H100 trace capture and compilation</li>
+        <li>Aggregate analysis, figures, and report integration</li>
       </ul>
     </div>
   </div>
@@ -697,10 +645,10 @@ Timing 25 s. Conclusion, three separate claims. Multicast removes duplicated wor
     <div>
       <h3>Boyan Pu</h3>
       <ul>
-        <li>Multi-flit tensor all-reduce datapath</li>
-        <li>Replay contract, compiler and validator</li>
-        <li>Backpressure and credit-conservation stress tests</li>
-        <li>Tensor statistics and paired replay comparison</li>
+        <li>Tensor all-reduce implementation</li>
+        <li>Replay tooling</li>
+        <li>Backpressure and correctness validation</li>
+        <li>Tensor experiments, statistics, and slide production</li>
       </ul>
     </div>
   </div>
@@ -708,47 +656,42 @@ Timing 25 s. Conclusion, three separate claims. Multicast removes duplicated wor
 
 </div>
 
-<div class="take rs"><span class="lab">Shared</span>Branch integration · regression review · final quantitative snapshot · report and figure verification.</div>
-
 <!--
-Timing 20 s. Division of labor: Chunyu built multicast, bypass and the trace capture; Boyan built the tensor all-reduce datapath, its validator and the stress tests. Integration, regressions and the final snapshot were done together.
+Timing 15 s. Chunyu built the multicast and bypass mechanisms and the trace capture. Boyan built the tensor datapath, replay tooling, and validation. Integration and final reporting were done together.
 -->
 
 ---
 class: end-slide
 ---
 
-<div class="sec">gem5 Garnet · Topic 3 + Topic 4</div>
-
 # Thank you
 
-<p class="lines">Multicast shares duplicated work.<br>Bypass has to pay for distance.<br>Tensor streaming preserves the request.</p>
+<p class="lines">Multicast shares the tree.<br>Bypass pays for distance, then checks pressure.<br>Tensor replay preserves the event.</p>
 
 <div class="row">
-  <span><b>−39.5%</b>link flits</span>
-  <span><b>1.629×</b>conditional bypass</span>
-  <span><b>4.728×</b>replay window</span>
+  <span><b>−75.39%</b>fanout-64 link flits</span>
+  <span><b>1.583×</b>8×8 bypass latency</span>
+  <span><b>4.728×</b>tensor replay window</span>
 </div>
 
 <!--
-Timing 5 s. Thank you - happy to take questions.
+Timing 5 s. Thank you. I can return to the backup slides for exact comparisons and limitations.
 -->
 
 ---
 
-<div class="sec">Backup</div>
+# Comparisons
 
-# What exactly was compared?
+<p class="lede">What exactly was compared?</p>
 
 <div class="body">
 
 <table class="tbl">
   <thead><tr><th>Study</th><th>New mechanism</th><th>Matched baseline</th><th>Primary evidence</th></tr></thead>
   <tbody>
-    <tr><td>Multicast</td><td>One bitmap packet, replicated at branch routers</td><td>4/8/16 independent XY packets, identical Mesh</td><td>Internal-link flits</td></tr>
-    <tr><td>Bypass</td><td>Express links + static routing oracle</td><td>Same Mesh, no express links</td><td>Latency, throughput, wire cost</td></tr>
-    <tr><td>Interaction</td><td>2×2 factorial: mode × topology</td><td>Each single-mechanism arm</td><td>Paired completion time</td></tr>
-    <tr><td>Trace replay</td><td>15 multi-flit logical requests</td><td>6,720 serialized scalar lanes</td><td>End-to-end replay window</td></tr>
+    <tr><td>Tree multicast</td><td>One bitmap packet, replicated at pruned-tree branches</td><td>Replicated unicast on the same Mesh</td><td>Internal-link flits, latency, logical throughput</td></tr>
+    <tr><td>Express bypass</td><td>Stride-2 links, multi-hop DOR table, runtime admission</td><td>Plain Mesh XY with fewer resources</td><td>Latency, throughput, traversals, cost proxies</td></tr>
+    <tr><td>Tensor replay</td><td>15 event-level multi-flit requests</td><td>6,720 scalar-lane rounds</td><td>Replay window and identical flit counts</td></tr>
   </tbody>
 </table>
 
@@ -760,22 +703,30 @@ Timing 5 s. Thank you - happy to take questions.
 
 </div>
 
-<div class="take"><span class="lab">Acceptance</span>A timeout is a <b>failure</b>, never a result. Paired runs share inputs, seeds and exit conditions; count identities are verified before numbers enter the report.</div>
+<!--
+Backup. This table records the exact paired comparison behind each headline number.
+-->
 
 ---
 
-<div class="sec">Backup</div>
+# Scope and reproducibility
 
-# Where these results stop
+<p class="lede">Claims, limits, and revision provenance.</p>
 
 <div class="body">
 
 <div class="bounds">
-  <div><b>Multicast</b><span>One 4×4 source placement (router 5); collective flits use a dedicated router fast path, so latency is not an isolated replication effect.</span></div>
-  <div><b>Bypass</b><span>Wire cost is a latency and static-cost proxy — no area, power, repeaters or timing closure. The oracle minimizes hops, not modeled latency.</span></div>
-  <div><b>Trace</b><span>An executed collective microbenchmark, not a full model trace; bytes and times are scaled by 1/1024, and rank values are deterministic test values.</span></div>
-  <div><b>Tensor</b><span>No finite accumulator capacity and no modeled arithmetic pipeline latency.</span></div>
-  <div><b>Overall</b><span>Cycle-level Garnet mechanism results — not NVLink/NVSwitch hardware or end-to-end training throughput.</span></div>
+  <div><b>Resource boundary</b><span>Bypass is workload-matched and added-resource, not iso-area, iso-power, or iso-wire; physical area and power are outside Garnet.</span></div>
+  <div><b>Topology separation</b><span>Multicast common-fanout and 8×8 scale-out groups stay separate; fanout 32 and 64 are never pooled into the cross-topology mean.</span></div>
+  <div><b>Trace scaling</b><span>H100 payload and release times are scaled by 1/1024; the reported window is Garnet simulation ticks, not native NVLink time.</span></div>
+  <div><b>Neutral topology arm</b><span>The tensor trace's selected routes use ordinary XY, so Mesh XY and the bypass arm produce identical replay results.</span></div>
+  <div><b>Revisions</b><span>Multicast/tensor: 77fcf26d57. Bypass evaluation: 1e8764cde7; pressure-aware source hash: ea4c3c9b0f.</span></div>
 </div>
 
 </div>
+
+<div class="take"><span class="lab">Rebuild</span><code>plot_multicast.py</code> and <code>generate_architecture_figures.py</code> rebuild figures; <code>run_lab4_full_gate.py</code> runs the functional, backpressure, and trace suites.</div>
+
+<!--
+Backup. Use this slide for questions about resource fairness, scale-out pooling, trace scaling, or revisions.
+-->
