@@ -1,0 +1,512 @@
+{
+  "schema": "ppt-master.pptx-delivery-check.v1",
+  "status": "passed-with-advisories",
+  "file": {
+    "path": "/mnt/einsia/aws02-nvme/einsia-shared/homes/kaisen/haru/work/ai-x/projects/ai_collectives_20260907/exports/ai_collectives_20260907_20260907_061611.pptx",
+    "bytes": 7190638
+  },
+  "package": {
+    "zip_integrity": "passed",
+    "corrupt_member": null,
+    "duplicate_parts": [],
+    "canonical_part_collisions": [],
+    "parts": {
+      "entries": 105,
+      "unique": 105,
+      "slides": 11,
+      "notes": 11,
+      "masters": 1,
+      "layouts": 12,
+      "media": 21
+    },
+    "relationships": {
+      "problems": []
+    }
+  },
+  "slides": {
+    "count": 11,
+    "hidden_count": 0,
+    "hidden": []
+  },
+  "fonts": {
+    "theme": {
+      "title": {
+        "latin": "Gill Sans MT",
+        "scripts": {
+          "Jpan": "HGｺﾞｼｯｸE",
+          "Hang": "휴먼매직체",
+          "Hans": "华文中宋",
+          "Hant": "微軟正黑體"
+        }
+      },
+      "body": {
+        "latin": "Gill Sans MT",
+        "scripts": {
+          "Jpan": "HGｺﾞｼｯｸE",
+          "Hang": "휴먼매직체",
+          "Hans": "华文中宋",
+          "Hant": "微軟正黑體"
+        }
+      }
+    },
+    "declared": {
+      "latin": [
+        {
+          "value": "Gill Sans MT",
+          "count": 102
+        },
+        {
+          "value": "+mn-lt",
+          "count": 36
+        },
+        {
+          "value": "Segoe UI",
+          "count": 4
+        },
+        {
+          "value": "+mj-lt",
+          "count": 2
+        },
+        {
+          "value": "等线",
+          "count": 1
+        },
+        {
+          "value": "等线 Light",
+          "count": 1
+        }
+      ],
+      "ea": [
+        {
+          "value": "Gill Sans MT",
+          "count": 100
+        },
+        {
+          "value": "+mn-ea",
+          "count": 36
+        },
+        {
+          "value": "Segoe UI",
+          "count": 4
+        },
+        {
+          "value": "+mj-ea",
+          "count": 2
+        }
+      ],
+      "cs": [
+        {
+          "value": "Gill Sans MT",
+          "count": 100
+        },
+        {
+          "value": "+mn-cs",
+          "count": 36
+        },
+        {
+          "value": "Segoe UI",
+          "count": 4
+        },
+        {
+          "value": "+mj-cs",
+          "count": 2
+        }
+      ]
+    },
+    "embedded_parts": [],
+    "portability_advisory_faces": [
+      "Gill Sans MT",
+      "HGｺﾞｼｯｸE",
+      "华文中宋",
+      "微軟正黑體",
+      "휴먼매직체"
+    ]
+  },
+  "media": {
+    "embedded_count": 21,
+    "external_count": 0,
+    "embedded": [
+      {
+        "part": "ppt/media/image8.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 1490034,
+        "compressed_bytes": 1476518,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image5.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 934553,
+        "compressed_bytes": 926899,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image9.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 840118,
+        "compressed_bytes": 831258,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image1.emf",
+        "kind": "image",
+        "content_type": "image/x-emf",
+        "bytes": 646492,
+        "compressed_bytes": 410602,
+        "reference_count": 5,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image11.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 637266,
+        "compressed_bytes": 632454,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image2.emf",
+        "kind": "image",
+        "content_type": "image/x-emf",
+        "bytes": 559052,
+        "compressed_bytes": 346998,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image6.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 532630,
+        "compressed_bytes": 526779,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image15.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 303496,
+        "compressed_bytes": 299400,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_e0f85da444a31d2c.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 232519,
+        "compressed_bytes": 213765,
+        "reference_count": 2,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_fa56ba0941ccdf6c.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 220577,
+        "compressed_bytes": 207420,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image14.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 192618,
+        "compressed_bytes": 179970,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image3.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 179094,
+        "compressed_bytes": 176662,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image13.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 151425,
+        "compressed_bytes": 141517,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_cf10aea83eb6efc0.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 150507,
+        "compressed_bytes": 141287,
+        "reference_count": 2,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image4.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 130210,
+        "compressed_bytes": 128793,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_9546826d0f99465f.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 116166,
+        "compressed_bytes": 113966,
+        "reference_count": 2,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_955b8ecb9e458ecd.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 108242,
+        "compressed_bytes": 92262,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_4c473d5a7b09f9a5.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 94267,
+        "compressed_bytes": 88172,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image10.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 73862,
+        "compressed_bytes": 72967,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_37140cc4fedaa734.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 61548,
+        "compressed_bytes": 50803,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_34ab7b92a609f5a5.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 54742,
+        "compressed_bytes": 44808,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      }
+    ],
+    "external": [],
+    "uncompressed_bytes": 7709418,
+    "archive_compressed_bytes": 7103300,
+    "share_of_archive": 0.987854,
+    "share_of_uncompressed_parts": 0.964914,
+    "top_contributors": [
+      {
+        "part": "ppt/media/image8.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 1490034,
+        "compressed_bytes": 1476518,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image5.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 934553,
+        "compressed_bytes": 926899,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image9.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 840118,
+        "compressed_bytes": 831258,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image1.emf",
+        "kind": "image",
+        "content_type": "image/x-emf",
+        "bytes": 646492,
+        "compressed_bytes": 410602,
+        "reference_count": 5,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image11.gif",
+        "kind": "image",
+        "content_type": "image/gif",
+        "bytes": 637266,
+        "compressed_bytes": 632454,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image2.emf",
+        "kind": "image",
+        "content_type": "image/x-emf",
+        "bytes": 559052,
+        "compressed_bytes": 346998,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image6.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 532630,
+        "compressed_bytes": 526779,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image15.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 303496,
+        "compressed_bytes": 299400,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_e0f85da444a31d2c.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 232519,
+        "compressed_bytes": 213765,
+        "reference_count": 2,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      },
+      {
+        "part": "ppt/media/image_fa56ba0941ccdf6c.png",
+        "kind": "image",
+        "content_type": "image/png",
+        "bytes": 220577,
+        "compressed_bytes": 207420,
+        "reference_count": 1,
+        "relationship_types": [
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        ]
+      }
+    ]
+  },
+  "motion": {
+    "transitions": {
+      "carrier_slide_count": 0,
+      "visual_effect_slide_count": 0,
+      "timed_advance_slide_count": 0,
+      "carrier_slides": [],
+      "visual_effect_slides": [],
+      "timed_advance_slides": [],
+      "effects": {}
+    },
+    "object_animations": {
+      "timing_slide_count": 0,
+      "object_animation_slide_count": 0,
+      "audio_timing_slide_count": 0,
+      "timing_slides": [],
+      "object_animation_slides": [],
+      "audio_timing_slides": []
+    }
+  },
+  "errors": [],
+  "advisories": [
+    {
+      "code": "font_portability",
+      "message": "Some fonts declared or referenced by the presentation are outside the common Office/OS portability set; target-system availability was not verified.",
+      "faces": [
+        "Gill Sans MT",
+        "HGｺﾞｼｯｸE",
+        "华文中宋",
+        "微軟正黑體",
+        "휴먼매직체"
+      ]
+    }
+  ]
+}

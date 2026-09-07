@@ -1,0 +1,612 @@
+{
+  "schema": "ppt-master.pptx-postflight-report.v1",
+  "status": "passed-with-warnings",
+  "output": {
+    "path": "/mnt/einsia/aws02-nvme/einsia-shared/homes/kaisen/haru/work/ai-x/projects/ai_collectives_20260907/exports/ai_collectives_20260907_20260907_061522.pptx",
+    "bytes": 7190638
+  },
+  "source": {
+    "svg_slide_count": 11,
+    "layout_definition_count": 0,
+    "fingerprint": {
+      "algorithm": "sha256",
+      "digest": "5324621f509d27da18d021efc157ba35ab8d5e7b7f0c5444080199f8a6352e9b",
+      "file_count": 11,
+      "files": [
+        {
+          "file": "slide_01.svg",
+          "sha256": "daa676c29bafc27d51e8a07352bf29d546276e0085fb00c067512ade5b5624df"
+        },
+        {
+          "file": "slide_05.svg",
+          "sha256": "9b8a18d9f1c43bf920d2b7ad6fc8c9f13cd7af4db0fcb23df29b2592ee1ec4c7"
+        },
+        {
+          "file": "slide_08.svg",
+          "sha256": "fc89f2cfae06f361b7950410a22a5c10e8b88b25b968eaf76e52a93743cef806"
+        },
+        {
+          "file": "slide_10.svg",
+          "sha256": "0d214f94856aee1ce31d22bf33f7e4aca114f6beb72eab42789cda3167e9e9a1"
+        },
+        {
+          "file": "slide_11.svg",
+          "sha256": "3bdc4a42e32c85ca7a03c7d3730ff82b2331f3fcaad3f74e74cce02d7580c710"
+        },
+        {
+          "file": "slide_12.svg",
+          "sha256": "b3b7c2eeae5b270d0d7c3b72971c5e4c33324a3f98857bb657822cee19557fc5"
+        },
+        {
+          "file": "slide_15.svg",
+          "sha256": "6c0392c144e11d4fa8cf957f62cb02e830b9d90754d69d2eb3a966f265832945"
+        },
+        {
+          "file": "slide_16.svg",
+          "sha256": "08a94a4be157cbcacc0cd17fd6d555b5cec02e85d8d139cfcc135159b4aa810e"
+        },
+        {
+          "file": "slide_17.svg",
+          "sha256": "c5e3cde68279a1ad84cbfd5285809cec8cac3fdcf1f1c7ef60e15ff03c6119fd"
+        },
+        {
+          "file": "slide_18.svg",
+          "sha256": "0bebf4088f699f61cecddd89db6b55f9b9b42fc3949b385b115c140bf6d9aee6"
+        },
+        {
+          "file": "slide_23.svg",
+          "sha256": "24141f76525fc1cb98ee3dc64edddae11603788fcd1b4b0c22e7354074883858"
+        }
+      ]
+    },
+    "authoring_roundtrip": {
+      "schema": "ppt-master.authoring-roundtrip-materialization.v1",
+      "authoring_root": "/mnt/einsia/aws02-nvme/einsia-shared/homes/kaisen/haru/work/ai-x/projects/ai_collectives_20260907/authoring-svg-flat",
+      "manifest_schema": "ppt-master.svg-authoring-ir.v1",
+      "projection_kind": "flat",
+      "materialized_slide_count": 11,
+      "page_plan": {
+        "schema": "ppt-master.roundtrip-page-plan.v1",
+        "output_pages": 11,
+        "pages": [
+          {
+            "output_index": 1,
+            "source_slide": 1,
+            "svg": "slide_01.svg"
+          },
+          {
+            "output_index": 2,
+            "source_slide": 8,
+            "svg": "slide_08.svg"
+          },
+          {
+            "output_index": 3,
+            "source_slide": 5,
+            "svg": "slide_05.svg"
+          },
+          {
+            "output_index": 4,
+            "source_slide": 10,
+            "svg": "slide_10.svg"
+          },
+          {
+            "output_index": 5,
+            "source_slide": 15,
+            "svg": "slide_15.svg"
+          },
+          {
+            "output_index": 6,
+            "source_slide": 11,
+            "svg": "slide_11.svg"
+          },
+          {
+            "output_index": 7,
+            "source_slide": 16,
+            "svg": "slide_16.svg"
+          },
+          {
+            "output_index": 8,
+            "source_slide": 12,
+            "svg": "slide_12.svg"
+          },
+          {
+            "output_index": 9,
+            "source_slide": 17,
+            "svg": "slide_17.svg"
+          },
+          {
+            "output_index": 10,
+            "source_slide": 18,
+            "svg": "slide_18.svg"
+          },
+          {
+            "output_index": 11,
+            "source_slide": 23,
+            "svg": "slide_23.svg"
+          }
+        ]
+      },
+      "totals": {
+        "source_ref_count": 77,
+        "unchanged_refs": 44,
+        "edited_refs": 33,
+        "deleted_refs": 0,
+        "authored_unreferenced": 0,
+        "expanded_vector_uses": 0
+      },
+      "documents": [
+        {
+          "file": "slide_01.svg",
+          "source_file": "slide_01.svg",
+          "source_slide": 1,
+          "document_unchanged": false,
+          "source_ref_count": 6,
+          "source_ref_ids": [
+            "layout:10",
+            "layout:11",
+            "layout:3",
+            "layout:9",
+            "slide:2",
+            "slide:3"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "layout:10",
+            "layout:11",
+            "layout:3",
+            "layout:9"
+          ],
+          "edited_refs": 2,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_08.svg",
+          "source_file": "slide_08.svg",
+          "source_slide": 8,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_05.svg",
+          "source_file": "slide_05.svg",
+          "source_slide": 5,
+          "document_unchanged": false,
+          "source_ref_count": 9,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:1026",
+            "slide:2",
+            "slide:3",
+            "slide:4",
+            "slide:5"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 5,
+          "edited_ref_ids": [
+            "slide:1026",
+            "slide:2",
+            "slide:3",
+            "slide:4",
+            "slide:5"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_10.svg",
+          "source_file": "slide_10.svg",
+          "source_slide": 10,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:7"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:7"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_15.svg",
+          "source_file": "slide_15.svg",
+          "source_slide": 15,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_11.svg",
+          "source_file": "slide_11.svg",
+          "source_slide": 11,
+          "document_unchanged": false,
+          "source_ref_count": 8,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:5",
+            "slide:8"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 4,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:5",
+            "slide:8"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_16.svg",
+          "source_file": "slide_16.svg",
+          "source_slide": 16,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_12.svg",
+          "source_file": "slide_12.svg",
+          "source_slide": 12,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:5"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:5"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_17.svg",
+          "source_file": "slide_17.svg",
+          "source_slide": 17,
+          "document_unchanged": false,
+          "source_ref_count": 7,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 3,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3",
+            "slide:4"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_18.svg",
+          "source_file": "slide_18.svg",
+          "source_slide": 18,
+          "document_unchanged": false,
+          "source_ref_count": 6,
+          "source_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8",
+            "slide:2",
+            "slide:3"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "master:10",
+            "master:12",
+            "master:13",
+            "master:8"
+          ],
+          "edited_refs": 2,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        },
+        {
+          "file": "slide_23.svg",
+          "source_file": "slide_23.svg",
+          "source_slide": 23,
+          "document_unchanged": false,
+          "source_ref_count": 6,
+          "source_ref_ids": [
+            "layout:10",
+            "layout:11",
+            "layout:3",
+            "layout:9",
+            "slide:2",
+            "slide:3"
+          ],
+          "unchanged_refs": 4,
+          "unchanged_ref_ids": [
+            "layout:10",
+            "layout:11",
+            "layout:3",
+            "layout:9"
+          ],
+          "edited_refs": 2,
+          "edited_ref_ids": [
+            "slide:2",
+            "slide:3"
+          ],
+          "deleted_refs": 0,
+          "deleted_ref_ids": [],
+          "authored_unreferenced": 0,
+          "expanded_vector_uses": 0,
+          "defs_changed": false
+        }
+      ],
+      "source_slide_passthrough": {
+        "count": 0,
+        "slides": []
+      },
+      "export_summary": {
+        "output_pages": 11,
+        "passthrough": 0,
+        "cloned_passthrough": 0,
+        "patched": 0,
+        "rebuilt": 11
+      }
+    }
+  },
+  "package": {
+    "zip_integrity": "passed",
+    "corrupt_member": null,
+    "slides": 11,
+    "notes": 11,
+    "masters": 1,
+    "layouts": 12
+  },
+  "checks": {
+    "zip_integrity": "passed",
+    "slide_count": "passed",
+    "internal_relationships": "enforced-at-build",
+    "structured_package": "not-applicable",
+    "transitions": "enforced-at-build",
+    "animations": "enforced-at-build",
+    "project_svg_contract": "enforced-at-build",
+    "compatibility_normalization": "not-applicable",
+    "authoring_roundtrip": "materialized-from-flat-authoring",
+    "quality_gate": "not-provided",
+    "quality_warnings": "passed",
+    "template_tokens": "passed",
+    "external_images": "passed",
+    "font_portability": "warning"
+  },
+  "quality": {
+    "status": "not-provided",
+    "path": "projects/ai_collectives_20260907/validation/svg_quality_report.json"
+  },
+  "resources": {
+    "unresolved_template_tokens": [],
+    "fonts": {
+      "stacks": [
+        "\"Gill Sans MT\", \"华文中宋\", sans-serif",
+        "sans-serif"
+      ],
+      "generic_only_stacks": [
+        "sans-serif"
+      ],
+      "unsafe_exported_faces": [
+        {
+          "stack": "\"Gill Sans MT\", \"华文中宋\", sans-serif",
+          "role": "latin",
+          "typeface": "Gill Sans MT"
+        }
+      ]
+    },
+    "images": {
+      "data_uri": 0,
+      "local": 11,
+      "external": 0,
+      "external_references": []
+    }
+  },
+  "export_policy": {
+    "project_svg_contract": "strict",
+    "dangerous_normalization_count": 0
+  },
+  "deck_motion": {
+    "transition": {
+      "effect": null,
+      "effect_options": {},
+      "duration": 0.0,
+      "auto_advance": null,
+      "sound": null
+    },
+    "animation": {
+      "effect": "none",
+      "effect_request": null,
+      "duration": 0.4,
+      "stagger": 0.5,
+      "trigger": "after-previous"
+    },
+    "cli_overrides": {
+      "transition": false,
+      "transition_duration": false,
+      "auto_advance": false,
+      "transition_sound": false,
+      "animation": false,
+      "animation_duration": false,
+      "animation_stagger": false,
+      "animation_trigger": false
+    },
+    "narration_timings": false
+  },
+  "backup_path": null,
+  "conversion_trace_path": null
+}

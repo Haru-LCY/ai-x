@@ -1,0 +1,4 @@
+To increase the model generalization, the diversity of training constraints is significant. There are 3 major components: handle, rack, and weight, to change the mass, CoM, friction, and inertia of the system. The author collects a dataset of 33 modular objects built from combinations of these 3 components. To collect the training data, for each object the robot does about 50 swing-up trials, in total about 1650 trials, each consisting of exploration actions, action execution, and result recording.
+For training, the authors adopted an end-to-end self-supervised learning approach.
+The final swing-up angle serves as the supervision signal, and the loss function measures the prediction error between the model’s predicted angle and the actual measured result.
+During inference, the robot samples a range of control parameters and selects the one whose predicted swing-up angle is closest to the desired target.

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1280" height="720" viewBox="0 0 1280 720" font-family="&quot;Gill Sans MT&quot;, &quot;华文中宋&quot;, sans-serif"><defs><linearGradient id="bggrad1" x1="0" y1="0.5" x2="1" y2="0.5"><stop offset="0" stop-color="#E1DFE2" /><stop offset="0.5" stop-color="#F2F2F2" /><stop offset="1" stop-color="#E1DFE2" /></linearGradient></defs><rect x="0" y="0" width="1280" height="720" fill="url(#bggrad1)" />
+<g id="master-shape-10" data-pptx-object="shape" data-pptx-frame="40.89 36.52 1198.22 124.86" data-pptx-prst="rect" data-pptx-source-ref="master:10" data-pptx-semantic-object="shape">
+<path d="M 40.89 36.52 L 1239.11 36.52 L 1239.11 161.38 L 40.89 161.38 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-12" data-pptx-object="shape" data-pptx-frame="855.11 167.16 384 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:12" data-pptx-semantic-object="shape">
+<path d="M 855.11 167.16 L 1239.11 167.16 L 1239.11 174.72 L 855.11 174.72 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-13" data-pptx-object="shape" data-pptx-frame="40.89 167.16 807.11 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:13" data-pptx-semantic-object="shape">
+<path d="M 40.89 167.16 L 848 167.16 L 848 174.72 L 40.89 174.72 Z" fill="#969FA7" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-8" data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" data-pptx-source-ref="master:8">
+<image data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" href="../images/image1.emf" x="1123.42" y="45.43" width="106.64" height="107.04" preserveAspectRatio="none" />
+</g>
+<g id="shape-2" data-pptx-object="shape" data-pptx-frame="41.82 223.75 1028.95 450.59" data-pptx-placeholder-index="1" data-pptx-prst="rect" data-pptx-source-ref="slide:2">
+
+<path d="M 41.82 223.75 L 1070.77 223.75 L 1070.77 674.34 L 41.82 674.34 Z" fill="none" />
+
+
+<text x="51.42" y="251.21" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan font-weight="bold">Topology:</tspan><tspan fill="#3D3D3D"> bidirectional stride-2 physical links.</tspan></text>
+<text x="51.42" y="315.21" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan fill="#3D3D3D">Wire latency scales with Manhattan span.</tspan></text>
+<text x="51.42" y="379.21" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan font-weight="bold">Oracle:</tspan><tspan fill="#3D3D3D"> choose an express hop only if full</tspan><tspan x="51.42" dy="30" fill="#3D3D3D">suffix cycle cost decreases.</tspan></text>
+<text x="51.42" y="473.21" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan fill="#3D3D3D">Reconsult the table at every Router for multi-hop use.</tspan></text>
+<text x="51.42" y="537.21" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan font-weight="bold">Runtime guard:</tspan><tspan fill="#3D3D3D"> fall back to XY under pressure.</tspan></text>
+<text x="51.42" y="601.21" text-anchor="start" xml:space="preserve" font-size="21" fill="#969FA7">Static routes pass a channel-dependency DAG audit.</text>
+<text x="51.42" y="633.21" text-anchor="start" xml:space="preserve" font-size="21" fill="#969FA7">Runtime choices preserve monotonic X-before-Y progress.</text>
+</g>
+<g id="shape-3" data-pptx-object="shape" data-pptx-frame="61.02 45.66 1062.4 106.58" data-ph-type="title" data-pptx-prst="rect" data-pptx-source-ref="slide:3" data-pptx-semantic-object="shape">
+<path d="M 61.02 45.66 L 1123.42 45.66 L 1123.42 152.24 L 61.02 152.24 Z" fill="none" data-ph-type="title" data-pptx-part="geometry" />
+
+
+<text x="70.62" y="108.29" text-anchor="start" xml:space="preserve" font-size="37.33" fill="#FFFFFF">Express-Link Bypass: Shorter Paths with Guardrails</text>
+</g>
+<g id="shape-5" data-pptx-object="picture" data-pptx-frame="974.3 181.92 263.88 267.12" data-pptx-source-ref="slide:5">
+<image data-pptx-object="picture" data-pptx-frame="974.3 181.92 263.88 267.12" href="../images/collectives_bypass_stride.png" x="974.3" y="181.92" width="263.88" height="267.12" preserveAspectRatio="xMidYMid meet" />
+</g>
+<g id="shape-8" data-pptx-object="picture" data-pptx-frame="810.72 457.11 469.28 251.27" data-pptx-source-ref="slide:8">
+<image data-pptx-object="picture" data-pptx-frame="810.72 457.11 469.28 251.27" href="../images/collectives_bypass_oracle.png" x="810.72" y="457.11" width="469.28" height="251.27" preserveAspectRatio="xMidYMid meet" />
+</g></svg>

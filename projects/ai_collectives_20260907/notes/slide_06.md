@@ -1,0 +1,4 @@
+This table shows the related works and their limitations: as I said before, many previous work only considers Static/Quasi-Static case, like fetching or holding an object.
+Manually engineered models are not ML-based, and they do not utilize tactile information. So they are lack of generalization.
+There are also some previous works on intuition physics, but they are restricted to vision modal. Also some key factors are very hard to measure by vision, like friction and forces, because the noise is too large for those factors. For example, the resolution is too low to precisely tell what is happening on the contact surfaces.
+So it is hard to measure the forces and the physical properties of the surfaces by only vision. In contrast, in-hand manipulation with tactile sensing provides richer and more direct feedback about contact interactions. This enables accurate estimation of these physical parameters.

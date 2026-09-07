@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1280" height="720" viewBox="0 0 1280 720" font-family="sans-serif"><defs><linearGradient id="bggrad1" x1="0" y1="0.5" x2="1" y2="0.5"><stop offset="0" stop-color="#E1DFE2" /><stop offset="0.5" stop-color="#F2F2F2" /><stop offset="1" stop-color="#E1DFE2" /></linearGradient></defs><rect x="0" y="0" width="1280" height="720" fill="url(#bggrad1)" />
+<g id="layout-shape-12" data-pptx-object="shape" data-pptx-frame="59.26 62.96 305.18 610.7" data-pptx-prst="rect" data-pptx-source-ref="layout:12" data-pptx-semantic-object="shape">
+<path d="M 59.26 62.96 L 364.44 62.96 L 364.44 673.67 L 59.26 673.67 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="layout-shape-20" data-pptx-object="shape" data-pptx-frame="281.24 574.83 188.98 7.56" data-pptx-prst="rect" transform="rotate(90 375.73 578.61)" data-pptx-source-ref="layout:20" data-pptx-semantic-object="shape">
+<path d="M 281.24 574.83 L 470.22 574.83 L 470.22 582.39 L 281.24 582.39 Z" fill="#969FA7" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="layout-shape-21" data-pptx-object="shape" data-pptx-frame="168.14 266.77 415.18 7.56" data-pptx-prst="rect" transform="rotate(90 375.73 270.55)" data-pptx-source-ref="layout:21" data-pptx-semantic-object="shape">
+<path d="M 168.14 266.77 L 583.32 266.77 L 583.32 274.33 L 168.14 274.33 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="layout-shape-19" data-pptx-object="picture" data-pptx-frame="67.54 71.25 106.64 107.04" data-pptx-source-ref="layout:19">
+<image data-pptx-object="picture" data-pptx-frame="67.54 71.25 106.64 107.04" href="../images/image1.emf" x="67.54" y="71.25" width="106.64" height="107.04" preserveAspectRatio="none" />
+</g>
+<g id="shape-2" data-pptx-object="shape" data-pptx-frame="77.04 206.2 269.65 307.6" data-ph-type="title" data-pptx-prst="rect" data-pptx-source-ref="slide:2" data-pptx-semantic-object="shape">
+<path d="M 77.04 206.2 L 346.69 206.2 L 346.69 513.8 L 77.04 513.8 Z" fill="none" data-ph-type="title" data-pptx-part="geometry" />
+
+
+<text x="211.86" y="372" text-anchor="middle" xml:space="preserve" font-size="48" fill="#000000">目录</text>
+</g>
+<g id="shape-3" data-pptx-object="shape" data-pptx-frame="582.08 119.41 636.9 481.19" data-pptx-placeholder-index="1" data-pptx-prst="rect" data-pptx-source-ref="slide:3" data-pptx-semantic-object="shape">
+<path d="M 582.08 119.41 L 1218.98 119.41 L 1218.98 600.59 L 582.08 600.59 Z" fill="none" data-pptx-placeholder-index="1" data-pptx-part="geometry" />
+
+
+<text x="591.68" y="281.87" text-anchor="start" xml:space="preserve" font-size="42.67" fill="#660874" data-pptx-text-model="paragraphs" data-paragraph-line-height="59.2"><tspan><tspan> </tspan><tspan fill="#000000">Motivation</tspan></tspan><tspan><tspan> </tspan><tspan fill="#000000">Methods</tspan></tspan><tspan><tspan> </tspan><tspan fill="#000000">Critical Assessment</tspan></tspan><tspan data-paragraph-space-before="0"><tspan> </tspan><tspan fill="#000000">Possible amendments</tspan></tspan></text>
+</g></svg>

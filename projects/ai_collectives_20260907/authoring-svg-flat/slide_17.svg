@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1280" height="720" viewBox="0 0 1280 720" font-family="&quot;Gill Sans MT&quot;, &quot;华文中宋&quot;, sans-serif"><defs><linearGradient id="bggrad1" x1="0" y1="0.5" x2="1" y2="0.5"><stop offset="0" stop-color="#E1DFE2" /><stop offset="0.5" stop-color="#F2F2F2" /><stop offset="1" stop-color="#E1DFE2" /></linearGradient></defs><rect x="0" y="0" width="1280" height="720" fill="url(#bggrad1)" />
+<g id="master-shape-10" data-pptx-object="shape" data-pptx-frame="40.89 36.52 1198.22 124.86" data-pptx-prst="rect" data-pptx-source-ref="master:10" data-pptx-semantic-object="shape">
+<path d="M 40.89 36.52 L 1239.11 36.52 L 1239.11 161.38 L 40.89 161.38 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-12" data-pptx-object="shape" data-pptx-frame="855.11 167.16 384 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:12" data-pptx-semantic-object="shape">
+<path d="M 855.11 167.16 L 1239.11 167.16 L 1239.11 174.72 L 855.11 174.72 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-13" data-pptx-object="shape" data-pptx-frame="40.89 167.16 807.11 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:13" data-pptx-semantic-object="shape">
+<path d="M 40.89 167.16 L 848 167.16 L 848 174.72 L 40.89 174.72 Z" fill="#969FA7" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-8" data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" data-pptx-source-ref="master:8">
+<image data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" href="../images/image1.emf" x="1123.42" y="45.43" width="106.64" height="107.04" preserveAspectRatio="none" />
+</g>
+<g id="shape-2" data-pptx-object="shape" data-pptx-frame="61.02 189.04 1157.96 512.59" data-pptx-placeholder-index="1" data-pptx-prst="rect" data-pptx-source-ref="slide:2">
+
+<path d="M 61.02 189.04 L 1218.98 189.04 L 1218.98 701.63 L 61.02 701.63 Z" fill="none" />
+
+
+<text x="70.62" y="214.24" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan fill="#3D3D3D">Replay window falls from 80.638M to 17.055M ticks.</tspan></text>
+<text x="70.62" y="251.04" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan font-weight="bold">4.728× improvement</tspan><tspan fill="#3D3D3D"> on both evaluated topologies.</tspan></text>
+<text x="70.62" y="287.84" text-anchor="start" xml:space="preserve" font-size="24" fill="#660874"><tspan>  </tspan><tspan fill="#3D3D3D">Same 53,760 source and 147,840 Router-forwarded flits.</tspan></text>
+
+
+
+
+
+
+
+
+<text x="70.62" y="665.04" text-anchor="start" xml:space="preserve" font-size="22" fill="#3D3D3D">The gain comes from request representation, not less counted network work.</text>
+
+</g>
+<g id="shape-3" data-pptx-object="shape" data-pptx-frame="61.02 45.66 1062.4 106.58" data-ph-type="title" data-pptx-prst="rect" data-pptx-source-ref="slide:3" data-pptx-semantic-object="shape">
+<path d="M 61.02 45.66 L 1123.42 45.66 L 1123.42 152.24 L 61.02 152.24 Z" fill="none" data-ph-type="title" data-pptx-part="geometry" />
+
+
+<text x="70.62" y="108.29" text-anchor="start" xml:space="preserve" font-size="37.33" fill="#FFFFFF">Tensor Replay: Same Work, 4.728× Shorter Window</text>
+</g>
+<g id="shape-4" data-pptx-object="picture" data-pptx-frame="300 305 680 340" data-pptx-source-ref="slide:4">
+<image data-pptx-object="picture" data-pptx-frame="300 305 680 340" href="../images/collectives_tensor_results.png" x="300" y="305" width="680" height="340" preserveAspectRatio="xMidYMid meet" />
+</g></svg>

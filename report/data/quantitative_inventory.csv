@@ -1,5 +1,6 @@
 scope,raw_runs,paired_cases,primary_metric,value
-multicast_performance,324,162,mean_internal_link_flit_reduction,0.3951038748832866
+multicast_common_4x4_8x8,648,324,mean_internal_link_flit_reduction,0.3722897719295936
+multicast_8x8_scaleout,216,108,mean_internal_link_flit_reduction,0.6890103944838463
 bypass_performance,7680,6144,aggregated_points,2048
 multicast_bypass_interaction,624,416,all_runs_pass,1
 tensor_scalar_comparison,4,2,measurement_speedup,4.728253540121376

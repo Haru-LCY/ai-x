@@ -348,8 +348,9 @@ def bypass_panel(kind: str) -> str:
               (4, 6), (4, 12), (5, 7), (5, 13), (6, 14), (7, 15),
               (8, 10), (9, 11), (12, 14), (13, 15)]
     candidates = diagonal if kind == "diagonal" else stride
-    route = [0, 5, 6, 7, 11, 15] if kind == "diagonal" else [0, 2, 3, 7, 11, 15]
-    express = (0, 5) if kind == "diagonal" else (0, 2)
+    route = [0, 5, 10, 15] if kind == "diagonal" else [0, 2, 3, 11, 15]
+    express_edges = ({(0, 5), (5, 10), (10, 15)} if kind == "diagonal"
+                     else {(0, 2), (3, 11)})
     lines = [
         "digraph bypass_panel {",
         'graph [outputorder=edgesfirst, overlap=false, pad=0.10, '
@@ -372,16 +373,51 @@ def bypass_panel(kind: str) -> str:
             f'style=dashed, penwidth=1.8{pos}];'
         )
     for src, dst in zip(route, route[1:]):
-        color = "#d95f02" if (src, dst) == express else "#1769aa"
-        pos = ""
-        if kind == "stride" and (src, dst) == express:
-            pos = ", " + curved_edge_pos(src, dst, 0.0, bend=0.30)
-        elif kind == "diagonal" and (src, dst) == express:
-            pos = ", " + straight_edge_pos(src, dst, 0.0)
-        lines.append(
-            f'M{src} -> M{dst} [color="{color}", penwidth=3.2, '
-            f'arrowsize=0.65{pos}];'
-        )
+        color = "#d95f02" if (src, dst) in express_edges else "#1769aa"
+        if (src, dst) in express_edges:
+            if kind == "stride":
+                p0, c1, c2, p3 = curved_edge_geometry(
+                    src, dst, 0.0, bend=0.30
+                )
+                pos = curved_edge_pos(src, dst, 0.0, bend=0.30)
+            else:
+                p0 = (src % 4, 3 - src // 4)
+                p3 = (dst % 4, 3 - dst // 4)
+                c1 = (p0[0] + (p3[0] - p0[0]) / 3.0,
+                      p0[1] + (p3[1] - p0[1]) / 3.0)
+                c2 = (p0[0] + 2.0 * (p3[0] - p0[0]) / 3.0,
+                      p0[1] + 2.0 * (p3[1] - p0[1]) / 3.0)
+                pos = straight_edge_pos(src, dst, 0.0)
+            # Match the reference figure: draw the full express curve without
+            # an arrow, then overlay its final quarter with the same ordinary
+            # Graphviz-clipped arrow used by the blue route segments.
+            t = 0.75
+            u = 1.0 - t
+            anchor = (
+                u**3 * p0[0] + 3 * u**2 * t * c1[0]
+                + 3 * u * t**2 * c2[0] + t**3 * p3[0],
+                u**3 * p0[1] + 3 * u**2 * t * c1[1]
+                + 3 * u * t**2 * c2[1] + t**3 * p3[1],
+            )
+            marker = f"express_arrow_{kind}_{src}_{dst}"
+            lines.append(
+                f'{marker} [shape=point, fixedsize=true, width=0.01, '
+                f'height=0.01, label="", style=invis, '
+                f'pos="{anchor[0]},{anchor[1]}!"];'
+            )
+            lines.append(
+                f'M{src} -> M{dst} [dir=none, color="{color}", '
+                f'penwidth=3.2, {pos}];'
+            )
+            lines.append(
+                f'{marker} -> M{dst} [color="{color}", penwidth=3.2, '
+                f'arrowsize=0.65];'
+            )
+        else:
+            lines.append(
+                f'M{src} -> M{dst} [color="{color}", penwidth=3.2, '
+                f'arrowsize=0.65];'
+            )
     lines.extend([
         'M0 [fillcolor="#f6c177", color="#b36b00", penwidth=2.0];',
         'M15 [fillcolor="#b9e3c6", color="#3a8f62", penwidth=2.0];',
@@ -393,57 +429,49 @@ def bypass_panel(kind: str) -> str:
 def tensor_figure() -> str:
     lines = [
         "digraph tensor {",
-        'graph [outputorder=edgesfirst, overlap=false, pad=0.22, '
-        'bgcolor="white", size="14,7!"];',
+        'graph [outputorder=edgesfirst, overlap=false, pad=0.18, '
+        'bgcolor="white", size="10,6.2!"];',
         'node [shape=box, style="rounded,filled", fontname="Helvetica", '
-        'fontsize=10, color="#68727d", penwidth=1.1, margin="0.10,0.06"];',
-        'edge [fontname="Helvetica", fontsize=8, color="#536172", '
-        'penwidth=1.5, arrowsize=0.6];',
-        # Left: actual Router-side reduce/broadcast datapath.
-        'a [label="8 rank contributions\\n(each lane carries rank + lane)", '
-        'fillcolor="#eef2f6", pos="2.0,3.45!"];',
-        'b [label="XY convergence tree\\nRouter lane table keyed by\\n(collective_id, lane_id)", '
-        'fillcolor="#d9ecf8", pos="2.0,2.15!"];',
-        'c [label="Root Router 0\\nSUM after fan-in", fillcolor="#f6c177", '
-        'color="#b36b00", penwidth=1.7, pos="2.0,0.82!"];',
-        'd [label="Lane-wise tree broadcast\\none reduced flit per lane", fillcolor="#d9ecf8", '
-        'pos="2.0,-0.47!"];',
-        'e [label="8 ranks receive\\nall tensor lanes", fillcolor="#b9e3c6", '
-        'color="#3a8f62", pos="2.0,-1.75!"];',
-        'a -> b; b -> c; c -> d; d -> e;',
-        'left_title [shape=plaintext, fillcolor="white", color="white", '
-        'fontcolor="#263238", fixedsize=false, '
-        'label="Tensor all-reduce datapath", '
-        'pos="2.0,4.15!"];',
-        # Right: scalar/tensor replay representations and equal work counts.
-        'scalar_title [shape=plaintext, fillcolor="white", color="white", '
-        'fontcolor="#263238", fixedsize=false, '
-        'label="Scalar lowering", pos="7.3,4.15!"];',
-        'tensor_title [shape=plaintext, fillcolor="white", color="white", '
-        'fontcolor="#263238", fixedsize=false, '
-        'label="Tensor lowering", pos="11.8,4.15!"];',
-        's0 [label="lane 0", fillcolor="#e6d9f2", pos="6.0,3.35!"];',
-        's1 [label="lane 1", fillcolor="#e6d9f2", pos="7.1,3.35!"];',
-        's2 [label="…", fillcolor="#e6d9f2", pos="8.2,3.35!"];',
-        's3 [label="lane 6,719", fillcolor="#e6d9f2", pos="9.3,3.35!"];',
-        'sbox [label="6,720 logical requests\\nserialized scalar lanes", '
-        'fillcolor="#f4eef8", color="#8c6bb1", pos="7.7,2.05!"];',
-        't0 [label="HEAD", fillcolor="#bde5d3", pos="10.8,3.35!"];',
-        't1 [label="BODY × 62", fillcolor="#bde5d3", pos="12.0,3.35!"];',
-        't2 [label="TAIL", fillcolor="#bde5d3", pos="13.2,3.35!"];',
-        'tbox [label="15 logical requests × 64 flits\\nlane_id remains attached to each flit", '
-        'fillcolor="#e8f6ee", color="#3a8f62", pos="12.0,2.05!"];',
-        'work [label="same network work\\n53,760 contribution flits\\n147,840 Router flits", '
-        'fillcolor="#fff4e5", color="#d99a45", pos="9.8,0.50!"];',
-        'window [label="measurement window\\nscalar 80.638 M ticks   →   tensor 17.055 M ticks\\n4.728× shorter", '
-        'fillcolor="#fff4e5", color="#d99a45", penwidth=1.7, pos="9.8,-0.95!"];',
-        's0 -> s1 [style=invis]; s1 -> s2 [style=invis]; s2 -> s3 [style=invis];',
-        's1 -> sbox [color="#8c6bb1"]; t1 -> tbox [color="#3a8f62"];',
-        'sbox -> work [color="#8c6bb1"]; tbox -> work [color="#3a8f62"];',
-        'work -> window [color="#d95f02"];',
-        'note [shape=plaintext, fillcolor="white", color="white", '
-        'fontcolor="#263238", fixedsize=false, '
-        'label="one flit = one 64-bit reduction lane", pos="7.95,-1.75!"];',
+        'fontsize=14, fontcolor="#25313c", color="#68727d", '
+        'penwidth=1.15, margin="0.16,0.10"];',
+        'edge [fontname="Helvetica", fontsize=11, fontcolor="#4d5965", '
+        'color="#68727d", penwidth=1.45, arrowsize=0.65];',
+        # Recorded input and the exact scaling performed by the compiler.
+        'trace [label="Measured all-reduce stream\\n5 repetitions of 1 / 4 / 16 MiB\\n15 measurement events", '
+        'fillcolor="#f3f5f7", pos="1.1,3.9!"];',
+        'scale [label="Replay compiler\\nbytes and release times / 1024\\n16-byte Garnet flits", '
+        'fillcolor="#e8f0f7", color="#4c78a8", pos="3.65,3.9!"];',
+        'events [label="Each event, per rank\\n1 / 4 / 16 KiB -> 64 / 256 / 1,024 flits\\n6,720 lanes per rank in total", '
+        'fillcolor="#e8f0f7", color="#4c78a8", pos="6.85,3.9!"];',
+        'trace -> scale;',
+        'scale -> events;',
+        # The only manipulated variable in the paired comparison.
+        'scalar [label="SCALAR LOWERING\\nN independent one-flit collectives per event\\n6,720 serialized collective rounds", '
+        'fillcolor="#f4eef8", color="#8c6bb1", penwidth=1.55, '
+        'pos="3.45,2.4!"];',
+        'tensor [label="TENSOR LOWERING\\none N-flit packet per event and rank\\n15 collective requests; N = 64 / 256 / 1,024", '
+        'fillcolor="#e8f6ee", color="#3a8f62", penwidth=1.55, '
+        'pos="7.3,2.4!"];',
+        'events -> scalar [label="same release cycles", color="#8c6bb1"];',
+        'events -> tensor [label="same release cycles", color="#3a8f62"];',
+        # Both representations execute the same lane-wise operation.
+        'router [label="ROUTER COLLECTIVE FAST PATH\\nkey = (collective_id, lane_id)\\n8 rank contributions -> tree reduction -> root\\nroot -> one reduced flit per lane down the tree", '
+        'fillcolor="#fff3df", color="#c27a16", penwidth=1.55, '
+        'pos="5.4,0.85!"];',
+        'scalar -> router [label="one lane at a time", color="#8c6bb1"];',
+        'tensor -> router [label="stream lanes", color="#3a8f62"];',
+        'validate [label="Validation at all 8 ranks\\nexact lane ID and deterministic sum\\nno missing, duplicate, or residual state", '
+        'fillcolor="#e8f6ee", color="#3a8f62", pos="8.1,-0.5!"];',
+        'router -> validate;',
+        # Physical-count invariant and observed dependent metric.
+        'counts [label="IDENTICAL COUNTED NETWORK WORK\\n53,760 source flits | 147,840 Router-forwarded flits", '
+        'fillcolor="#f3f5f7", color="#68727d", pos="2.65,-0.5!"];',
+        'window [label="OBSERVED SCALED REPLAY WINDOW\\nscalar 80.638 M ticks | tensor 17.055 M ticks | ratio 4.728x", '
+        'fillcolor="#fff3df", color="#c27a16", penwidth=1.65, '
+        'pos="5.4,-1.7!"];',
+        'router -> counts;',
+        'counts -> window [color="#c27a16"];',
+        'validate -> window [color="#c27a16"];',
         "}",
     ]
     return "\n".join(lines)

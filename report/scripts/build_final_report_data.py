@@ -17,6 +17,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "report" / "raw-results" / "head-77fcf26d"
+MULTICAST_RAW = ROOT / "report" / "raw-results" / "multicast-4x4-8x8"
 OPT_RAW = ROOT / "report" / "raw-results" / "bypass-optimization-v7"
 DATA = ROOT / "report" / "data"
 FIGURES = ROOT / "report" / "figures"
@@ -53,12 +54,32 @@ def main() -> int:
     DATA.mkdir(parents=True, exist_ok=True)
     FIGURES.mkdir(parents=True, exist_ok=True)
 
-    multicast = load(RAW / "multicast-performance" / "summary.json")
-    assert len(multicast["raw"]) == 324
-    assert len(multicast["paired"]) == 162
-    assert all(
-        row["measured_requests"] == 100 for row in multicast["raw"]
+    multicast = load(MULTICAST_RAW / "summary.json")
+    assert multicast["schema_version"] == 2
+    matrix = multicast["matrix"]
+    case_factor = (
+        len(matrix["packet_flits"]) * len(matrix["rates"])
+        * len(matrix["background_rates"]) * len(matrix["seeds"])
     )
+    expected_pairs = len(matrix["topologies"]) * len(
+        matrix["common_groups"]
+    ) * case_factor
+    if "8x8" in matrix["topologies"]:
+        expected_pairs += len([
+            group for group in matrix["scaleout_8x8_groups"]
+            if group not in matrix["common_groups"]
+        ]) * case_factor
+    assert len(multicast["paired"]) == expected_pairs
+    assert len(multicast["raw"]) == 2 * expected_pairs
+    assert all(
+        row["measured_requests"] == matrix["measurement"]
+        for row in multicast["raw"]
+    )
+    assert {row["topology"] for row in multicast["paired"]} == {"4x4", "8x8"}
+    assert {
+        row["topology"] for row in multicast["paired"]
+        if row["scope"] == "scaleout"
+    } <= {"8x8"}
 
     bypass_root = RAW / "bypass-performance"
     bypass_raw = load(bypass_root / "raw.json")
@@ -214,15 +235,41 @@ def main() -> int:
         DATA / "bypass_optimization_by_group.csv", optimization_group_rows
     )
 
-    multicast_rows = multicast["paired"]
+    multicast_all_rows = multicast["paired"]
+    multicast_rows = [
+        row for row in multicast_all_rows if row["scope"] == "common"
+    ]
+    common_counts = [
+        sum(row["topology"] == topology for row in multicast_rows)
+        for topology in ("4x4", "8x8")
+    ]
+    assert common_counts[0] == common_counts[1] > 0
+    write_csv(DATA / "multicast_paired.csv", multicast_all_rows)
+    (DATA / "multicast_results.json").write_text(
+        json.dumps(multicast, indent=2), encoding="utf-8"
+    )
     headline = [
         {
-            "scope": "multicast_performance",
-            "raw_runs": len(multicast["raw"]),
+            "scope": "multicast_common_4x4_8x8",
+            "raw_runs": 2 * len(multicast_rows),
             "paired_cases": len(multicast_rows),
             "primary_metric": "mean_internal_link_flit_reduction",
             "value": statistics.fmean(
                 row["traffic_reduction"] for row in multicast_rows
+            ),
+        },
+        {
+            "scope": "multicast_8x8_scaleout",
+            "raw_runs": 2 * sum(
+                row["scope"] == "scaleout" for row in multicast_all_rows
+            ),
+            "paired_cases": sum(
+                row["scope"] == "scaleout" for row in multicast_all_rows
+            ),
+            "primary_metric": "mean_internal_link_flit_reduction",
+            "value": statistics.fmean(
+                row["traffic_reduction"] for row in multicast_all_rows
+                if row["scope"] == "scaleout"
             ),
         },
         {

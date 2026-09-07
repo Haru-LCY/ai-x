@@ -1,0 +1,43 @@
+{
+  "status": "complete",
+  "git_revision_at_launch": "8dcd98e8afd9052201b9940b87146048c38f6ff6",
+  "cases": 1536,
+  "gem5_runs": 3072,
+  "design": "phase_ordered_pressure_aware_diagonal",
+  "families": ["diagonal"],
+  "wire_models": ["distance_scaled"],
+  "sizes": [4, 8],
+  "traffic": ["uniform_random", "transpose", "bit_complement", "hotspot"],
+  "packet_flits": [1, 4, 16, 64],
+  "offered_loads": [
+    0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7,
+    0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0
+  ],
+  "seeds": [1, 7, 17],
+  "hotspot_probability": 0.5,
+  "inj_vnet": 2,
+  "adaptive_routing": true,
+  "adaptive_policy": "conservative",
+  "adaptive_max_packet_flits": 32,
+  "simulation_windows": {
+    "warmup": 1000,
+    "drain": 100000,
+    "measurement": 5000,
+    "cooldown": 1000000
+  },
+  "source_sha256": {
+    "configs/topologies/Mesh_Bypass.py": "6423c8b7f93928c2ee7946e6d5cb4f95522703a23b810a15ccab11dced6e2294",
+    "configs/topologies/bypass_oracle.py": "0767814025300ff0a3e2d2bce282e036d0b8ad3016b3a78f04ec70dcc537437e",
+    "src/mem/ruby/network/garnet/RoutingUnit.cc": "242ab652eb43e9afdc5ccf81638c9182ca53e207d566c0f1372bae2412cb6339",
+    "tests/gem5/lab4/run_bypass_performance.py": "25cb7f72725971d22e78d0b0590f681044dea67bb3194fd02632b87c19d87e22"
+  },
+  "headline": {
+    "latency_speedup_geomean": 1.248378946,
+    "latency_speedup_median": 1.052544452,
+    "throughput_change_mean": 0.085803505,
+    "latency_regressions": 171,
+    "latency_regressions_over_5pct": 1,
+    "worst_latency_speedup": 0.926026202,
+    "best_latency_speedup": 37.061050433
+  }
+}

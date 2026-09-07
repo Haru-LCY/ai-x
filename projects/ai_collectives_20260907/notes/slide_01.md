@@ -1,0 +1,1 @@
+Today I will present our collective-aware Router microarchitecture in gem5 Garnet. The central idea is to preserve communication structure that conventional packet networks usually discard, using tree multicast, express-link bypass, and event-level tensor all-reduce.

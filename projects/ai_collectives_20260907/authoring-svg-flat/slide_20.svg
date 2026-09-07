@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1280" height="720" viewBox="0 0 1280 720" font-family="&quot;Gill Sans MT&quot;, &quot;华文中宋&quot;, sans-serif"><defs><linearGradient id="bggrad1" x1="0" y1="0.5" x2="1" y2="0.5"><stop offset="0" stop-color="#E1DFE2" /><stop offset="0.5" stop-color="#F2F2F2" /><stop offset="1" stop-color="#E1DFE2" /></linearGradient></defs><rect x="0" y="0" width="1280" height="720" fill="url(#bggrad1)" />
+<g id="master-shape-10" data-pptx-object="shape" data-pptx-frame="40.89 36.52 1198.22 124.86" data-pptx-prst="rect" data-pptx-source-ref="master:10" data-pptx-semantic-object="shape">
+<path d="M 40.89 36.52 L 1239.11 36.52 L 1239.11 161.38 L 40.89 161.38 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-12" data-pptx-object="shape" data-pptx-frame="855.11 167.16 384 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:12" data-pptx-semantic-object="shape">
+<path d="M 855.11 167.16 L 1239.11 167.16 L 1239.11 174.72 L 855.11 174.72 Z" fill="#660874" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-13" data-pptx-object="shape" data-pptx-frame="40.89 167.16 807.11 7.56" data-pptx-prst="rect" data-pptx-source-ref="master:13" data-pptx-semantic-object="shape">
+<path d="M 40.89 167.16 L 848 167.16 L 848 174.72 L 40.89 174.72 Z" fill="#969FA7" stroke="none" stroke-width="1" data-pptx-part="geometry" />
+
+</g>
+<g id="master-shape-8" data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" data-pptx-source-ref="master:8">
+<image data-pptx-object="picture" data-pptx-frame="1123.42 45.43 106.64 107.04" href="../images/image1.emf" x="1123.42" y="45.43" width="106.64" height="107.04" preserveAspectRatio="none" />
+</g>
+<g id="shape-2" data-pptx-object="shape" data-pptx-frame="61.02 252.49 1157.96 502.06" data-pptx-placeholder-index="1" data-pptx-prst="rect" data-pptx-source-ref="slide:2">
+
+<path d="M 61.02 252.49 L 1218.98 252.49 L 1218.98 754.56 L 61.02 754.56 Z" fill="none" />
+
+
+<text x="70.62" y="289.03" text-anchor="start" xml:space="preserve" font-size="37.33" fill="#660874"><tspan> </tspan><tspan>E</tspan><tspan font-size="42.67">xploration Actions: </tspan><tspan fill="#3D3D3D" font-size="42.67">Manually designed, not learned</tspan></text>
+<text x="70.62" y="352.76" text-anchor="start" xml:space="preserve" font-size="42.67" fill="#660874"><tspan> </tspan><tspan>Task Specificity: </tspan><tspan fill="#3D3D3D">Evaluated only on swing-up task</tspan></text>
+<text x="70.62" y="411.96" text-anchor="start" xml:space="preserve" font-size="42.67" fill="#660874"><tspan> </tspan><tspan>Action Space: </tspan><tspan fill="#3D3D3D">Limited degrees of freedom for </tspan><tspan x="70.62" dy="51.2" fill="#3D3D3D">action execution</tspan></text>
+<text x="70.62" y="522.36" text-anchor="start" xml:space="preserve" font-size="42.67" fill="#660874"><tspan> </tspan><tspan>Hardware Dependence: </tspan><tspan fill="#3D3D3D">Strong reliance on specific </tspan><tspan x="70.62" dy="51.2" fill="#3D3D3D">arm and tactile sensor</tspan></text>
+<text x="70.62" y="632.76" text-anchor="start" xml:space="preserve" font-size="42.67" fill="#660874"><tspan> </tspan><tspan>Data Limitation: </tspan><tspan fill="#3D3D3D">Restricted generalization </tspan><tspan x="70.62" dy="51.2" fill="#3D3D3D">capability</tspan></text>
+
+</g>
+<g id="shape-3" data-pptx-object="shape" data-pptx-frame="61.02 45.66 1062.4 106.58" data-ph-type="title" data-pptx-prst="rect" data-pptx-source-ref="slide:3" data-pptx-semantic-object="shape">
+<path d="M 61.02 45.66 L 1123.42 45.66 L 1123.42 152.24 L 61.02 152.24 Z" fill="none" data-ph-type="title" data-pptx-part="geometry" />
+
+
+<text x="70.62" y="108.29" text-anchor="start" xml:space="preserve" font-size="37.33" fill="#FFFFFF">Limitations</text>
+</g></svg>

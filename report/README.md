@@ -3,8 +3,10 @@
 This directory contains the final current-revision evaluation of router-level
 multicast, bypass express links, real-H100 trace replay, and tensor all-reduce.
 The gem5 base revision is `77fcf26d57`; manifests additionally record hashes
-for every modified source used by the simulator binary.  The multicast/tensor
-snapshot was run on August 10, 2026.  The original geometric-mean bypass screen
+for every modified source used by the simulator binary.  The original
+multicast/tensor snapshot was run on August 10, 2026, and the expanded
+4x4/8x8 multicast study was run on September 7, 2026.  The original
+geometric-mean bypass screen
 and the subsequent multi-hop stride refinement were run on September 6, 2026.
 The refinement was launched from `1e8764cde7`; the manifest's source hashes
 match the pressure-aware implementation committed as `ea4c3c9b0f`. Raw outputs
@@ -14,9 +16,9 @@ retained.
 ## Contents
 
 - `ai_collectives_report.tex/pdf`: final Topic 3/4 report;
-- `multicast_report.tex`: integrated Topic 3/4 LaTeX report;
-- `data/multicast_paired.csv`: 162 paired comparisons;
-- `data/multicast_results.json`: 162 paired rows and 324 raw runs;
+- `multicast_report.tex`: earlier standalone multicast/tensor report;
+- `data/multicast_paired.csv`: 432 paired comparisons across 4x4 and 8x8;
+- `data/multicast_results.json`: 432 paired rows and 864 raw runs;
 - `data/aggregate_*.csv`: generated summary tables;
 - `data/bypass_optimization_*.csv`: static/adaptive data-VNet A/B summaries;
 - `data/bypass_multihop_summary.csv`: compact 1,536-pair multi-hop refinement;
@@ -59,7 +61,51 @@ VNet/routing metadata, and inconsistent final artifact counts or statuses
 before updating aggregate tables and figures.  The accepted bypass evidence is
 10,752 successful gem5 runs: 7,680 runs in the original four-design screen and
 3,072 runs in the distance-scaled multi-hop stride refinement.  Raw simulator
-directories are reproducible from the retained manifests and compact tables.
+directories are reproducible from the retained manifests and runner entry
+points; compact tables alone are not a raw-data archive.
+
+## Re-run the evaluated simulations
+
+Exact numerical reproduction requires the source snapshot recorded for each
+campaign; later routing changes intentionally do not reproduce the historical
+source-only screen.  The runners below encode the remaining factorial defaults
+(sizes, traffic, packet lengths, loads, and seeds), while the corresponding
+JSON manifests record every expanded argument and source hash.
+
+At integrated snapshot `77fcf26d57`:
+
+```sh
+python3 tests/gem5/lab4/run_multicast_performance.py \
+  --output report/raw-results/multicast-4x4-8x8 --jobs 32
+python3 tests/gem5/lab4/run_multicast_matrix.py \
+  --output report/raw-results/multicast-correctness-8x8 \
+  --jobs 32 --rounds 10 --packet-flits 1 4 16 64
+python3 tests/gem5/lab4/run_tensor_allreduce_paired.py \
+  --output report/raw-results/head-77fcf26d/tensor-paired
+python3 tests/gem5/lab4/run_lab4_full_gate.py --jobs 32 \
+  --output report/raw-results/head-77fcf26d/full-gate
+```
+
+At source-only bypass snapshot `135768001a97`:
+
+```sh
+python3 tests/gem5/lab4/run_bypass_performance.py \
+  --output report/raw-results/head-77fcf26d/bypass-performance --jobs 64
+```
+
+At pressure-aware snapshot `ea4c3c9b0f` (whose relevant file hashes match
+`data/bypass_multihop_manifest.json`):
+
+```sh
+python3 tests/gem5/lab4/run_bypass_performance.py \
+  --families stride --wire-models distance_scaled \
+  --bypass-adaptive-routing --bypass-adaptive-policy conservative \
+  --bypass-adaptive-max-packet-flits 32 \
+  --output report/raw-results/refinement-v3-full --jobs 32
+```
+
+The seven-gate runner checks functional correctness, backpressure, and trace
+replay.  It does not run either large bypass performance campaign.
 
 ## Build the PDF
 
@@ -75,9 +121,12 @@ pdflatex -interaction=nonstopmode -halt-on-error \
 
 ## Interpretation boundary
 
-The multicast data is a mechanism/regression study on one 4x4 topology and
-one source placement. The bypass study uses synthetic Garnet traffic and does
-not model physical timing closure or energy. The H100 trace is a real executed
+The report presents multicast and bypass results separately for 4x4 and 8x8,
+then compares their scaling behavior.  Multicast uses one near-center source
+per topology; the 8x8 fanout-32/64 scale-out cases remain separate from the
+common-fanout comparison.  Bypass uses matched synthetic Garnet traffic at
+both sizes and reports topology-specific resource proxies; physical timing
+closure and energy remain outside the model. The H100 trace is a real executed
 collective microbenchmark with explicit 1/1024 byte/time scaling, not a
 complete model trace. Tensor all-reduce is multi-flit streaming but does not
 model finite accumulator capacity or arithmetic latency. The report retains
