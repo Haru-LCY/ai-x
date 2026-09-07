@@ -7,22 +7,22 @@
 <div class="agenda">
   <div class="row">
     <div class="num">01</div>
-    <div><b>Common substrate and metrics</b><span>What is paired, what is counted, and what each comparison does not claim.</span></div>
+    <div><b>Introduction and Background</b></div>
     <!-- <div class="t">1 min</div> -->
   </div>
   <div class="row">
     <div class="num cy">02</div>
-    <div><b>Tree multicast</b><span>Replicate at pruned-tree branches; validate exact delivery; evaluate 4×4 and 8×8.</span></div>
+    <div><b>Multicast</b></div>
     <!-- <div class="t">2 min</div> -->
   </div>
   <div class="row">
     <div class="num am">03</div>
-    <div><b>Pressure-aware express-link bypass</b><span>Distance-scaled stride links, multi-hop DOR routes, and conservative admission.</span></div>
+    <div><b>Bypass</b></div>
     <!-- <div class="t">2 min</div> -->
   </div>
   <div class="row">
     <div class="num vi">04</div>
-    <div><b>H100 tensor all-reduce</b><span>Replay measured collectives; compare scalar-lane and event-level representations.</span></div>
+    <div><b>Trajectory Replay</b></div>
     <!-- <div class="t">2 min</div> -->
   </div>
 </div>
