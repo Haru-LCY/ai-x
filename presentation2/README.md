@@ -64,3 +64,20 @@ The figures in `public/` are copies of the accepted report figures under
 `report/figures/`; the training-loop motivation figure on the architecture
 opener comes from `report/training_to_network.png`. Headline values come
 from the compact snapshots under `report/data/`.
+
+## Beamer version
+
+A LaTeX/Beamer edition is available under `beamer/`. It follows the current
+Slidev sequence and reuses the figures in `public/`. The deck deliberately
+uses a Times-like academic text face (`newtxtext`/`newtxmath`) rather than a
+modern sans-serif display font.
+
+Build it with [Tectonic](https://tectonic-typesetting.github.io/):
+
+```sh
+cd presentation2/beamer
+make
+```
+
+The generated PDF is ignored by Git because this repository currently excludes
+all PDF build artifacts.

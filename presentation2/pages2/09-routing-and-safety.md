@@ -17,15 +17,14 @@
 
 <div class="routing-algorithm">
   <pre><code>best_stride_step(current, destination):
-  if current == destination:
-    return 0
-  choices = [ordinary_edge_cost
-             + best_stride_step(xy_next, dest)]
-  for legal_express in outgoing[current]:
-    choices += [wire_latency(express)
-                + router_latency
-                + best_stride_step(express.dst, dest)]
-  return min(choices)   # exact tie: ordinary XY</code></pre>
+    if current == destination:
+        return 0
+    choices = [ordinary_edge_cost + best_stride_step(xy_next, destination)]
+    for legal_bypass in outgoing[current]:
+        bypass_cost = wire_latency(legal_bypass) + router_latency
+        suffix_cost = best_stride_step(legal_bypass.dst, destination)
+        choices += [bypass_cost + suffix_cost]
+    return min(choices)  # exact tie: ordinary XY</code></pre>
 
   <div class="route-order">
     <div><b>Diagonal</b><span>X* → diagonal* → Y*</span></div>
@@ -37,8 +36,8 @@
 
 </div>
 
-<div class="take am"><span class="lab">What “adaptive” means</span>It is pressure-aware admission between an oracle-selected express hop and monotonic XY—not unrestricted adaptive routing. Both choices preserve the audited DOR phase.</div>
+<div class="take am"><span class="lab">Safety</span>Before any run, all oracle routes are unioned into a channel-dependency graph; a complete topological order is required, and a cyclic placement is rejected at construction time.</div>
 
 <!--
-Timing 35 s. Bypass routing 的核心是这张离线表。对每个 current router 和 destination，动态规划不是只看下一跳，而是把剩余路径一起计价：普通 XY 边、Router latency，加上后面的最优 suffix；express link 则用按 Manhattan span 放大的 wire latency，再加一次 Router traversal 和它的 suffix。完全打平时选普通 XY。两个拓扑的差别在 phase order：diagonal 是 X、diagonal、Y；stride-2 是在 X 里重复加二，再在 Y 里重复加二。这里的 adaptive 不是任意选邻居：ordered Vnet 查表；unordered Vnet 只在 oracle 选出的 express hop 和 monotonic XY 之间二选一，依据是本地 credit、landing output 压力和 hotspot 状态。
+对于 routing 部分，我们先考虑一个一般的问题：mesh 上摆了任意一组保持单调 XY 的 express link，怎么为每对 source/destination 选出 latency 最小的走法？我们可以用递归做离线的计算。在这里 latency 由普通 XY 边、Router latency，加上后面的最优 suffix 组成；对于 bypass 增加的快速通道（express link），我们考虑他的 link latency 是按照曼哈顿距离放大的，比如 diagonal 的话因为是斜边，曼哈顿距离是2，所以 link latency 是2。很显然在这里，这样一个离线计算得出的表最终的 routing 方法可以看出对于 diagonal，先走 X 到能对角的地方，然后再走对角线，最后再走 y；stride 2呢就是在原本 dimension order routing 的基础上，多走 bypass express link。
 -->

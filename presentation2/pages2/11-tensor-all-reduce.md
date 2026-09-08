@@ -38,9 +38,9 @@
 <div class="take vi"><span class="lab">Takeaway</span>Tensor does not send fewer bytes; it preserves one collective event as one multi-flit request, removing scalar request serialization.</div>
 
 <!--
-先看左边流程图。8 个 distributed processes 分别绑定一张 H100，真实执行 NCCL 的 collective traffic；每轮对 1、4、16 MiB 的 tensor 依次执行 all-reduce 和 root-0 broadcast。我们保留的是 all-reduce event 的大小和相对 release 顺序，形成了 trace-based traffic pattern。
+（指向左边流程图）我们对于 8 个 distributed processes 分别绑定一张 H100，然后运行了（跑了） NCCL 的 collective traffic；每轮对 1、4、16 MiB 的 tensor 依次执行 all-reduce 和 root-0 broadcast。我们保留的是 all-reduce event 的大小和相对 release 顺序，形成了 trace-based traffic pattern。
 
-然后把这个 operation-level schedule 放进 Garnet replay。payload 和时间会做缩放，所以结果是 simulation ticks，不能解释成 native H100 或 NVLink 的时间。
+然后我们把这个 operation-level schedule 放进 Garnet replay。因为原始数据太大了，所以我们将 payload 和时间缩放，（所以结果是 simulation ticks，不能解释成 native H100 或 NVLink 的时间。）
 
-最后看右边表格。scalar 把一个 event 拆成很多 one-flit rounds；tensor 保留成一个 multi-flit request。两边搬运的 payload 和 tree work 相同，但 tensor 消除了 request serialization，所以 scaled replay window 缩短了 4.728 倍。
+（指向右边表格）我们把 scalar 的一个 event 拆成很多 one-flit rounds；tensor 保留成一个 multi-flit request。两边搬运的 payload 和 tree work 相同，但 tensor 消除了 request serialization，所以说最后的 replay window 缩短了 4.728 倍。
 -->

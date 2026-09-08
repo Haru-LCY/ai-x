@@ -5,27 +5,25 @@
 <div class="body">
 
 <div class="people">
-  <div class="person">
-    <div class="badge">CL</div>
+  <div class="person vi">
     <div>
       <h3>Chunyu Liu</h3>
       <ul>
-        <li>Garnet collective plumbing and tree multicast</li>
-        <li>Express-link bypass design and evaluation</li>
+        <li>Tree multicast design and evaluation</li>
         <li>H100 trace capture and compilation</li>
-        <li>Aggregate analysis, figures, and report integration</li>
+        <li>Replay tooling and tensor experiment statistics</li>
+        <li>Report, and slide production</li>
       </ul>
     </div>
   </div>
   <div class="person vi">
-    <div class="badge">BP</div>
     <div>
       <h3>Boyan Pu</h3>
       <ul>
+        <li>Express-link bypass design and evaluation</li>
         <li>Tensor all-reduce implementation</li>
-        <li>Replay tooling</li>
         <li>Backpressure and correctness validation</li>
-        <li>Tensor experiments, statistics, and slide production</li>
+        <li>Report and slide production</li>
       </ul>
     </div>
   </div>
@@ -34,5 +32,5 @@
 </div>
 
 <!--
-Timing 15 s. 分工上，Chunyu Liu 负责 Garnet collective plumbing、tree multicast、express-link bypass、H100 trace capture，以及 aggregate analysis。Boyan Pu 负责 tensor all-reduce datapath、replay tooling、backpressure 和 correctness validation。最后的 integration、figures 和 report 一起完成。
+（这个可以随便讲）（分工上，Chunyu Liu 负责 Garnet collective plumbing、tree multicast、H100 trace 的抓取和编译、replay 工具链和 tensor 实验统计，以及 aggregate analysis 和 figures。Boyan Pu 负责 express-link bypass 和 tensor all-reduce 的实现与评估、backpressure 和 correctness validation。Report 和 slides 两人各做一半。）
 -->

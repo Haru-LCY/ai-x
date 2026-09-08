@@ -38,4 +38,6 @@
 
 <!--
 我们的选题背景是，当前 AI 大模型训练普遍采用 GPU 集群。每一轮训练都需要在 GPU 之间传输并同步大量 tensor 数据，因此 interconnect 已成为影响训练效率的关键路径之一。图中展示了数据从 training computation 产生，经过 collective communication，最终在 Mesh NoC 中以 packets 和 flits 的形式传输的过程。我们的研究聚焦于 network layer，主要实现了 multicast和bypass，还有一个trace-based tensor all reduce。
+
+（可不可以改成：我们的选题背景是 AI 训练需要在大量计算单元之间同步 tensor——这些单元可能是同芯片的加速引擎、同封装的 die，也可能是集群里的 GPU。无论哪一层，集合通信最终都要经过一个互连网络，interconnect 因此成为训练效率的关键路径之一。我们的做法是把这类通信模式抽象成网络流量，放到 gem5 Garnet 这个片上网络模型里，在 network layer 研究 multicast、bypass 和 trace-based all-reduce。图中就是数据从计算产生、经过 collective communication、最终在 mesh 里变成packets/flits 传输的过程。）
 -->

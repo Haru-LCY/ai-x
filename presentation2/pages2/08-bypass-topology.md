@@ -43,5 +43,5 @@
 </div>
 
 <!--
-Timing 35 s. 第二个机制是 express-link bypass。我们保留普通 Mesh，再加入双向 stride-2 links，让 packet 可以跳过中间 Router。左边的 diagonal placement 是备选方案，右边的 repeated stride-2 hops 才是主设计。Route table 仍然遵守先 X 后 Y 的 DOR 顺序，而且只有当考虑 wire span 后，express edge 确实降低剩余路径成本时才会选它。Baseline 是更少资源的 plain Mesh XY，所以这是 added-resource comparison。
+第二部分是 express-link bypass。我们保留普通 Mesh，增加了两种 bypass 架构。第一种 diagonal placement，第二种是 stride-2 placement。flit 可以通过这些快速通道来跳过一些 router 节点。但是要说明的一点就是这个实现是没有考虑实际硬件资源的实现，比如这个 stride 2 就是把规则允许的 shortcuts 都放进去，Baseline 就是 plain Mesh XY
 -->

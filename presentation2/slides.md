@@ -54,15 +54,7 @@ src: ./pages2/09-routing-and-safety.md
 
 ---
 
----
-src: ./pages2/09b-routing-validation.md
 
----
-
----
-src: ./pages2/10-bypass-patterns.md
-
----
 
 ---
 src: ./pages2/10-bypass-results.md
@@ -91,15 +83,5 @@ src: ./pages2/14-division-of-labor.md
 
 ---
 src: ./pages2/15-thank-you.md
-
----
-
----
-<!-- src: ./pages2/16-comparisons.md -->
-
----
-
----
-<!-- src: ./pages2/17-scope-and-reproducibility.md -->
 
 ---

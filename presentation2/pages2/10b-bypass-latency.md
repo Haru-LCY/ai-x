@@ -12,5 +12,5 @@
 </div>
 
 <!--
-Timing 20 s. 这页只看 latency，两个 bypass arm 都是 distance-scaled。每组柱子都是 packet-averaged paired ratio，高于 1 才表示 bypass 更快。重点看两点：8×8 的 transpose 和 bit-complement 给 stride-2 的空间更大；hotspot 基本贴近 1，说明压力 guard 没有为了平均值去冒尾部风险。
+（可以讲 4x4 的 transpose 对于 diagonal 效果很好，这也说明了transpose 这种全是对角的天然适合 diagonal bypass。）
 -->
