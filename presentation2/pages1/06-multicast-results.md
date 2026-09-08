@@ -35,8 +35,8 @@
 <div class="take cy"><span class="lab">Reading</span>Link-flit saving is structural. Latency includes the dedicated Router datapath. Throughput reflects the cost of coordinated fanout.</div>
 
 <!--
-这一页报告 multicast 的总体结果。我们在 4×4 和 8×8 两种 mesh 上测试了 fanout 4、8、16，8×8 还额外测试了 fanout 32 和 64。
-表格和 figure 中的数值都平均了 1、4、16-flit packet case，表格汇总 latency 和 throughput。
+这一页报告 multicast 的总体结果。我们在 4×4 和 8×8 两种 mesh 上测试了 fanout 4、8、16，
+表格和 figure 中的数值都平均了 1、4、16-flit packet case，表格汇总了对于不同fanout的 latency 和 throughput。
 
 先看 4×4。平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 也减少 34.95% 的 link flits，latency 是 3.472×，throughput 提升 208.34%。这里 latency 使用 geometric mean，link-flit reduction 和 throughput 使用 arithmetic mean。
 -->
