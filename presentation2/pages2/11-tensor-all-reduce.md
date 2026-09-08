@@ -1,6 +1,6 @@
 # H100 trace replay
 
-<p class="lede">Same collective work; different request granularity.</p>
+<p class="lede">Real NCCL events from eight H100s, replayed two ways in Garnet.</p>
 
 <div class="body">
 

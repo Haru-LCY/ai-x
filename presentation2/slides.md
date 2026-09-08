@@ -28,6 +28,11 @@ src: ./pages1/03-architecture.md
 ---
 
 ---
+src: ./sections/02-multicast.md
+
+---
+
+---
 src: ./pages1/04-tree-multicast.md
 
 ---
@@ -41,6 +46,11 @@ src: ./pages1/06-multicast-results.md
 
 ---
 src: ./pages1/07-multicast-scale-out.md
+
+---
+
+---
+src: ./sections/03-bypass.md
 
 ---
 
@@ -68,6 +78,11 @@ src: ./pages2/10b-bypass-latency.md
 
 ---
 src: ./pages2/10c-bypass-throughput.md
+
+---
+
+---
+src: ./sections/04-tensor-replay.md
 
 ---
 

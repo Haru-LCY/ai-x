@@ -1,6 +1,6 @@
 # Scalar vs tensor replay
 
-<p class="lede">Same H100-derived work; different request granularity.</p>
+<p class="lede">Same flits, same tree — one big request instead of thousands of small ones.</p>
 
 <div class="body">
 

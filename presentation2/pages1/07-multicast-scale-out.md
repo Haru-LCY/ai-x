@@ -1,6 +1,6 @@
 # Higher fanout, stronger speedup
 
-<p class="lede">As fanout grows, multicast gains become more pronounced.</p>
+<p class="lede">The bigger the fanout, the bigger the multicast advantage.</p>
 
 <div class="body scaleout-body" style="grid-template-rows:auto 1fr;gap:8px">
 

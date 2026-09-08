@@ -1,6 +1,6 @@
 # Bypass routing
 
-<p class="lede">A static oracle chooses the shortcut; runtime adaptation only accepts or escapes it.</p>
+<p class="lede">An offline table picks each shortcut; at runtime we only decide whether to take it.</p>
 
 <div class="body">
 

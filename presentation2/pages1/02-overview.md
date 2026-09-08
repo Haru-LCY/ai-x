@@ -1,7 +1,5 @@
 # Overview
 
-<p class="lede">Four paired studies, in report order.</p>
-
 <div class="body tight">
 
 <div class="agenda">

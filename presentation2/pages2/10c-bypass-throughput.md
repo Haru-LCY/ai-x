@@ -1,6 +1,6 @@
 # Throughput
 
-<p class="lede">Packet-averaged throughput improvement under distance-scaled wires.</p>
+<p class="lede">Throughput tells the same story: long paths gain the most.</p>
 
 <div class="body">
 

@@ -1,6 +1,6 @@
 # Bypass results
 
-<p class="lede">With distance-scaled wires, stride-2 scales better on 8×8; each row summarizes a matched-pair sweep.</p>
+<p class="lede">Across 1,536 matched runs per family, stride-2 scales best on 8×8.</p>
 
 <div class="body">
 

@@ -1,6 +1,6 @@
 # Multicast results
 
-<p class="lede">Common-fanout gains across Mesh sizes.</p>
+<p class="lede">At matched fanout, multicast moves fewer flits on both mesh sizes.</p>
 
 <div class="body">
 

@@ -1,6 +1,6 @@
 # Research background
 
-<p class="lede">Modern AI training scales across many GPUs. Every training step must move and synchronize large tensors, making the interconnect part of the critical path.</p>
+<p class="lede">AI training moves huge tensors between compute units at every step — so the interconnect is on the critical path.</p>
 
 <div class="body bg-body">
 

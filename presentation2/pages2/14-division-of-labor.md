@@ -1,7 +1,5 @@
 # Division of labor
 
-<p class="lede">Built separately, integrated together.</p>
-
 <div class="body">
 
 <div class="people">

@@ -1,6 +1,6 @@
 # Conclusion
 
-<p class="lede">Three claims, kept separate.</p>
+<p class="lede">Three results, three separate claims.</p>
 
 <div class="body">
 

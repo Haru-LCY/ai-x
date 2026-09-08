@@ -1,6 +1,6 @@
 # Latency
 
-<p class="lede">Packet-averaged speedup by traffic pattern under distance-scaled wires.</p>
+<p class="lede">Which traffic patterns actually benefit from the shortcuts?</p>
 
 <div class="body">
 

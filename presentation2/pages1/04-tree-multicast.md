@@ -1,6 +1,6 @@
 # Tree multicast
 
-<p class="lede">Replicate inside pruned-tree branches.</p>
+<p class="lede">Send one packet down a tree; copy only where paths split.</p>
 
 <div class="body">
 

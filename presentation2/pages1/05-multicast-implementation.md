@@ -1,6 +1,6 @@
 # Multicast implementation
 
-<p class="lede">Two-phase allocation, then validation.</p>
+<p class="lede">The router builds the tree in two phases, then we validate every delivery.</p>
 
 <div class="body">
 
