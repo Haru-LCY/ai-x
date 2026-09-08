@@ -14,11 +14,7 @@ fonts:
   mono: IBM Plex Mono
 defaults:
   layout: default
----
-
----
 src: ./pages1/01-cover.md
-
 ---
 
 ---
