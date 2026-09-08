@@ -23,6 +23,11 @@ src: ./pages1/02-overview.md
 ---
 
 ---
+src: ./sections/01-background.md
+
+---
+
+---
 src: ./pages1/03-architecture.md
 
 ---
