@@ -9,7 +9,7 @@
 <div>
 
   <div class="fig" style="height:275px"><img src="/traffic_reduction_by_group.png" alt="Internal-link flit reduction by topology and destination count" /></div>
-  <div class="cap">4×4 and 8×8 common-fanout results are reported separately; fanout 32 and 64 are scale-out only.</div>
+  <div class="cap">Each bar averages the 1-, 4-, and 16-flit packet cases. 4×4 and 8×8 common-fanout results are reported separately; fanout 32 and 64 are scale-out only.</div>
 
 </div>
 
@@ -40,5 +40,12 @@
 <div class="take cy"><span class="lab">Reading</span>Link-flit saving is structural. Latency includes the dedicated Router datapath. Throughput exposes the cost of making all selected branches wait together.</div>
 
 <!--
-Timing 50 s. 这一页看 common fanout，也就是 4、8、16 目的地时的总体结果。左图的柱子表示 internal-link flit 少了多少；右表把 latency、throughput 和坏案例放在一起。4×4 平均少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%；8×8 分别是 34.95%、3.472× 和 208.34%。最后一列只统计 throughput 低于 unicast 的配对案例，不是 latency 变慢。4×4 有 10 个，全部是 fanout-4；原因是某个 output VC 没有 credit 时，multicast 要等这个分支，其他分支也不能先发这个 flit。8×8 没有这类案例。
+这一页报告了我们multicast的所有实验，我们在在4x4 8x8两种mesh上做了实验，fanout是4,8,16,对于8x8我们还额外做了fanout为32，64的。
+表格和figure中的数值报告的都是1,4,16 flit packet的平均值。表格中报告了latency和throughput的平均值和比unicast更慢的case的数量。
+
+先看 4×4。平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 也减少 34.95% 的 link flits，latency 是 3.472×，throughput 提升 208.34%。这里 latency 使用 geometric mean，link-flit reduction 和 throughput 使用 arithmetic mean。
+
+最后看右侧的 slower cases。4×4 有 10 个，8×8 是 0 个。这里统计的是 throughput 低于 unicast 的配对案例，不是 latency 变慢；而且这 10 个案例全部来自 fanout-4。原因和上一页的 atomic fanout 一致：某个 output VC 没有 credit 时，当前 flit 必须等所有分支一起发送，其他本来可用的分支也不能先走。最差的案例是下降 18.24%。
+
+所以，tree multicast 的收益来自 structural sharing，但在小 fanout 和拥塞条件下，atomic synchronization 可能抵消一部分 throughput 收益。
 -->

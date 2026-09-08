@@ -22,7 +22,7 @@
   </div>
   <div class="row">
     <div class="num vi">04</div>
-    <div><b>Trajectory Replay</b></div>
+    <div><b>Trace-based Tensor All-Reduce</b></div>
     <!-- <div class="t">2 min</div> -->
   </div>
 </div>
@@ -32,5 +32,5 @@
 <!-- <div class="take"><span class="lab">Rule</span>Every performance number is paired: the proposed arm and its baseline use the same workload realization, packet size, load, and seed.</div> -->
 
 <!--
-Timing 20 s. 今天按 report 的顺序来讲。先说明研究背景和统一的 paired comparison rule，然后依次看 multicast、bypass，最后看 H100 trace replay。所有性能数字都来自配对实验，也就是 proposed arm 和 baseline 使用相同的 workload、packet size、load 和 seed，这样差异才主要来自机制本身。
+下面是我们的演讲顺序，首先我们会介绍研究背景，然后我们依次介绍bypass和multicast的实现, 还有baseline和我们方法对比的实验结果，并且对实验结果进行一些分析。最后我们会介绍H100 trace replay的实现和实验结果。
 -->

@@ -25,5 +25,5 @@ class: title-slide
 </div>
 
 <!--
-Timing 20 s. 大家好，我们是 Chunyu Liu 和 Boyan Pu。今天介绍三个和 collective communication 相关的机制：router-side multicast、pressure-aware express-link bypass，以及 trace-driven tensor all-reduce。它们的共同点是把 collective 的结构保留在 network 内部，减少重复工作，同时保持正确性。
+大家好，我们是刘春宇和蒲泊言。我们的选题是topic3：实现multicast和bypass，并且也涉及了一部分topic4,实现了trace-based tensor all-reduce。
 -->

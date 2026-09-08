@@ -51,5 +51,11 @@
 <div class="take cy"><span class="lab">Correctness contract</span>Every destination receives the complete packet exactly once, in flit order, with no missing or duplicate delivery.</div>
 
 <!--
-Timing 40 s. 先看 tree multicast。Baseline 是 replicated unicast：NI 给每个远端 destination 注入一个独立 packet，所以共享路径会重复搬运同样的 payload。Proposed 只发送一个带 64-bit destination bitmap 的 packet，沿途每个 Router 只保留真正通向 destination 的 branches，需要分叉时才复制。这里的 tradeoff 是 atomic fanout：一个 flit 要等所有选中的 output VC 都有 credit 才能一起前进。这样能保证多 flit packet 完整且有序，但一个拥塞分支可能让其他分支也等待。
+现在我们看一下multicast的实现。这个图的左边是 baseline，右边是我们的 tree multicast。
+
+先看 baseline。它采用 replicated unicast：Network Interface 会为每个远端 destination 注入一个独立 packet。这样一来，共享路径会重复传输相同的 payload，destination 越多，重复流量越大。
+
+右边的 proposed path 只注入一个 packet，packet 携带 64-bit destination bitmap。每个 Router 根据 bitmap 判断哪些 child branch 仍然通向目标，只有确实需要多个方向时才复制 flit，本地 destination 则直接接收。因此，共享前缀只传一次，复制发生在树的分叉处。
+
+这个设计的代价是 atomic fanout。一个 flit 只有在所有选中的 output VC 都有 credit 时才会同时前进。这样可以保证 multi-flit packet 完整、有序，并且每个 destination 只收到一次。相应地，只要有一个分支拥塞，其他分支也必须等待。
 -->
