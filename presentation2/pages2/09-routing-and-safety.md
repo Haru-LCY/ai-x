@@ -40,4 +40,8 @@
 
 <!--
 对于 routing 部分，我们先考虑一个一般的问题：mesh 上摆了任意一组保持单调 XY 的 express link，怎么为每对 source/destination 选出 latency 最小的走法？我们可以用递归做离线的计算。在这里 latency 由普通 XY 边、Router latency，加上后面的最优 suffix 组成；对于 bypass 增加的快速通道（express link），我们考虑他的 link latency 是按照曼哈顿距离放大的，比如 diagonal 的话因为是斜边，曼哈顿距离是2，所以 link latency 是2。很显然在这里，这样一个离线计算得出的表最终的 routing 方法可以看出对于 diagonal，先走 X 到能对角的地方，然后再走对角线，最后再走 y；stride 2呢就是在原本 dimension order routing 的基础上，多走 bypass express link。
+
+（对于 adaptive routing 来说，在traffic实际运行的时候不是随便选路，而是按照对于 ordered Vnet 直接查这张算好的路由表；而对于unordered Vnet来说，它会根据credit 和落点压力，在 express 跳和普通 XY 里二选一）
+
+（安全检查：在跑每一种不同的bypass拓扑之前，为了避免出现环路导致死锁问题，会把表里生成的所有路径收集起来，做成一个 channel-dependency graph——每条路径上前后相邻的两条链路连一条有向边。然后做拓扑排序：如果能排出一个完整顺序，说明没有环、不会死锁，这个 placement 可以用）
 -->

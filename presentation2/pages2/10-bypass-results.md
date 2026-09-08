@@ -50,5 +50,5 @@
 <div class="take am"><span class="lab">Honest boundary</span>These are workload-matched, added-resource comparisons: the extra links, ports, and buffers are not physically free.</div>
 
 <!--
-我们对于每个 bypass family 都做一个 matched-pair sweep：2 个 mesh size、4 种 traffic pattern、4 种 packet size、16 个 offered load、3 个 seed，相乘是 1,536 个 case；每个 case 分别跑一次 plain Mesh XY 和一次 bypass。运行前有 1,000 warm-up 和 5,000 measurement source cycles，之后 drain 和 cooldown；stride-2 在 8×8 最好：latency geometric mean 1.620×，throughput 平均 +39.37%。diagonal 在 4×4 也有 1.426×，但到 8×8 降到 1.165×，说明 placement 和 mesh size 的匹配很重要。
+我们对于每个 bypass family 都做一个 matched-pair sweep：2 个 mesh size、4 种 traffic pattern、4 种 packet size、16 个 offered load、3 个 seed，相乘是 1,536 个 case；每个 case 分别跑一次 plain Mesh XY 和一次 bypass。运行前有 1,000 warm-up 和 5,000 measurement source cycles，之后 drain 和 cooldown；最后我们可以得到结果，可以看出 stride-2 在 8×8 最好：latency speedup 的几何平均有 1.620×，throughput 平均 +39.37%。diagonal 在 4×4 也有 1.426×，但到 8×8 降到 1.165×，说明 placement 和 mesh size 的匹配很重要。
 -->
