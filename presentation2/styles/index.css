@@ -277,6 +277,18 @@
 .tbl td.bad { color: var(--rose); font-weight: 600; }
 .tbl td.amb { color: var(--gold); font-weight: 600; }
 .tbl tr.pick td { color: var(--purple-ink); font-weight: 600; }
+.tbl.multicast-summary {
+  width: 90%;
+  margin: 0 auto;
+  font-size: 16px;
+  line-height: 1.1;
+}
+.tbl.multicast-summary th {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+}
+.tbl.multicast-summary td { padding: 6px 8px; }
 
 /* ---------- comparison panels ---------- */
 
@@ -477,6 +489,15 @@
 }
 .title-slide .tag.cy, .title-slide .tag.am, .title-slide .tag.vi { color: var(--purple); }
 
+.end-slide { justify-content: center; }
+.end-slide h1 {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 112px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
 .end-slide .lines { margin-top: 20px; font-size: 19px; color: var(--sub); line-height: 1.8; }
 .end-slide .row { margin-top: 30px; display: flex; gap: 34px; }
 .end-slide .row span { font-size: 15px; color: var(--dim); }

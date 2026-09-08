@@ -65,16 +65,6 @@ src: ./pages2/11-tensor-all-reduce.md
 ---
 
 ---
-src: ./pages2/12-replay-results.md
-
----
-
----
-src: ./pages2/13-conclusion.md
-
----
-
----
 src: ./pages2/14-division-of-labor.md
 
 ---
@@ -85,11 +75,11 @@ src: ./pages2/15-thank-you.md
 ---
 
 ---
-src: ./pages2/16-comparisons.md
+<!-- src: ./pages2/16-comparisons.md -->
 
 ---
 
 ---
-src: ./pages2/17-scope-and-reproducibility.md
+<!-- src: ./pages2/17-scope-and-reproducibility.md -->
 
 ---

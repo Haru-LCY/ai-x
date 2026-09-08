@@ -37,5 +37,5 @@
 <div class="take"><span class="lab">Our scope</span>We implement and evaluate all three mechanisms at the network layer in gem5 Garnet.</div>
 
 <!--
-我们的选题背景是，当前 AI 大模型训练普遍采用 GPU 集群。每一轮训练都需要在 GPU 之间传输并同步大量 tensor 数据，因此 interconnect 已成为影响训练效率的关键路径之一。图中展示了数据从 training computation 产生，经过 collective communication，最终在 Mesh NoC 中以 packets 和 flits 的形式传输的过程。我们的研究聚焦于 network layer，分别实现并评估 multicast、bypass，以及 H100 all-reduce trace replay。
+我们的选题背景是，当前 AI 大模型训练普遍采用 GPU 集群。每一轮训练都需要在 GPU 之间传输并同步大量 tensor 数据，因此 interconnect 已成为影响训练效率的关键路径之一。图中展示了数据从 training computation 产生，经过 collective communication，最终在 Mesh NoC 中以 packets 和 flits 的形式传输的过程。我们的研究聚焦于 network layer，主要实现了 multicast和bypass，还有一个trace-based tensor all reduce。
 -->

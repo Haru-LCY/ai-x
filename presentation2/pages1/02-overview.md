@@ -32,5 +32,5 @@
 <!-- <div class="take"><span class="lab">Rule</span>Every performance number is paired: the proposed arm and its baseline use the same workload realization, packet size, load, and seed.</div> -->
 
 <!--
-下面是我们的演讲顺序，首先我们会介绍研究背景，然后我们依次介绍bypass和multicast的实现, 还有baseline和我们方法对比的实验结果，并且对实验结果进行一些分析。最后我们会介绍H100 trace replay的实现和实验结果。
+下面是我们的演讲顺序，首先我们会介绍研究背景，然后我们依次介绍bypass和multicast的实现, 还有baseline和我们方法对比的实验结果，并且对实验结果进行一些分析。最后我们会介绍trace-based tensor all reduce的实现和实验结果。
 -->
