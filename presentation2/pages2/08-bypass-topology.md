@@ -1,6 +1,6 @@
 # Bypass topology
 
-<p class="lede">Stride-2 links priced by wire span.</p>
+<!-- <p class="lede">Stride-2 links priced by wire span.</p> -->
 
 <div class="body" style="grid-template-rows:auto 1fr;gap:14px">
 
@@ -9,14 +9,14 @@
 <div>
 
   <div class="fig" style="height:270px"><img src="/bypass_diagonal_4x4.png" alt="Phase-ordered diagonal bypass alternative on a 4 by 4 mesh" /></div>
-  <div class="cap">Diagonal alternative: X*, diagonal*, then Y*.</div>
+  <div class="cap">Diagonal</div>
 
 </div>
 
 <div>
 
   <div class="fig" style="height:270px"><img src="/bypass_stride_4x4.png" alt="Proposed stride-2 bypass topology on a 4 by 4 mesh" /></div>
-  <div class="cap">Primary design: repeated stride-2 hops while preserving DOR.</div>
+  <div class="cap">Stride-2 hops while preserving DOR</div>
 
 </div>
 
@@ -24,7 +24,7 @@
 
 <div class="cards3">
   <div class="card am">
-    <span class="mark">MESH_BYPASS</span>
+    <span class="mark">MESH BYPASS</span>
     <h3>Ordinary Mesh plus shortcuts</h3>
     <p>Bidirectional stride-2 links are appended; ordinary routers and XY links remain.</p>
   </div>

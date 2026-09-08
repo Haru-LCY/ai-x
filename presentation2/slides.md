@@ -55,7 +55,27 @@ src: ./pages2/09-routing-and-safety.md
 ---
 
 ---
+src: ./pages2/09b-routing-validation.md
+
+---
+
+---
+src: ./pages2/10-bypass-patterns.md
+
+---
+
+---
 src: ./pages2/10-bypass-results.md
+
+---
+
+---
+src: ./pages2/10b-bypass-latency.md
+
+---
+
+---
+src: ./pages2/10c-bypass-throughput.md
 
 ---
 

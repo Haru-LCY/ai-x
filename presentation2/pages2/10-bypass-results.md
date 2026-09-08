@@ -1,57 +1,42 @@
 # Bypass results
 
-<p class="lede">Larger meshes amplify the benefit.</p>
+<p class="lede">With distance-scaled wires, stride-2 scales better on 8×8.</p>
 
 <div class="body">
 
-<div class="grid2">
-
-<div class="stack">
-
-  <table class="tbl">
-    <thead><tr><th>Mesh</th><th class="r">Speedup</th><th class="r">Median</th><th class="r">Throughput</th><th class="r">Router/flit</th><th class="r">&gt;5% slow</th></tr></thead>
+<div>
+  <table class="tbl result-summary">
+    <thead><tr><th>Topology</th><th>Mesh</th><th class="r">Latency</th><th class="r">Throughput</th></tr></thead>
     <tbody>
-      <tr><td>4×4</td><td class="num">1.291×</td><td class="num">1.068×</td><td class="num">+4.37%</td><td class="num">−17.37%</td><td class="num amb">1</td></tr>
-      <tr><td>8×8</td><td class="num">1.583×</td><td class="num">1.132×</td><td class="num">+39.37%</td><td class="num">−18.84%</td><td class="num good">0</td></tr>
+      <tr><td>Diagonal</td><td>4×4</td><td class="num">1.426×</td><td class="num">+4.27%</td></tr>
+      <tr><td>Diagonal</td><td>8×8</td><td class="num">1.165×</td><td class="num">+12.90%</td></tr>
+      <tr><td>Stride-2</td><td>4×4</td><td class="num">1.312×</td><td class="num">+4.37%</td></tr>
+      <tr class="pick"><td>Stride-2</td><td>8×8</td><td class="num">1.620×</td><td class="num">+39.37%</td></tr>
     </tbody>
   </table>
 
-  <div class="cap" style="text-align:left">Each row has 768 matched pairs. Worst latency ratios: 0.909× on 4×4 and 0.954× on 8×8; 117 and 126 individual ratios are below one.</div>
-
-  <div class="card am">
-    <span class="mark">WHY 8×8 IMPROVES MORE</span>
-    <h3>Longer paths, same guard</h3>
-    <p>Repeated stride hops relieve loaded Router stages on longer routes, while conservative admission limits the negative tail.</p>
+  <div class="cap">
+    Distance-scaled diagonal and stride-2 · geometric-mean latency · arithmetic-mean throughput · 1,536 matched pairs per bypass family.
   </div>
-
 </div>
 
-<div class="stack">
-
-  <table class="tbl">
-    <thead><tr><th>Added resource</th><th class="r">4×4</th><th class="r">8×8</th></tr></thead>
-    <tbody>
-      <tr><td>Undirected express links</td><td class="num">16</td><td class="num">96</td></tr>
-      <tr><td>Wire-span sum</td><td class="num">32</td><td class="num">192</td></tr>
-      <tr><td>Max network degree</td><td class="num">6</td><td class="num">8</td></tr>
-      <tr><td>Buffer-slot proxy</td><td class="num">768</td><td class="num">4,608</td></tr>
-    </tbody>
-  </table>
-
-  <div class="card">
-    <span class="mark">COMPARISON TYPE</span>
-    <h3>Workload-matched, added-resource</h3>
-    <p>Physical area and power remain outside Garnet; these proxies make the extra topology explicit.</p>
+<div class="metrics">
+  <div class="metric am">
+    <span class="v">1.620×</span>
+    <span class="k">stride-2 latency on 8×8</span>
+    <span class="n">the strongest topology/mesh aggregate</span>
   </div>
-
+  <div class="metric">
+    <span class="v">1.165×</span>
+    <span class="k">diagonal latency on 8×8</span>
+    <span class="n">the same placement does not continue scaling</span>
+  </div>
 </div>
 
 </div>
 
-</div>
-
-<div class="take am"><span class="lab">Honest boundary</span>The gain is not iso-area, iso-power, or iso-wire. It says what the added links buy under matched traffic, not that the design is physically free.</div>
+<div class="take am"><span class="lab">Honest boundary</span>These are workload-matched, added-resource comparisons: the extra links, ports, and buffers are not physically free.</div>
 
 <!--
-Timing 50 s. 先看左表的性能。4×4 的 geometric-mean latency speedup 是 1.291×，throughput 平均提升 4.37%，8×8 则是 1.583× 和 39.37%。Router traversals 分别减少约 17.37% 和 18.84%，说明 shortcut 确实减少了中间 Router。右表列出代价：express links、wire-span sum、最大 network degree，以及 buffer-slot proxy。8×8 的收益更大，是因为路径更长，stride hops 能绕开更多 loaded stages。但这不是 iso-area 或 iso-power 结论，而是 workload-matched、added-resource 的结果。
+Timing 25 s. 先看汇总。这里两个 bypass arm 都用 distance-scaled wires，没有 optimistic。stride-2 在 8×8 最好：latency geometric mean 1.620×，throughput 平均 +39.37%。diagonal 在 4×4 也有 1.426×，但到 8×8 降到 1.165×，说明 placement 和 mesh size 的匹配很重要。后面两页分别看 latency 和 throughput 的 traffic-pattern 细分。最后记住口径：这是 workload-matched、added-resource comparison。
 -->

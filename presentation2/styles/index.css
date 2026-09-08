@@ -688,3 +688,196 @@
 }
 
 .study-card p b { color: var(--purple); }
+
+
+/* ---------- wide result figure ---------- */
+
+.result-figure {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 8px 7px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: #fff;
+  border-top: 2px solid var(--purple);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.result-figure img {
+  display: block;
+  width: min(100%, 1180px);
+  max-height: 100%;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.result-figure figcaption {
+  margin: 0;
+  font-size: 12.4px;
+  color: var(--dim);
+  text-align: center;
+}
+
+/* ---------- routing validation slide ---------- */
+
+.routing-grid {
+  display: grid;
+  grid-template-columns: 47fr 53fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.mechanism-list {
+  display: grid;
+  gap: 14px;
+}
+
+.mechanism {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.mechanism em {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--purple);
+}
+
+.mechanism b {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.mechanism span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.8px;
+  line-height: 1.35;
+  color: var(--sub);
+}
+
+.routing-table {
+  font-size: 13.1px;
+}
+
+.routing-table th:first-child { width: 145px; }
+.routing-table th:nth-child(2) { width: 54px; }
+.routing-table td {
+  vertical-align: top;
+  line-height: 1.34;
+}
+
+.validation-footer {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+  margin-top: 16px;
+}
+
+.validation-footer div {
+  border-top: 1px solid var(--line-strong);
+  padding-top: 8px;
+}
+
+.validation-footer b {
+  display: block;
+  font-size: 14.8px;
+  color: var(--ink);
+}
+
+.validation-footer span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13.2px;
+  line-height: 1.38;
+  color: var(--sub);
+}
+
+
+/* ---------- bypass pattern and rerun summaries ---------- */
+
+.pattern-grid {
+  display: grid;
+  grid-template-columns: 43fr 57fr;
+  gap: 30px;
+  align-items: center;
+  min-height: 0;
+}
+
+.pattern-map img {
+  width: min(100%, 430px);
+  max-height: 430px;
+}
+
+.result-summary {
+  width: min(100%, 900px);
+  margin: 0 auto;
+  font-size: 14.2px;
+}
+
+.result-summary th,
+.result-summary td {
+  padding: 7px 8px;
+}
+
+
+/* ---------- bypass routing algorithm ---------- */
+
+.routing-algorithm {
+  display: grid;
+  gap: 18px;
+  align-content: center;
+  min-height: 0;
+}
+
+.routing-algorithm pre {
+  margin: 0;
+  padding: 14px 16px;
+  background: #fff;
+  border-top: 2px solid var(--purple);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.routing-algorithm code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.1px;
+  line-height: 1.42;
+  white-space: pre;
+  color: var(--ink);
+}
+
+.route-order {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.route-order div {
+  border-top: 1px solid var(--line-strong);
+  padding-top: 7px;
+}
+
+.route-order b {
+  display: block;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.route-order span {
+  display: block;
+  margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.3px;
+  color: var(--sub);
+}
