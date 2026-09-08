@@ -1,0 +1,90 @@
+# 演讲稿 · Collective-Aware Router Microarchitecture in gem5 Garnet
+
+> 共 18 页（按放映顺序），内容逐字取自 Slidev presenter notes。
+
+## 01 · Collective-Aware Router Microarchitecture in gem5 Garnet
+
+大家好，我们是刘春宇和蒲泊言。我们的选题是topic3：实现multicast和bypass，并且也涉及了一部分topic4,实现了trace-based tensor all-reduce。
+
+## 02 · Overview
+
+下面是我们的演讲顺序，首先我们会介绍研究背景，然后我们依次介绍bypass和multicast的实现, 还有baseline和我们方法对比的实验结果，并且对实验结果进行一些分析。最后我们会介绍trace-based tensor all reduce的实现和实验结果。
+
+## 03 · Section 1 · Introduction and Background（过渡页）
+
+Timing 5 s. 首先是研究背景。
+
+## 04 · Research background
+
+我们的选题背景是，当前 AI 大模型训练普遍采用 GPU 集群。每一轮训练都需要在 GPU 之间传输并同步大量 tensor 数据，因此 interconnect 已成为影响训练效率的关键路径之一。图中展示了数据从 training computation 产生，经过 collective communication，最终在 Mesh NoC 中以 packets 和 flits 的形式传输的过程。我们的研究聚焦于 network layer，主要实现了 multicast和bypass，还有一个trace-based tensor all reduce。
+
+（可不可以改成：我们的选题背景是 AI 训练需要在大量计算单元之间同步 tensor——这些单元可能是同芯片的加速引擎、同封装的 die，也可能是集群里的 GPU。无论哪一层，集合通信最终都要经过一个互连网络，interconnect 因此成为训练效率的关键路径之一。我们的做法是把这类通信模式抽象成网络流量，放到 gem5 Garnet 这个片上网络模型里，在 network layer 研究 multicast、bypass 和 trace-based all-reduce。图中就是数据从计算产生、经过 collective communication、最终在 mesh 里变成packets/flits 传输的过程。）
+
+## 05 · Section 2 · Multicast（过渡页）
+
+Timing 5 s. 下面进入第二部分，multicast：先讲设计，再看结果。
+
+## 06 · Tree multicast
+
+现在看 multicast 的实现。左边的 baseline 是 replicated unicast：Network Interface 为每个远端 destination 注入一个独立 packet，共享路径会重复传输相同的 payload。
+
+右边的 tree multicast 只注入一个带 64-bit destination bitmap 的 packet。每个 Router 根据 bitmap 保留仍然通向目标的 child branches，需要分叉时才复制 flit，本地 destination 则直接接收。这样共享前缀只传一次，复制只发生在树的分叉处。
+
+## 07 · Multicast results
+
+这一页报告 multicast 的总体结果。我们在 4×4 和 8×8 两种 mesh 上测试了 fanout 4、8、16，
+表格和 figure 中的数值都平均了 1、4、16-flit packet case，表格汇总了对于不同fanout的 latency 和 throughput。
+
+先看 4×4。平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 也减少 34.95% 的 link flits，latency 是 3.472×，throughput 提升 208.34%。这里 latency 使用 geometric mean，link-flit reduction 和 throughput 使用 arithmetic mean。
+
+## 08 · Higher fanout, stronger speedup
+
+在右边的这个图，我们接着把 fanout 从常见的 4、8、16 扩大到 32 和 64。可以看到fanout 越大，更多目的地可以共享同一棵树，multicast 的加速越明显。图中我们也可以发现4 flit speedup 最高，1-flit 最低，16-flit 介于两者之间。这是因为长 packet 的 branch和VC 占用会抵消部分共享收益。
+
+## 09 · Section 3 · Bypass（过渡页）
+
+Timing 5 s. 第三部分是 bypass：先看拓扑，再看路由和安全检查，最后是实验结果。
+
+## 10 · Bypass topology
+
+第二部分是 express-link bypass。我们保留普通 Mesh，增加了两种 bypass 架构。第一种 diagonal placement，第二种是 stride-2 placement。flit 可以通过这些快速通道来跳过一些 router 节点。但是要说明的一点就是这个实现是没有考虑实际硬件资源的实现，比如这个 stride 2 就是把规则允许的 shortcuts 都放进去，Baseline 就是 plain Mesh XY
+
+## 11 · Bypass routing
+
+对于 routing 部分，我们先考虑一个一般的问题：mesh 上摆了任意一组保持单调 XY 的 express link，怎么为每对 source/destination 选出 latency 最小的走法？我们可以用递归做离线的计算。在这里 latency 由普通 XY 边、Router latency，加上后面的最优 suffix 组成；对于 bypass 增加的快速通道（express link），我们考虑他的 link latency 是按照曼哈顿距离放大的，比如 diagonal 的话因为是斜边，曼哈顿距离是2，所以 link latency 是2。很显然在这里，这样一个离线计算得出的表最终的 routing 方法可以看出对于 diagonal，先走 X 到能对角的地方，然后再走对角线，最后再走 y；stride 2呢就是在原本 dimension order routing 的基础上，多走 bypass express link。
+
+（对于 adaptive routing 来说，在traffic实际运行的时候不是随便选路，而是按照对于 ordered Vnet 直接查这张算好的路由表；而对于unordered Vnet来说，它会根据credit 和落点压力，在 express 跳和普通 XY 里二选一）
+
+（安全检查：在跑每一种不同的bypass拓扑之前，为了避免出现环路导致死锁问题，会把表里生成的所有路径收集起来，做成一个 channel-dependency graph——每条路径上前后相邻的两条链路连一条有向边。然后做拓扑排序：如果能排出一个完整顺序，说明没有环、不会死锁，这个 placement 可以用）
+
+## 12 · Bypass results
+
+我们对于每个 bypass family 都做一个 matched-pair sweep：2 个 mesh size、4 种 traffic pattern、4 种 packet size、16 个 offered load、3 个 seed，相乘是 1,536 个 case；每个 case 分别跑一次 plain Mesh XY 和一次 bypass。运行前有 1,000 warm-up 和 5,000 measurement source cycles，之后 drain 和 cooldown；最后我们可以得到结果，可以看出 stride-2 在 8×8 最好：latency speedup 的几何平均有 1.620×，throughput 平均 +39.37%。diagonal 在 4×4 也有 1.426×，但到 8×8 降到 1.165×，说明 placement 和 mesh size 的匹配很重要。
+
+## 13 · Latency
+
+（可以讲 4x4 的 transpose 对于 diagonal 效果很好，这也说明了transpose 这种全是对角的天然适合 diagonal bypass。）
+
+## 14 · Throughput
+
+（Throughput 的分布更明显。8×8 bit-complement 下 stride-2 的提升最大，diagonal 的收益相对小；hotspot 仍然比较保守。这个顺序和前一页的 latency 是一致的：长路径、能多次使用 shortcut 的 traffic 更占优势。）
+
+## 15 · Section 4 · Trace-based Tensor All-Reduce（过渡页）
+
+Timing 5 s. 最后一部分是 trace-based tensor all-reduce。
+
+## 16 · H100 trace replay
+
+（指向左边流程图）我们对于 8 个 distributed processes 分别绑定一张 H100，然后运行了（跑了） NCCL 的 collective traffic；每轮对 1、4、16 MiB 的 tensor 依次执行 all-reduce 和 root-0 broadcast。我们保留的是 all-reduce event 的大小和相对 release 顺序，形成了 trace-based traffic pattern。
+
+然后我们把这个 operation-level schedule 放进 Garnet replay。因为原始数据太大了，所以我们将 payload 和时间缩放，（所以结果是 simulation ticks，不能解释成 native H100 或 NVLink 的时间。）
+
+（指向右边表格）我们把 scalar 的一个 event 拆成很多 one-flit rounds；tensor 保留成一个 multi-flit request。两边搬运的 payload 和 tree work 相同，但 tensor 消除了 request serialization，所以说最后的 replay window 缩短了 4.728 倍。
+
+## 17 · Division of labor
+
+（这个可以随便讲）（分工上，Chunyu Liu 负责 Garnet collective plumbing、tree multicast、H100 trace 的抓取和编译、replay 工具链和 tensor 实验统计，以及 aggregate analysis 和 figures。Boyan Pu 负责 express-link bypass 和 tensor all-reduce 的实现与评估、backpressure 和 correctness validation。Report 和 slides 两人各做一半。）
+
+## 18 · Thank you
+
+谢谢大家。
