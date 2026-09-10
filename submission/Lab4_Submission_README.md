@@ -9,16 +9,18 @@ trace-driven tensor all-reduce extension.
 
 - `report/ai_collectives_report.pdf`: final report.
 - `source/`: only project-related files added or modified relative to the
-  original gem5 base revision `15d01a23fed9773114ef1f46f21fb1f27d948d64`.
+  official gem5 `v23.0.0.1` revision
+  `af72b9ba580546ac12ce05bfaac3fd53fa8699f4`.
 - `source/tests/gem5/lab4/`: correctness, performance, and replay runners.
 - `source/util/lab4_trace/` and `source/traces/`: trace tooling and replay
   inputs used by the Topic 4 extension.
 - `source/report/scripts/`: analysis and figure-generation source used for the
   current report.
 
-Generated build products, raw simulation directories, presentation authoring
-assets, unrelated repository files, and the unreported experimental `Ring.py`
-topology are intentionally excluded.
+All 62 implementation, configuration, test, trace-tool, and report-analysis
+source files changed relative to that baseline are included. Generated build
+products, raw simulation directories, presentation files, presentation
+authoring assets, and unrelated repository files are intentionally excluded.
 
 ## Quick validation
 

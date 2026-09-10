@@ -1,232 +1,292 @@
+# Lab 4 — Collective-Aware Router Microarchitecture in gem5 Garnet
 
+本项目在 gem5 Garnet 中实现并评估面向 AI collective communication 的
+Router 微架构，完整覆盖 Lab 4 Topic 3 要求：
 
+- **Tree Multicast**：一个源节点一次注入、Router 按目的位图裁剪并复制，
+  baseline 为 replicated unicast；
+- **Express-Link Bypass**：在 Mesh 上增加 diagonal/stride-2 物理捷径，使用
+  offline route table 和 pressure-aware runtime admission，baseline 为 plain
+  Mesh XY；
+- **Topic 4 扩展**：将真实 8×H100 NCCL trace 降低为 multi-flit tensor
+  all-reduce replay，并与 scalar-lane representation 对比。
 
+- 最终报告：[report/ai_collectives_report.pdf](report/ai_collectives_report.pdf)
+- 报告源码：[report/ai_collectives_report.tex](report/ai_collectives_report.tex)
+- 实验与复现说明：[report/README.md](report/README.md)
 
+## 1. Project overview
 
+GPU 训练会反复把 gradient tensor 和 collective synchronization 映射到片上
+网络。传统网络将 broadcast、all-reduce 等结构化操作拆成相互独立的数据包；
+本项目让网络显式保留或利用这些结构：tree multicast 共享公共路径前缀，
+express links 缩短部分长路径，tensor packetization 避免将完整 tensor 串行化为
+数千个独立请求。
 
+<p align="center">
+  <img src="report/training_to_network.png" width="92%" alt="GPU training to Mesh NoC mapping">
+</p>
 
+<p align="center"><em>Figure 1. GPU training、collective operation、Router datapath 与 Mesh NoC 的映射。</em></p>
 
+所有性能比较均为 paired experiment：baseline 与 proposed design 使用相同的
+topology、traffic realization、packet size、offered load 和 random seed。超时不算
+成功；分析脚本会检查 pair completeness、有限数值、delivery metadata 与运行数。
 
+## 2. Architecture and implementation
 
-# Lab4 Project — AI Collectives on Mesh NoC
+### 2.1 Tree multicast
 
-## 1. Introduction
+Baseline Network Interface 为每个远程目的节点注入一份独立物理包。Tree
+multicast 只注入一个携带 64-bit destination bitmap 的包；Router 根据 XY tree
+计算需要的 child branches，并仅在选中的本地节点交付副本。
 
-本项目基于 gem5 Garnet，研究 Mesh NoC 中面向分布式 AI 通信的 in-network collective communication。核心设计是让 Mesh Router 参与 AllReduce：各 node 注入局部贡献，Router 沿 XY 路由诱导的 convergence tree 进行部分归约，root 再沿树广播全局结果。
+| Replicated-unicast baseline | Proposed tree multicast |
+|:---:|:---:|
+| ![Replicated unicast](report/figures/multicast_baseline_4x4.png) | ![Tree multicast](report/figures/multicast_tree_4x4.png) |
 
-项目采用分阶段路线：先用 single-flit scalar AllReduce 验证协议正确性和 credit 稳定性，再独立完成 multicast 和 bypass/express links，最后接入真实 GPU collective trace。当前 Topic 3 的 multicast/bypass 及其联合路径、Topic 4 的 broadcast/all-reduce trace replay 均已完成实现和实验验收。
+<p align="center"><em>Figure 2. 4×4 Mesh 上 replicated unicast 与 Router-side tree replication。</em></p>
 
-项目可定位为 Topic 4（与 interconnection 相关的其他项目），同时 multicast 和 bypass 扩展也覆盖 Topic 3 的 microarchitecture 方向。本仓库同时包含 gem5 实现、运行配置和 `tests/gem5/lab4/` 下的 collective 回归工具。
+实现支持：
 
-## 2. Project highlights
+- 任意目的集合和本地目的节点；
+- 1、4、16、64-flit packets；
+- 多 outstanding requests、有限 VC/buffer credit 与背景流量；
+- head/body/tail branch state 和 atomic two-phase VC allocation；
+- 精确检查目的集合、payload、flit order、missing/duplicate delivery。
 
-项目的研究叙事是：现代分布式 AI 训练受到 collective communication 开销限制；one-to-many traffic 产生重复复制，远距离节点之间的多跳传输增加 latency 和拥塞。因此项目研究 Router-level reduction、tree multicast/broadcast 和 bypass link 如何共同优化 Mesh NoC 上的 AI-style collectives。
+Atomic fanout 保证所有分支一致前进，但一个受阻输出也会暂时阻塞其他输出；这正是
+4×4、fanout 4 下少量 throughput regression 的来源。
 
-当前已实现并验收的主要亮点：
+### 2.2 Pressure-aware express-link bypass
 
-- **Deterministic convergence tree**：根据 `Mesh_XY` 的 XY 路由和 `--collective-root`，预计算每个 Router 的 parent、children 和 expected fan-in。
-- **In-network reduction**：Router 对 scalar collective flit 做累加，非 root 只向 parent 发送一个 merged flit。
-- **Tree broadcast**：root 得到全局 sum 后沿同一棵树传播，使每个 node 收到相同结果。
-- **Complete multicast comparison path**：`naive_unicast` 与 `tree_multicast` 使用相同 logical request；支持任意目的集合、1--64 flit packet、背压、多 outstanding、背景流量和 paired CSV/JSON 报告。
-- **Bypass/express links**：支持 diagonal/stride placement、optimistic/distance-scaled wire model、硬件成本统计和 cost-aware multicast 选路；稀疏 2×2 定向流量实测加速 12.5%，完整 all-rank tree 流量安全回退到普通 XY tree。
-- **Real-GPU trace replay**：仓库提交了真实执行的 8×H100 NCCL collective microbenchmark、broadcast/all-reduce replay 和严格 paired runner；所有缩放因子、hash、命令和计数均保留。
-- **Fair evaluation contract**：timeout 不是成功结果；paired case 使用相同输入和退出条件，并核对 logical request、physical packet、flit、merge、delivery、p95 和 wire-distance 统计。
+`Mesh_Bypass` 在普通 Mesh 上增加双向 diagonal 或 dimension-aligned stride-2
+links。Offline oracle 比较完整剩余路径的 modeled cycle cost，仅当 express path
+严格更优时才写入 route table。运行时 admission 结合本地 free VC/credit、landing
+Router pressure、hotspot state 和 packet length 决定是否使用 express hop。
 
-真实 trace 的 all-reduce 以 6,720 个独立 scalar lanes 回放，每个 lane 都执行 Router reduce + tree broadcast；它不是 unicast 分解，但也不是 multi-flit/vector reduction hardware。当前结果不能外推为完整模型训练或 H100/NVLink 性能。
+| Phase-ordered diagonal | Multi-hop stride-2 |
+|:---:|:---:|
+| ![Diagonal bypass](report/figures/bypass_diagonal_4x4.png) | ![Stride-2 bypass](report/figures/bypass_stride_4x4.png) |
 
-## 3. Architecture
+<p align="center"><em>Figure 3. 两种 4×4 bypass placement 与示例选路。</em></p>
 
-### 3.1 Network topology
+静态路径和 runtime express-or-XY choice union 均通过 channel-dependency DAG
+检查。评测采用 distance-scaled wire latency，并明确将 plain Mesh 作为低资源成本
+baseline；结果不声称 iso-area、iso-power 或 physical timing closure。
 
-网络使用 `Mesh_XY`。Router id 与坐标的关系为：
+### 2.3 Tensor all-reduce
 
-```text
-x = router_id % columns
-y = router_id // columns
-```
+Tensor packet 保留 multi-flit packet boundary，每个 flit 携带 lane identifier。
+Router 按 `(collective_id, lane_id)` 聚合贡献，完成的 lane 在 output VC 不可用时进入
+等待队列，因此 backpressure 不会丢失 reduction state。
 
-对于 root `(rx, ry)`，任意 Router `(x, y)` 的 parent 方向由 XY 路由唯一确定：先沿 X 维移动到 `rx`，再沿 Y 维移动到 `ry`。将所有 parent 边反向即可得到 children 集合。
+<p align="center">
+  <img src="report/figures/tensor_allreduce_pipeline.png" width="94%" alt="Tensor all-reduce pipeline">
+</p>
 
-每个 Router 保存以下元数据：
+<p align="center"><em>Figure 10. 同一 H100 trace 的 scalar-lane 与 tensor lowering，以及保持不变的网络工作量。</em></p>
 
-```text
-parent_outport       # 向 root 的出方向，root 为空
-child_inports        # 子 Router 合并 flit 的入方向
-expected_fanin       # len(children) + 1，本地贡献也计入
-```
+## 3. Evaluation results
 
-### 3.2 Reduce and broadcast protocol
+### 3.1 Multicast results
 
-保底协议的目标流程如下：
+Multicast correctness matrix 共 240 次 execution，即 120 个 mode-matched
+comparison；performance study 共 432 个 matched cases。4×4 和 8×8 的共同
+fanout 为 4/8/16，8×8 另评估 fanout 32/64。
 
-```text
-local contribution
-       │
-       ▼
-child Routers ── merged flit ──► parent Routers ──► root
-                                                      │
-                                                      ▼
-                         broadcast global sum to every child
-```
+| Mesh | Fanouts | Latency speedup | Internal-link flit reduction | Throughput change |
+|---|---:|---:|---:|---:|
+| 4×4 | 4, 8, 16 | 3.638× | 39.51% | +190.89% |
+| 8×8 | 4, 8, 16, 32, 64 | 6.331× | 48.53% | +681.77% |
 
-每个 Router 只维护当前串行 collective 的一组状态：`accum`、`count` 和 `active`。收到 reduce flit 后累加并计数；收齐 fan-in 后，非 root 向 parent 发送一个 merged flit，root 产生最终 sum。broadcast 阶段需要对每个 child 出端口复制 flit，并正确处理 credit。
+*Table 1. Multicast aggregate results。Latency 为 geometric mean；traffic 与
+throughput change 为 matched cases 的 arithmetic mean。*
 
-## 4. Implementation status
+<p align="center">
+  <img src="report/figures/latency_speedup_by_group.png" width="90%" alt="Multicast latency speedup">
+</p>
 
-### 4.1 Completed
+<p align="center"><em>Figure 4. 按 topology、fanout 和 packet size 分组的 multicast latency speedup。</em></p>
 
-- `Mesh_XY.py`：计算并下发 parent/children/fan-in tree metadata；支持 2×2、3×3、4×4 Mesh 和多个 root。
-- Garnet flit：增加并传递 `value`、`collective_id` 和显式 `CollectiveOp`（`Reduce`、`Broadcast`、`Multicast`）。
-- Router：实现串行 scalar reduction state (`accum/count/active`)、merged flit 上行和 tree broadcast。
-- NetworkInterface：注入 deterministic contribution，eject 时校验最终结果，并按 Router 去重验证全目的端交付。
-- Traffic generator：支持 completion-driven AllReduce，以及 multicast latency/throughput、bounded outstanding、warmup/measurement/cooldown 和 deterministic uniform-random background traffic。
-- Packet size：scalar AllReduce 仍保留 single-flit 约束；multicast 已解除该约束并验证 1、4、16、64 flit packet。
-- Multicast datapath：已实现 replicated-unicast baseline、64-bit destination bitmap、逐跳分支裁剪、Router 内复制、多 flit branch state 和 backpressure-safe credit handling。
-- Bypass datapath：已实现额外 express links、deterministic oracle、距离缩放、链路/跨距/Router traversal 统计，以及 tree-sharing-aware multicast policy。
-- Trace consumer：broadcast 保留 per-request release cycle 和动态 packet flits；all-reduce 保留 event release eligibility 并展开为独立 scalar reduction lanes。
-- 统计与回归：旧 collective 11/11、multicast correctness 208/208、performance 162/162 pairs，以及 T3/T4 完整 trace replay 全部通过。
+<p align="center">
+  <img src="report/figures/internal_link_flit_reduction_by_group_packet.png" width="96%" alt="Multicast internal-link flit reduction">
+</p>
 
-### 4.2 Optional extensions
+<p align="center"><em>Figure 5. Multicast internal-link flit reduction；packet size 不改变固定 tree 的路径共享比例。</em></p>
 
-- 让 all-reduce convergence tree 在成本约束下使用 bypass；
-- 实现 multi-lane 并行或 vector/tensor reduction，而不是当前 scalar-lane 串行 datapath；
-- 接入完整模型训练 trace，并补充 naive/ring/tree all-reduce baseline。
+<p align="center">
+  <img src="report/figures/throughput_change_by_group_packet.png" width="96%" alt="Multicast throughput improvement">
+</p>
 
-### 4.3 Not yet claimed
+<p align="center"><em>Figure 6. Multicast logical-throughput change；高 fanout 收益最大，长包更易受到 atomic branch coupling 影响。</em></p>
 
-当前尚未声称完成 tensor-level distributed training、完整 PyTorch/LLM 训练或 AllReduce 三种 baseline 的最终对比。
+共同 fanout 下，4×4/8×8 latency speedup 分别为 3.638×/3.472×；8×8 scale-out
+在 fanout 64 达到 75.39% link-flit reduction、21.618× latency speedup 和
++1,888.29% mean throughput change。10 个 throughput regressions 全部位于 4×4、
+fanout 4，worst case 为 −18.24%；8×8 没有 throughput regression。
 
-## 5. Phased roadmap and acceptance criteria
+### 3.2 Bypass results
 
-### Phase 1 — Scalar protocol correctness
+4×4 和 8×8 均评估 uniform random、transpose、bit complement 和 50% hotspot；
+packet size 为 1/4/16/64 flits，16 个 offered-load points，seeds 为 1/7/17。
+每种 bypass family 包含 1,536 matched cases、3,072 次 gem5 runs。
 
-single-flit、scalar、串行单 collective。验证 Router reduction、fan-in、tree broadcast、credit 回收和正常退出。理论结果为 `sum = N * (N + 1) / 2`。
+<p align="center">
+  <img src="report/figures/bypass_traffic_pattern_structure.png" width="68%" alt="Bypass traffic patterns">
+</p>
 
-### Phase 2 — Scalar stability and scale
+<p align="center"><em>Figure 7. Bypass 评测使用的四种 synthetic traffic pattern。</em></p>
 
-运行至少 100 轮，覆盖 2×2、3×3、4×4 Mesh，以及角落、边缘和中心 root。所有 node 每轮都必须收到相同 sum，且不能 hang 或留下残留 flit/credit。
+| Topology | Mesh | Latency speedup | Throughput change |
+|---|---:|---:|---:|
+| Diagonal | 4×4 | 1.426× | +4.27% |
+| Diagonal | 8×8 | 1.165× | +12.90% |
+| Stride-2 | 4×4 | 1.312× | +4.37% |
+| Stride-2 | 8×8 | 1.620× | +39.37% |
 
-### Phase 3 — Fair scalar baselines
+*Table 2. Distance-scaled bypass aggregate results。Latency 先在 packet size 内取
+geometric mean，再按报告定义进行 traffic-pattern aggregation；throughput 为全部
+matched cases 的 arithmetic mean。*
 
-实现并统一比较 naive unicast AllReduce、ring AllReduce 和 tree in-network AllReduce。三种方案必须使用相同的 Mesh、root、`f(src)`、轮数和退出条件，并记录 completion cycles、total flits、average hops、network latency 和 queueing latency。
+<p align="center">
+  <img src="report/figures/bypass_latency_speedup_by_traffic_pattern.png" width="96%" alt="Bypass latency by traffic pattern">
+</p>
 
-### Phase 4 — Tensor-chunk extension
+<p align="center"><em>Figure 8. 按 traffic pattern 分组的 packet-averaged bypass latency speedup。</em></p>
 
-将 scalar 扩展为 multi-flit/vector element-wise AllReduce，测试不同消息大小和 flit 数量，验证 Router reduction 与 credit/backpressure 在大消息下的行为。
+<p align="center">
+  <img src="report/figures/throughput_by_traffic_packet_avg.png" width="96%" alt="Bypass throughput by traffic pattern">
+</p>
 
-### Phase 5 — Topic-oriented microarchitectural extensions
+<p align="center"><em>Figure 9. 按 traffic pattern 分组的 packet-averaged bypass throughput improvement。</em></p>
 
-实现并评估独立 multicast，以及 bypass/express links。Multicast、bypass 和 multicast interaction 均已完成实现、自动验收和定量报告；multicast 解决重复 one-to-many traffic，bypass 解决远距离多跳 traffic。每个扩展都保留独立 baseline、正确性测试和定量结果。
+Diagonal 最适合 transpose 几何结构，在 4×4 达到 3.004× latency speedup；
+stride-2 可沿路径重复使用，随 Mesh diameter 增长更明显，在 8×8 bit complement
+下达到 2.376× latency speedup 和 +114.24% throughput。Hotspot 的最终共享链路
+仍是瓶颈，因此所有组合都接近 plain Mesh XY。
 
-### Phase 6 — Final evaluation and report
+### 3.3 Scaled H100 trace replay
 
-完成实验矩阵、架构图、算法伪代码、理论通信量、实测结果、失败场景、限制说明和可复现实验命令，最终报告与代码状态保持一致。
+输入来自真实执行的 8×H100 80GB HBM3 NCCL microbenchmark。Replay 保留事件顺序
+和 tensor size，并将 payload bytes 与相对 release time 按 1/1024 缩放；报告中的
+时间是 simulation ticks，不是原生 H100/NVLink latency。
 
-### Current acceptance boundary
+| Replay view | Trace events | Logical requests | Source flits | Window (ticks) |
+|---|---:|---:|---:|---:|
+| Broadcast | 15 | 30 | 6,720 | 17,047,500 |
+| Scalar all-reduce | 15 | 6,720 | 53,760 | 80,638,000 |
+| Tensor all-reduce | 15 | 15 | 53,760 | 17,054,500 |
 
-课程范围内的 Topic 3 multicast/bypass 与 Topic 4 trace-based traffic 已完成。Phase 1/2、Phase 5 和 trace replay T1--T4 均有自动验收数据；Phase 3 的 ring/naive all-reduce 和 Phase 4 的真正 vector reduction 是明确标注的可选扩展，不属于当前完成声明。
+*Table 3. Scaled H100 replay summary。Scalar 与 tensor all-reduce 注入和转发相同
+数量的 flits，仅改变 request representation。*
 
-## 6. Reproduction
+Tensor packetization 将 replay window 从 80,638,000 缩短到 17,054,500 ticks，
+即 **4.728× speedup**。两种表示均完成 53,760 rank-lane deliveries 和 147,840
+Router-forwarded flits，lane ID 与 deterministic sum 完全一致。
 
-在仓库根目录构建并运行完整 collective 矩阵：
+## 4. Correctness and validation
+
+完整 gate 覆盖：
+
+- 11 个 legacy collective cases；
+- 240 次 multicast executions / 120 个 mode-matched comparisons；
+- 30-request H100 broadcast replay；
+- 14 个 tensor correctness cases；
+- 32 个 tensor backpressure cases；
+- tensor trace replay 与 scalar/tensor paired comparison。
+
+在当前源码和匹配的 gem5 binary 上，以上 **7/7 gates 全部通过**。此外，bypass
+route/dependency、traversal 和 multi-flit/backpressure suites 分别通过 5、8、14 个
+cases；最终报告保留 neutral 与 negative results，不将 synthetic/replay 结果外推到
+完整训练系统。
+
+## 5. Build and reproduce
+
+从仓库根目录构建：
 
 ```bash
 LD_LIBRARY_PATH=/path/to/python/lib \
   scons build/Garnet_standalone/gem5.opt -j32 PROTOC=/bin/false
-LD_LIBRARY_PATH=/path/to/python/lib \
-  python3 tests/gem5/lab4/run_collective_matrix.py --jobs 11 --rounds 5
 ```
 
-运行当前 multicast correctness 和 paired performance runner：
+运行完整功能 gate：
 
 ```bash
 LD_LIBRARY_PATH=/path/to/python/lib \
-  python3 tests/gem5/lab4/run_multicast_matrix.py \
-    --jobs 32 --rounds 10 --packet-flits 1 4 16 64
-LD_LIBRARY_PATH=/path/to/python/lib \
-  python3 tests/gem5/lab4/run_multicast_performance.py --jobs 32
+  python3 tests/gem5/lab4/run_lab4_full_gate.py --jobs 32
 ```
 
-验证并回放仓库中的真实 H100 trace：
+运行 multicast performance study：
 
 ```bash
+LD_LIBRARY_PATH=/path/to/python/lib \
+  python3 tests/gem5/lab4/run_multicast_performance.py \
+    --output report/raw-results/multicast-4x4-8x8 --jobs 32
+```
+
+运行最终 distance-scaled stride-2 bypass study：
+
+```bash
+LD_LIBRARY_PATH=/path/to/python/lib \
+  python3 tests/gem5/lab4/run_bypass_performance.py \
+    --families stride --wire-models distance_scaled \
+    --bypass-adaptive-routing --bypass-adaptive-policy conservative \
+    --bypass-adaptive-max-packet-flits 32 \
+    --output report/raw-results/refinement-v3-full --jobs 32
+```
+
+验证 trace inputs：
+
+```bash
+python3 tests/gem5/lab4/test_ai_trace_tools.py
 python3 util/lab4_trace/validate_trace.py traces/h100_8gpu_collectives.json
 python3 util/lab4_trace/validate_replay.py traces/h100_8gpu_broadcast_replay.json
 python3 util/lab4_trace/validate_replay.py traces/h100_8gpu_allreduce_replay.json
-
-LD_LIBRARY_PATH=/path/to/python/lib \
-  python3 tests/gem5/lab4/run_trace_replay.py \
-    --gem5 build/Garnet_standalone/gem5.opt \
-    --source-trace traces/h100_8gpu_collectives.json \
-    --replay traces/h100_8gpu_broadcast_replay.json \
-    --output /tmp/lab4-t3 --sim-cycles 30000000
-
-LD_LIBRARY_PATH=/path/to/python/lib \
-  python3 tests/gem5/lab4/run_allreduce_trace_replay.py \
-    --gem5 build/Garnet_standalone/gem5.opt \
-    --source-trace traces/h100_8gpu_collectives.json \
-    --replay traces/h100_8gpu_allreduce_replay.json \
-    --output /tmp/lab4-t4 --sim-cycles 100000000
+python3 util/lab4_trace/validate_replay.py traces/h100_8gpu_tensor_allreduce_replay.json
 ```
 
-测试工具为每次运行创建独立 `/tmp/lab4-*-matrix-*` 或指定的 output 目录，并保留每项的 `sim.log`、`stats.txt`、`config.ini` 和 `config.json`。performance runner 额外输出 `summary.csv` 和 `summary.json`。HDF5 缺失只会产生 warning；Lab4 不依赖 protobuf tracing，因此构建使用 `PROTOC=/bin/false`。
+重建报告 figures 与 PDF：
 
-## 7. Development constraints
+```bash
+python3 report/scripts/plot_multicast.py
+python3 report/scripts/plot_bypass_topology.py
+python3 report/scripts/build_final_report_data.py
+python3 report/scripts/generate_architecture_figures.py
 
-- Multicast 已完成；bypass G1--G10 已按逐 gate 验收，trace replay T1--T4 也已完成；
-- 每次协议改动都要保留独立正确性测试；
-- `lab4_smoke.log` 和 `m5out_lab4_smoke/` 是运行产物，不应作为源码提交；
-- AllReduce 性能比较必须包含完整 reduce + broadcast 流程；multicast/bypass 则按各自统一的 logical request 比较；
-- 文档状态必须和已验收代码保持一致，不能把规划项误标记为完成。
+pdflatex -interaction=nonstopmode -halt-on-error \
+  -output-directory=report report/ai_collectives_report.tex
+pdflatex -interaction=nonstopmode -halt-on-error \
+  -output-directory=report report/ai_collectives_report.tex
+```
 
-## 8. Reference files
+大规模 raw simulator outputs 因体积原因不提交；compact CSV/JSON、manifest、source
+hash 和生成后的 figures 保留在 `report/`。详细 snapshot 与 artifact provenance 请见
+[report/README.md](report/README.md)。
 
-- `configs/topologies/Mesh_XY.py`：collective tree 元数据构造。
-- `configs/example/garnet_synth_traffic.py`：synthetic collective 入口与参数约束。
-- `tests/gem5/lab4/run_collective_matrix.py`：并行回归矩阵与精确统计检查。
-- `tests/gem5/lab4/run_multicast_matrix.py`：naive/tree、目的集合和 multi-flit correctness matrix。
-- `tests/gem5/lab4/run_multicast_performance.py`：paired latency/throughput performance runner。
-- `tests/gem5/lab4/run_trace_replay.py`：真实 broadcast trace 的 Mesh/Bypass paired runner。
-- `tests/gem5/lab4/run_allreduce_trace_replay.py`：真实 all-reduce scalar-lane paired runner。
-- `traces/`：原始 8×H100 trace、两个 replay 文件及 SHA-256 说明。
-- `tests/gem5/lab4/README.md`：回归使用说明。
-- `docs/multicast.md`：multicast contract、实现阶段与完成状态。
-- `docs/bypass.md`：bypass baseline、架构、验收和性能实验规划。
-- `docs/TENSOR_ALLREDUCE_HANDOFF.md`：面向下一位合作者的 tensor all-reduce
-  目标、当前基线、代码入口和 H0--H6 严格验收计划。
+## 6. Main source locations
 
-## 9. Current status (2026-08-07)
+- `configs/topologies/Mesh_Bypass.py`：express-link topology construction；
+- `configs/topologies/bypass_oracle.py`：cycle-aware route table 与 dependency audit；
+- `src/mem/ruby/network/garnet/Router.cc`：multicast replication 与 tensor reduction；
+- `src/mem/ruby/network/garnet/RoutingUnit.cc`：bypass route selection/admission；
+- `src/mem/ruby/network/garnet/NetworkInterface.cc`：collective injection/ejection；
+- `tests/gem5/lab4/`：correctness、performance、backpressure 与 replay runners；
+- `util/lab4_trace/`：H100 trace capture、lowering 与 validation；
+- `report/scripts/`：统计验证和 figure generation。
 
-### 9.1 What is working
+## 7. Division of labor
 
-- 已完成 Garnet collective plumbing：`collective-root` 配置、Mesh_XY 树元数据、flit 的 `value`/`collective_id`/`CollectiveOp` 字段，以及 Router/NetworkInterface 的 collective 接口。
-- 已完成 Router 内部的单轮标量归约和 root 广播路径。2×2、root=0、single-flit、单轮 Stage 1 测试已通过：4 个节点注入、子树合并、root 汇总为 10，并向所有节点广播且仿真正常退出。
-- 首次广播失败暴露的 Router 子节点方向映射错误已经修正。输入方向的含义是“从父 Router 指向 child 的方向”，因此 East/West/North/South 必须分别映射为 `(x+1)`, `(x-1)`, `(y+1)`, `(y-1)`。
-- collective 注入值已按规范使用 `src_ni + 1`；普通 smoke traffic 仍使用 `src_ni`。
-- 多轮执行由每轮全目的端交付完成事件驱动，最终一轮主动退出；不再依赖固定 period 或超时判定成功。
-- 2×2、3×3、4×4 的 11 项 all-reduce/multicast 矩阵全部通过，并核对精确协议统计。
-- 独立 multicast 已完成 `naive_unicast` 和 `tree_multicast` 两种可运行模式；任意目的 bitmap、local delivery、tree pruning 和 replicated baseline 使用统一完成语义。
-- Multicast 已支持 1--64 flit packet、受限 VC/buffer 背压、多个 outstanding round 和 deterministic background traffic，不再强制 single flit。
-- 最终验收包括旧 collective 11/11、multicast correctness 208/208、performance paired cases 162/162；构建、Python compile 和结果有限值检查均通过。
-- T3 broadcast：30/30 requests、6,720/6,720 source flits；Mesh_XY 与 cost-aware Mesh_Bypass 均为 17,047,500 measurement ticks，p95 为 643,500 ticks。
-- T4 all-reduce：15 trace events 展开为 6,720 lanes；53,760 contributions、53,760 Router merges、53,760 deliveries 和 147,840 collective Router flits 全部精确匹配。
+| Member | Contributions |
+|---|---|
+| Chunyu Liu | Stride-2 bypass；tree multicast；H100 trace capture/compilation；report/slides；presentation |
+| Boyan Pu | Diagonal bypass；tensor all-reduce；backpressure/correctness validation；report/slides |
 
-### 9.2 Current status and next blocker
+## 8. Scope and limitations
 
-Multicast M1--M5、bypass G1--G10 和 trace replay T1--T4 已分别提交验收。当前没有课程计划内阻塞项；后续均属于 vector reduction、完整模型 trace 或 bypass-aware all-reduce 等扩展。Distance-scaled 结果仍不支持宣称 bypass 具有普遍收益。
-
-### 9.3 Build pitfalls and recovery
-
-1. **Protobuf 链接失败**：Lab4 不需要 Protobuf tracing。不能只忽略 linker 报错；构建时使用 `PROTOC=/bin/false`，让 gem5 明确关闭 protobuf 相关生成功能，并确认最终 binary 可运行。
-2. **Python ABI 与动态库**：构建和运行必须使用同一套 Python 头文件/库，并把对应 lib 目录加入 `LD_LIBRARY_PATH`。当前 Python 3.13 还要求避免依赖函数内 `exec()` 写回局部变量。
-3. **有效构建目标**：当前目标是 `build/Garnet_standalone/gem5.opt`；不要混用其他协议/ISA build 目录。
-4. **并行度**：当前机器可使用 `-j32` 构建；回归工具通过 `--jobs` 控制案例级并行度。
-5. **非 2 次幂 directory 配置**：gem5 默认 memory interleave 逻辑要求 directory 数量为 2 的幂。3×3 Mesh 仍使用 9 个 Router，但 synthetic Garnet 测试配置 16 个 directory controllers；前 9 个 directory 对应 9 个 Router，多余 directory 由 Mesh_XY 挂到 Router0。collective 的 Router 数量和树语义仍由 `--num-cpus=9 --mesh-rows=3` 决定。
-
-### 9.4 Verification artifacts
-
-回归工具打印当次唯一 artifact 目录。每个 case 的 `sim.log` 用于确认连续 round 和 completion-driven exit，`stats.txt` 用于确认理论通信量与实测计数一致；运行产物不提交到源码仓库。
-
-### 9.5 Remaining minimum-work items
-
-当前计划已完成。可选工作为：AllReduce naive/ring baseline、真正 vector reduction、完整训练 trace，以及 wire/radix-matched bypass capacity baseline。
+- Multicast destination bitmap 将一个 collective domain 限制为最多 64 Routers；
+- atomic branch allocation 可能产生 head-of-line coupling；
+- bypass 是 added-resource comparison，不是 iso-area/iso-power comparison；
+- wire delay、port/buffer 数量使用 Garnet proxy，未进行 RTL timing closure 或能耗建模；
+- H100 trace 是执行过的 collective microbenchmark，不是完整 model-training trace；
+- tensor reduction 未建模有限 accumulator capacity 和 arithmetic latency。
