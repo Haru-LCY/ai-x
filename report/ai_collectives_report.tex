@@ -37,11 +37,8 @@
 }
 \lstset{style=reportcode}
 
-% Use the exact PNG assets shown by presentation2.  The ../ fallback keeps the
-% source buildable when pdflatex is launched from report/ instead of the repo
-% root; report/figures remains a fallback for figure-generation workflows.
-\graphicspath{{presentation2/public/}{../presentation2/public/}%
-              {report/figures/}{figures/}{report/}{./}}
+% Support builds launched from either the repository root or report/.
+\graphicspath{{report/figures/}{figures/}{report/}{./}}
 \hypersetup{colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black}
 \emergencystretch=2em
 
@@ -68,9 +65,9 @@ regressions.  A further 108-case 8$\times$8 scale-out study reaches 75.39\%
 traffic reduction at fanout 64.  The ten observed regressions are confined to
 low-fanout 4$\times$4 cases and arise from atomic branch synchronization.
 The bypass study compares distance-scaled diagonal and stride-2 express-link
-arms with multi-hop dimension-order routing and conservative congestion
-admission.  Using the same packet-averaged traffic-pattern aggregation as the
-presentation, diagonal reaches 1.426$\times$ and +4.27\% on 4$\times$4,
+arms with offline multi-hop route tables and conservative runtime admission.
+Under the packet-averaged traffic-pattern aggregation, diagonal reaches
+1.426$\times$ and +4.27\% on 4$\times$4,
 1.165$\times$ and +12.90\% on 8$\times$8; stride-2 reaches 1.312$\times$
 and +4.37\% on 4$\times$4, and 1.620$\times$ and +39.37\% on 8$\times$8.
 The plain-Mesh baseline has fewer links, ports, and buffers, so the comparison
@@ -79,6 +76,8 @@ cost.  A Topic~4 case study maps 15 scaled eight-H100 all-reduce events to
 multi-flit collective requests and shortens the simulated replay window by
 4.728$\times$ relative to 6,720 serialized scalar-lane rounds, with identical
 source and Router-forwarded flit counts.
+Code and experimental artifacts are available at
+\url{https://github.com/Haru-LCY/ai-x}.
 \end{abstract}
 
 \section{Introduction}
@@ -94,11 +93,7 @@ of training.
 
 \begin{figure}[tb]
 \centering
-\IfFileExists{presentation2/public/training_to_network.png}{%
-  \includegraphics[width=0.98\linewidth]{presentation2/public/training_to_network.png}%
-}{%
-  \includegraphics[width=0.98\linewidth]{../presentation2/public/training_to_network.png}%
-}
+\includegraphics[width=0.98\linewidth]{training_to_network.png}
 \caption{GPU training repeatedly maps gradient tensors and collective
 synchronization onto the Mesh NoC.  This work studies how the Router datapath
 represents and transports that structure.}
@@ -187,23 +182,21 @@ tensor study compares scalar-lane and event-level representations of the same
 trace.  Mechanism-specific configurations and validation are stated in their
 own sections rather than combined into one global parameter table.
 
-For a paired latency $L$, internal-link flit count $F$, and throughput $Q$, we
-use
-\[
- S_L=L_{\mathrm{base}}/L_{\mathrm{new}},\qquad
- R_F=1-F_{\mathrm{new}}/F_{\mathrm{base}},\qquad
- I_Q=Q_{\mathrm{new}}/Q_{\mathrm{base}}-1.
-\]
-Thus $S_L>1$ is faster, $R_F>0$ is less link traffic, and $I_Q<0$ is a
-throughput regression.  One multicast request completes only after every
-selected destination receives the complete packet; $Q$ counts these logical
-requests per cycle, so both variants perform the same application-level work.
-For bypass, $Q$ is completed flits per node per source cycle.
-We use arithmetic means for additive changes and geometric means for latency
-ratios.  The latter is essential for bypass because near-saturation ratios have
-a long positive tail.  The analysis data retain every multicast pair together
-with aggregate bypass medians, extrema, and regression counts.  Full result-set
-locations are documented in Section~\ref{sec:reproducibility}.
+Latency is reported as baseline latency divided by proposed latency, so a
+value above one indicates a speedup.  Internal-link traffic and throughput are
+reported as percentage changes from their paired baselines.  A multicast
+request completes only after every selected destination receives the complete
+packet; multicast throughput therefore counts completed logical requests per
+cycle.  Bypass throughput instead counts completed flits per node per source
+cycle.
+
+We use arithmetic means for percentage changes and geometric means for
+latency ratios within each directly paired group.  For the bypass headline,
+the four packet-size geometric means are averaged arithmetically within each
+traffic pattern, and the four traffic-pattern values are then combined
+geometrically; Table~\ref{tab:bypass-results} states this order explicitly.
+Full result-set locations are documented in
+Section~\ref{sec:reproducibility}.
 
 \section{Tree multicast}
 
@@ -308,65 +301,109 @@ link work, but atomic fanout couples its progress to the slowest branch.
 
 \subsection{Results on an 8-by-8 Mesh}
 
-The matched 8$\times$8 study first repeats the same fanouts 4, 8, and 16 across
-162 cases.  It reduces internal-link flits by 34.95\% on average (median
-29.63\%, range 6.67--52.94\%) and achieves 3.472$\times$ geometric-mean
-latency speedup (median 2.667$\times$, range 1.161--20.163$\times$).  Mean
-throughput improves by 208.34\%, with a median improvement of 145.39\%.  None
-of these 162 cases regresses; the smallest throughput change is +0.25\%.
+The 8$\times$8 study contains 270 matched cases across fanouts 4, 8, 16, 32,
+and 64.  Across this complete set, tree multicast reduces internal-link flits
+by 48.53\% on average, achieves 6.331$\times$ geometric-mean latency speedup,
+and improves mean throughput by 681.77\%.
+
+The common-fanout subset contains 162 cases at fanouts 4, 8, and 16.  It
+reduces internal-link flits by 34.95\% on average (median 29.63\%, range
+6.67--52.94\%) and achieves 3.472$\times$ geometric-mean latency speedup
+(median 2.667$\times$, range 1.161--20.163$\times$).  Mean throughput improves
+by 208.34\%, with a median improvement of 145.39\%.
 
 The 8$\times$8 scale-out study adds 108 cases at fanouts 32 and 64.  Mean
 traffic reduction is 62.41\% at fanout 32 and 75.39\% at fanout 64.  Their
 geometric-mean latency speedups are 11.25$\times$ and 21.62$\times$, while
 mean throughput improves by 895.54\% and 1,888.29\%, respectively.  The larger
 groups expose more shared route prefixes, so Router-side replication removes
-an increasing fraction of repeated link traversal.  Figure~\ref{fig:multicast-traffic}
-shows the two topologies without merging their results.
+an increasing fraction of repeated link traversal.
 
-\begin{figure}[tb]
+\begin{table}[tb]
 \centering
-\includegraphics[width=0.84\linewidth]{traffic_reduction_common.png}
-\caption{Internal-link flit reduction for the common multicast fanouts on
-4$\times$4 and 8$\times$8 meshes.  Each bar averages the 1-, 4-, and 16-flit
-packet cases; whiskers show observed ranges.  Fanouts 32 and 64 belong only to
-the separate 8$\times$8 scale-out study and are reported in the text.}
-\label{fig:multicast-traffic}
-\end{figure}
+\caption{Multicast results over the fanouts listed for each Mesh size.  Latency
+is the geometric mean; internal-link flit reduction and throughput change are
+arithmetic means over all matched cases included in each row.}
+\label{tab:multicast-topology-results}
+\small
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Mesh & Fanouts & Latency speedup & Link-flit reduction & Throughput change \\
+\midrule
+4$\times$4 & 4, 8, 16 & 3.638$\times$ & 39.51\% & +190.89\% \\
+8$\times$8 & 4, 8, 16, 32, 64 & 6.331$\times$ & 48.53\% & +681.77\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{Cross-topology multicast comparison}
+\subsection{Analysis across topology, fanout, and packet size}
 
-For the common fanouts, 4$\times$4 saves 4.56 percentage points more link
-traffic, whereas 8$\times$8 has the larger mean throughput improvement and no
-negative cases.  Latency speedup is similar: 3.638$\times$ on 4$\times$4 and
-3.472$\times$ on 8$\times$8.  These per-topology results are the primary
-comparison; the fanout-32/64 cases characterize only 8$\times$8 scale-out and
-are not pooled into the cross-topology means.  Latency includes both shared-prefix
-replication and the dedicated Router datapath, while internal-link flit count
-isolates the traffic effect.  The ten negative cases reported above provide
-the distribution boundary relevant to this comparison.
+Topology size is best compared over the common fanouts 4, 8, and 16.  Under
+that matched scope, 4$\times$4 and 8$\times$8 have similar geometric-mean
+latency speedups (3.638$\times$ and 3.472$\times$), while 4$\times$4 removes
+more link traffic (39.51\% versus 34.95\%) and 8$\times$8 has the larger mean
+throughput change (+208.34\% versus +190.89\%).  A fixed fanout occupies a
+larger fraction of the smaller Mesh, so its destinations more often share the
+same XY prefixes; on the larger Mesh, the replicated-unicast baseline also
+pays for longer routes, making source-side copy removal more valuable to
+throughput.  The 8$\times$8 full-range aggregate in
+Table~\ref{tab:multicast-topology-results} is higher because it additionally
+contains fanouts 32 and 64, not because Mesh size alone produces the increase.
 
-\subsection{Multicast sensitivity and tradeoff}
+Fanout is the dominant structural variable.  On 4$\times$4, increasing fanout
+from 4 to 16 raises geometric-mean latency speedup from 1.824$\times$ to
+6.892$\times$, link-flit reduction from 26.19\% to 53.12\%, and mean
+throughput change from +34.38\% to +383.42\%.  On 8$\times$8, the same trends
+continue from fanout 4 to 64: latency speedup rises from 1.861$\times$ to
+21.618$\times$, link-flit reduction from 29.13\% to 75.39\%, and throughput
+change from +44.57\% to +1,888.29\%.  Replicated unicast injects one physical
+packet per destination, including repeated traversal of shared route prefixes;
+tree multicast injects one packet and copies it only at branch points.  Larger
+fanout therefore increases both the number of source-generated copies removed
+and the fraction of link traversal shared by the tree.
 
-On 4$\times$4, mean throughput changes at fanouts 4, 8, and 16 are +34.38\%,
-+154.87\%, and +383.42\%, respectively.  By packet size, the changes are
-+261.65\% (1 flit), +169.45\% (4 flits), and +141.57\% (16 flits).  The
-fanout-4 group contains all ten regressions; longer packets and higher load
-hold branch reservations for more cycles.
-
-On 8$\times$8, the corresponding common-fanout throughput changes are
-+44.57\%, +165.45\%, and +415.01\%.  By packet size, they are +276.71\%,
-+188.30\%, and +160.01\%.  Every subgroup remains nonnegative.  The separate
-scale-out groups increase mean throughput by 895.54\% at fanout 32 and
-1,888.29\% at fanout 64.  Figure~\ref{fig:multicast-scaling} presents the
-latency sensitivity in separate topology panels; throughput is stated directly
-because its topology and negative-case summaries are already given above.
+Packet size separates physical-work savings from timing effects.  For a fixed
+destination tree, baseline and tree link traversals both scale linearly with
+the number of flits, so the reduction percentage is unchanged across 1-, 4-,
+and 16-flit packets in Figure~\ref{fig:multicast-link-work}.  Latency instead
+peaks at 4 flits: over common fanouts, its geometric-mean speedup is
+2.414$\times$/5.136$\times$/3.884$\times$ on 4$\times$4 and
+1.965$\times$/5.142$\times$/4.141$\times$ on 8$\times$8 for 1/4/16 flits.
+One-flit packets offer little repeated payload to amortize, whereas 16-flit
+packets keep branch VCs reserved until the tail and make atomic fanout wait
+longer for the slowest output; four flits retain substantial sharing without
+the full long-packet hold time.  The same reservation effect makes mean
+throughput change decrease with packet size: +261.65\%/+169.45\%/+141.57\%
+on 4$\times$4 and +276.71\%/+188.30\%/+160.01\% on the common 8$\times$8
+fanouts.  Figures~\ref{fig:multicast-scaling}--\ref{fig:multicast-throughput-scaling}
+therefore show that fanout controls how much network work can be shared, while
+packet length controls how efficiently the atomic tree can realize that
+structural saving.
 
 \begin{figure}[tb]
 \centering
 \includegraphics[width=0.90\linewidth]{latency_speedup_by_group.png}
-\caption{Multicast latency speedup by topology, fanout, and packet size;
-whiskers show observed ranges.}
+\caption{Multicast latency speedup by topology, fanout, and packet size.  Bars
+are geometric means; whiskers show observed ranges.}
 \label{fig:multicast-scaling}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth]{internal_link_flit_reduction_by_group_packet.png}
+\caption{Mean internal-link flit reduction by topology, fanout, and packet
+size.  Each bar averages matched offered-load, background-load, and seed cases;
+whiskers show observed ranges.}
+\label{fig:multicast-link-work}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth]{throughput_change_by_group_packet.png}
+\caption{Multicast logical-throughput change by topology, fanout, and packet
+size.  Bars are arithmetic means across matched offered-load, background-load,
+and seed cases; whiskers show observed ranges.}
+\label{fig:multicast-throughput-scaling}
 \end{figure}
 
 \FloatBarrier
@@ -375,13 +412,14 @@ whiskers show observed ranges.}
 \subsection{Proposed topology and baseline}
 
 The two \texttt{Mesh\_Bypass} families append bidirectional express links to
-the ordinary Mesh: a phase-ordered diagonal placement and a dimension-aligned
-stride-2 placement.  Before simulation, a route-table builder enumerates every
-current-Router/destination pair.  It may select legal express links repeatedly
-in the X phase and then the Y phase, but only when an express edge lowers the
-modeled cycle cost of the complete remaining path.  The builder materializes
-all routes and rejects the placement if their channel-dependency graph is
-cyclic.
+the ordinary Mesh: a diagonal placement and a dimension-aligned stride-2
+placement.  Before simulation, a route-table builder enumerates every
+current-Router/destination pair and compares ordinary XY with each legal
+express edge over the complete remaining path.  The static stride table repeats
+aligned express hops within X and then within Y; the static diagonal table uses
+an X$^*\!\rightarrow$diagonal$^*\!\rightarrow$Y$^*$ chain.  An express entry
+is retained only when it lowers the modeled suffix cost, and exact-cost ties
+remain on ordinary XY.
 
 The selected design uses a distance-scaled wire model: each express-link
 latency scales with its Manhattan span.  An ablation also evaluated an
@@ -420,9 +458,10 @@ the ordinary DOR segment; gray lines are ordinary Mesh links.}
 Topology construction creates two directed Garnet links for every installed
 physical shortcut and scales their latency by Manhattan span.  The cost of an
 ordinary edge is link latency plus Router latency.  An express edge uses its
-configured wire latency plus one Router traversal and is admitted only if it
-lowers the complete suffix cost.  Listing~\ref{lst:bypass} shows the dynamic
-programming recurrence.  Exact-cost ties prefer the ordinary edge.
+configured wire latency plus one Router traversal and is entered in the table
+only if it lowers the complete suffix cost.  Listing~\ref{lst:bypass} shows the
+stride-2 dynamic-programming recurrence; the diagonal builder applies the same
+complete-suffix comparison to its phase-ordered diagonal chain.
 
 \begin{lstlisting}[language=Python,caption={Source excerpt: cycle-aware multi-hop DOR selection (\texttt{bypass\_oracle.py}).},label={lst:bypass}]
 @lru_cache(maxsize=None)
@@ -443,13 +482,21 @@ def best_stride_step(current, destination):
     return cost, selected
 \end{lstlisting}
 
-Ordered Vnets retain the deterministic table.  For unordered traffic, the
-selector may fall back to monotonic XY when the express or landing output is
-blocked, the express output is materially more congested, or the destination
-is a sustained hotspot.  The destination-skew detector evaluates epochs of
-$4N$ data packets, enters the hot state at four times the uniform share, and
-retains it until the share falls below twice uniform.  Packets longer than 32
-flits additionally require credit headroom on the express and landing outputs.
+At runtime, each Router looks up its precomputed current-Router/destination
+entry; it does not recompute the cycle-cost recurrence.  Ordered Vnets retain
+that deterministic entry.  For unordered traffic, the selector chooses between
+the table's express hop and monotonic XY using local free VCs and credits, the
+landing Router's escape/lookahead pressure, and destination-hotspot state.  The
+destination-skew detector evaluates epochs of $4N$ data packets, enters the hot
+state at four times the uniform share, and retains it until the share falls
+below twice uniform.
+
+Admission is also packet-aware.  Diagonal 1-flit packets, and diagonal 4-flit
+packets on 4$\times$4, use at most one express hop before continuing on XY.
+Packets longer than 32 flits use the full conservative test: the express output
+must be at least as healthy as XY, the selected landing lookahead must be idle,
+and an entirely idle XY alternative remains on XY.  These rules are part of
+the evaluated diagonal and stride-2 arms.
 
 \subsection{Routing safety and validation}
 
@@ -457,10 +504,11 @@ The builder materializes every source--destination path, adds every successive
 channel pair to a dependency graph, and requires a topological ordering over
 the entire graph.  A cycle formed across multiple routes therefore fails
 construction.  Stride runtime adaptation can choose only the table's express
-edge or monotonic XY in the same DOR phase; both strictly approach the
-destination, complete X before Y, and never reverse dimension.  The diagonal
-variant separately audits its full adaptive choice union under
-X$^*\!\rightarrow$diagonal$^*\!\rightarrow$Y$^*$ phase ordering.
+edge or monotonic XY; both strictly approach the destination, complete X before
+Y, and never reverse dimension.  Because diagonal packet-aware fallback may
+leave the static diagonal chain early, the builder separately constructs and
+audits the complete union of its runtime express-or-XY choices rather than
+relying only on the static phase-ordered paths.
 
 Route/dependency, traversal, and multi-flit/backpressure suites pass 5, 8, and
 14 cases, respectively.  Each bypass family contains 3,072 runs, or 1,536
@@ -476,7 +524,7 @@ complement, and 50\% hotspot traffic; 1/4/16/64-flit packets; 16 offered-flit
 points from 0.01 to 3.0 per node/source cycle; and seeds 1, 7, and 17.  Each run
 uses 1,000 warm-up, 100,000 drain, 5,000 measurement, and 1,000,000 cooldown
 source cycles, giving 768 matched pairs per Mesh size and 1,536 per bypass
-family.  Both presentation arms use data VNet 2 with four buffers per VC and
+family.  Both evaluated arms use data VNet 2 with four buffers per VC and
 distance-scaled wires.
 
 Figure~\ref{fig:bypass-traffic-patterns} gives an illustrative 4$\times$4 view
@@ -496,19 +544,21 @@ Mesh sizes.}
 \label{fig:bypass-traffic-patterns}
 \end{figure}
 
-\subsection{Results}
+\subsection{Bypass results}
 
-The presentation reports the two distance-scaled bypass families with one
-summary table and two traffic-pattern figures.  Each family covers two Mesh
+The two distance-scaled bypass families are summarized in one table and a
+latency breakdown by traffic pattern.  Each family covers two Mesh
 sizes, four traffic patterns, four packet sizes, 16 offered loads, and three
 seeds: 1,536 matched cases and 3,072 gem5 runs.  Table~\ref{tab:bypass-results}
-reproduces the presentation summary exactly.
+reports the aggregate results.
 
 \begin{table}[H]
 \centering
-\caption{Distance-scaled bypass results used in \texttt{presentation2}.
-Latency is the geometric mean of the packet-averaged traffic-pattern values;
-throughput is the arithmetic mean.}
+\caption{Aggregate distance-scaled bypass results.  For latency, each
+packet-size value is the geometric mean over offered load and
+seed; the four packet-size values are averaged arithmetically within each
+traffic pattern, and the four traffic-pattern values are combined geometrically.
+Throughput is the arithmetic mean over all matched cases.}
 \label{tab:bypass-results}
 \small
 \begin{tabular}{@{}llrr@{}}
@@ -523,12 +573,8 @@ Stride-2 & 8$\times$8 & 1.620$\times$ & +39.37\% \\
 \end{tabular}
 \end{table}
 
-The latency summary in Figure~\ref{fig:bypass-latency-pattern} shows which
-traffic structures benefit from each placement.  Transpose aligns naturally
-with the diagonal links on 4$\times$4.  On 8$\times$8, stride-2 gains most on
-uniform-random and bit-complement traffic because longer routes can take more
-shortcuts.  Hotspot remains close to the Mesh baseline under conservative
-admission.
+Figure~\ref{fig:bypass-latency-pattern} breaks latency speedup down by traffic
+pattern, placement, and Mesh size.
 
 \begin{figure}[tb]
 \centering
@@ -539,21 +585,82 @@ distance-scaled diagonal and stride-2 adaptive bypass families.  Values above
 \label{fig:bypass-latency-pattern}
 \end{figure}
 
-Figure~\ref{fig:bypass-throughput-pattern} gives the corresponding throughput
-breakdown.  The 8$\times$8 stride-2 design benefits most from bit-complement
-traffic, while hotspot remains conservative.  These are workload-matched,
-added-resource comparisons: the extra links, ports, and buffers are not
-physically free.
+Figure~\ref{fig:bypass-throughput-pattern} uses the same grouping for
+throughput improvement.
 
 \begin{figure}[tb]
 \centering
-\includegraphics[width=0.98\linewidth]{bypass_throughput_improvement_by_traffic_pattern.png}
+\includegraphics[width=0.98\linewidth]{throughput_by_traffic_packet_avg.png}
 \caption{Packet-averaged throughput improvement by traffic pattern for the
-distance-scaled diagonal and stride-2 adaptive bypass families.  Positive
-values indicate that bypass delivers more packets per unit time than plain
-Mesh XY.}
+distance-scaled diagonal and stride-2 adaptive bypass families.  Each value is
+the arithmetic mean over packet size, offered load, and seed for that traffic
+pattern and Mesh size.}
 \label{fig:bypass-throughput-pattern}
 \end{figure}
+
+\FloatBarrier
+
+\subsection{Analysis across traffic patterns}
+
+Figures~\ref{fig:bypass-latency-pattern} and
+\ref{fig:bypass-throughput-pattern} expose whether a placement matches the
+geometry of a traffic pattern.  For each latency bar, load and seed are first
+combined geometrically within each packet size and the four packet-size values
+are then averaged arithmetically.  Each throughput bar is the arithmetic mean
+over packet size, offered load, and seed.  The two figures therefore compare
+the same matched cases but measure different effects: completion time for
+latency and sustained completed-flit rate for throughput.
+
+\noindent\textbf{Uniform random.}
+Stride-2 scales more strongly than diagonal.  From 4$\times$4 to 8$\times$8,
+its latency speedup rises from 1.436$\times$ to 2.478$\times$ and throughput
+improvement from +5.82\% to +33.44\%; diagonal reaches only
+1.135$\times$/1.184$\times$ and +2.34\%/+6.23\%.  Random pairs do not
+consistently present equal X/Y displacement for a diagonal phase, but many
+longer 8$\times$8 routes contain repeated axis-aligned two-hop segments.
+Stride-2 can use those segments in both dimensions while retaining monotonic
+X-before-Y progress, so the opportunity grows with Mesh diameter.
+
+\noindent\textbf{Transpose.}
+Diagonal is the natural match because transposition exchanges coordinates and
+frequently creates paired X/Y displacement.  It produces the largest diagonal
+latency result, 3.004$\times$ on 4$\times$4, compared with 1.227$\times$ for
+stride-2; their throughput improvements are +9.69\% and +3.31\%.  On
+8$\times$8, diagonal remains ahead at 1.310$\times$ and +18.69\%, versus
+1.147$\times$ and +7.69\% for stride-2.  The latency gain does not scale as
+quickly as Mesh size because diagonal wires use distance-scaled latency and
+the phase-ordered route can exploit a diagonal hop only while both coordinate
+directions remain compatible.
+
+\noindent\textbf{Bit complement.}
+Complement traffic creates long paths across both dimensions, favoring
+repeated stride hops.  Stride-2 improves from 1.663$\times$/+7.90\% on
+4$\times$4 to 2.376$\times$/+114.24\% on 8$\times$8.  Diagonal reaches
+1.208$\times$/+4.84\% and 1.169$\times$/+25.78\%, respectively.  The larger
+Mesh supplies more legal stride-2 entries along a route, reducing Router
+traversals repeatedly rather than relying on a single geometric alignment.
+Because bit-complement destinations remain distributed, these savings also
+relieve network contention instead of merely moving it to one landing Router.
+
+\noindent\textbf{Hotspot.}
+All four topology/size combinations remain close to Mesh XY: latency speedup
+ranges from 1.004$\times$ to 1.020$\times$, and throughput improvement from
++0.19\% to +2.12\%.  Half of the traffic converges on one destination, so the
+last links, landing Router, and destination service rate remain shared
+bottlenecks regardless of the earlier shortcut.  Runtime admission responds
+to this structure directly: landing pressure and hotspot state suppress an
+express hop when it would deliver packets faster into the same congested
+endpoint.
+
+Across the four patterns, diagonal is therefore specialized: its clearest
+latency advantage appears when traffic follows its geometric phase.  Stride-2
+is broader and scales with path length, which explains why its 8$\times$8
+aggregate reaches 1.620$\times$ latency speedup and +39.37\% throughput.  The
+figures also show why latency and throughput must both be reported.  A shortcut
+can shorten an individual route, as in 4$\times$4 transpose, while throughput
+remains bounded by shared outputs; when shortcuts are reusable and destinations
+remain distributed, as in 8$\times$8 bit complement, both completion time and
+sustained rate improve strongly.
 
 \FloatBarrier
 
@@ -680,15 +787,24 @@ the scheduling effect of request representation in the collective datapath.
 
 \FloatBarrier
 
-\section{Division of labor}
+\section{Division of Labor}
 
-\noindent\textbf{Chunyu Liu:} Garnet collective plumbing, tree multicast,
-express-link bypass design and evaluation, H100 trace capture and compilation,
-aggregate analysis, figures, and report integration.
+\noindent\textbf{Chunyu Liu:}
+\begin{itemize}
+  \item Stride-2 Express-Link Bypass Design and Evaluation;
+  \item Tree Multicast Design and Evaluation;
+  \item H100 Trace Capture and Compilation;
+  \item Report and Slide Production;
+  \item On-Site Presentation.
+\end{itemize}
 
-\noindent\textbf{Boyan Pu:} Tensor all-reduce implementation, replay tooling,
-backpressure and correctness validation, tensor experiments and statistics,
-and presentation slide-deck (PPT) production.
+\noindent\textbf{Boyan Pu:}
+\begin{itemize}
+  \item Diagonal Express-Link Bypass Design and Evaluation;
+  \item Tensor All-Reduce Implementation;
+  \item Backpressure and Correctness Validation;
+  \item Report and Slide Production.
+\end{itemize}
 
 \section{Reproducibility}
 \label{sec:reproducibility}
@@ -707,7 +823,6 @@ Report figures can be rebuilt from committed inputs with:
 python3 report/scripts/plot_multicast.py
 python3 report/scripts/plot_bypass_topology.py
 python3 report/scripts/generate_architecture_figures.py
-python3 report/scripts/sync_presentation_figures.py
 \end{verbatim}
 
 The validation runner \texttt{run\_lab4\_full\_gate.py} executes seven
@@ -729,9 +844,10 @@ separate 8$\times$8 scale-out study reaches 75.39\% traffic reduction at
 fanout 64.  This separation identifies atomic branch synchronization as a
 4$\times$4 low-fanout effect rather than a general multicast trend.  The
 latency results reflect both shared-prefix replication and the dedicated
-Router datapath.  The bypass design reconsults a cycle-cost oracle at
-  every Router and admits distance-scaled express hops under conservative local
-  and landing pressure.  The presentation-aligned bypass summary is
+  Router datapath.  The bypass design builds a complete-suffix cycle-cost table
+  offline; each Router looks up that table and admits distance-scaled express
+  hops under packet-aware local, landing, and hotspot pressure rules.  The
+  aggregate bypass result is
   1.426$\times$/+4.27\% for diagonal on 4$\times$4,
   1.165$\times$/+12.90\% for diagonal on 8$\times$8,
   1.312$\times$/+4.37\% for stride-2 on 4$\times$4, and

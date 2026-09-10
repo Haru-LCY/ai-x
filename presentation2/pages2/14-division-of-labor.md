@@ -1,4 +1,4 @@
-# Division of labor
+# Division of Labor
 
 <div class="body">
 
@@ -7,10 +7,11 @@
     <div>
       <h3>Chunyu Liu</h3>
       <ul>
-        <li>Stride-2 express-link bypass design and evaluation</li>
-        <li>Tree multicast design and evaluation</li>
-        <li>H100 trace capture and compilation</li>
-        <li>Report, and slide production</li>
+        <li>Stride-2 Express-Link Bypass Design and Evaluation</li>
+        <li>Tree Multicast Design and Evaluation</li>
+        <li>H100 Trace Capture and Compilation</li>
+        <li>Report and Slide Production</li>
+        <li>On-Site Presentation</li>
       </ul>
     </div>
   </div>
@@ -18,10 +19,10 @@
     <div>
       <h3>Boyan Pu</h3>
       <ul>
-        <li>Diagonal express-link bypass design and evaluation</li>
-        <li>Tensor all-reduce implementation</li>
-        <li>Backpressure and correctness validation</li>
-        <li>Report and slide production</li>
+        <li>Diagonal Express-Link Bypass Design and Evaluation</li>
+        <li>Tensor All-Reduce Implementation</li>
+        <li>Backpressure and Correctness Validation</li>
+        <li>Report and Slide Production</li>
       </ul>
     </div>
   </div>

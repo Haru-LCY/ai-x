@@ -5,7 +5,7 @@
 <div class="body">
 
 <figure class="result-figure">
-  <img src="/bypass_throughput_improvement_by_traffic_pattern.png" alt="Packet-averaged throughput improvement by traffic pattern for diagonal and stride-2 adaptive bypass" />
+  <img src="/throughput_by_traffic_packet_avg.png" alt="Packet-averaged throughput improvement by traffic pattern for diagonal and stride-2 adaptive bypass" />
   <figcaption>Distance-scaled diagonal and stride-2 · positive improvement means bypass delivers more packets per unit time.</figcaption>
 </figure>
 

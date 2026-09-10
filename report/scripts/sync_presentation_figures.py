@@ -18,13 +18,14 @@ SHARED_FIGURES = (
     "training_to_network.png",
     "multicast_baseline_4x4.png",
     "multicast_tree_4x4.png",
-    "traffic_reduction_common.png",
     "latency_speedup_by_group.png",
+    "internal_link_flit_reduction_by_group_packet.png",
+    "throughput_change_by_group_packet.png",
     "bypass_diagonal_4x4.png",
     "bypass_stride_4x4.png",
     "bypass_traffic_pattern_structure.png",
     "bypass_latency_speedup_by_traffic_pattern.png",
-    "bypass_throughput_improvement_by_traffic_pattern.png",
+    "throughput_by_traffic_packet_avg.png",
     "tensor_allreduce_pipeline.png",
 )
 

@@ -167,10 +167,14 @@ def plot_traffic_reduction(df: pd.DataFrame, output: Path) -> None:
 
 def plot_latency_speedup(df: pd.DataFrame, output: Path) -> None:
     grouped = df.groupby(
-        ["topology", "group_size", "packet_flits"]
-    )["latency_speedup"].agg(
-        ["mean", "min", "max"]
-    ).reset_index()
+        ["topology", "group_size", "packet_flits"], as_index=False
+    ).agg(
+        mean=("latency_speedup", lambda values: float(
+            np.exp(np.log(values).mean())
+        )),
+        min=("latency_speedup", "min"),
+        max=("latency_speedup", "max"),
+    )
     packets = sorted(df["packet_flits"].unique())
     width = 0.22
     fig, axes = plt.subplots(1, 2, figsize=(10.0, 4.0), sharey=True)
@@ -198,6 +202,91 @@ def plot_latency_speedup(df: pd.DataFrame, output: Path) -> None:
     axes[-1].legend(frameon=False, ncol=3)
     fig.suptitle("Completion-latency speedup across fanout and Mesh size")
     save_figure(fig, output, "latency_speedup_by_group")
+
+
+def plot_internal_link_reduction(df: pd.DataFrame, output: Path) -> None:
+    grouped = df.groupby(
+        ["topology", "group_size", "packet_flits"]
+    )["traffic_reduction"].agg(
+        ["mean", "min", "max"]
+    ).reset_index()
+    packets = sorted(df["packet_flits"].unique())
+    width = 0.22
+    colors = ["#6e9bc6", "#df9a55", "#68a887"]
+    fig, axes = plt.subplots(1, 2, figsize=(10.0, 4.0), sharey=True)
+    for ax, topology in zip(axes, ("4x4", "8x8")):
+        topo = grouped[grouped["topology"] == topology]
+        groups = sorted(topo["group_size"].unique())
+        x = np.arange(len(groups))
+        for index, packet in enumerate(packets):
+            part = topo[topo["packet_flits"] == packet].set_index("group_size")
+            means = part.loc[groups, "mean"].to_numpy() * 100
+            lower = np.maximum(
+                0.0, means - part.loc[groups, "min"].to_numpy() * 100
+            )
+            upper = np.maximum(
+                0.0, part.loc[groups, "max"].to_numpy() * 100 - means
+            )
+            positions = x + (index - (len(packets) - 1) / 2) * width
+            ax.bar(
+                positions, means, width, color=colors[index],
+                label=f"{packet} flits",
+            )
+            ax.errorbar(
+                positions, means, yerr=np.vstack((lower, upper)),
+                fmt="none", ecolor="#263238", capsize=3, linewidth=0.9,
+            )
+        ax.set_xticks(x, [str(value) for value in groups])
+        ax.set_xlabel("Multicast destination count")
+        ax.set_title(f"{topology} Mesh")
+        ax.grid(axis="y", alpha=0.25)
+    axes[0].set_ylabel("Internal-link flit reduction (%)")
+    axes[-1].legend(frameon=False, ncol=3)
+    fig.suptitle("Internal-link flit reduction across fanout and packet size")
+    save_figure(fig, output, "internal_link_flit_reduction_by_group_packet")
+
+
+def plot_throughput_by_group_packet(df: pd.DataFrame, output: Path) -> None:
+    grouped = df.groupby(
+        ["topology", "group_size", "packet_flits"]
+    )["throughput_improvement"].agg(
+        ["mean", "min", "max"]
+    ).reset_index()
+    packets = sorted(df["packet_flits"].unique())
+    width = 0.22
+    fig, axes = plt.subplots(1, 2, figsize=(10.0, 4.0), sharey=False)
+    colors = ["#6e9bc6", "#df9a55", "#68a887"]
+    for ax, topology in zip(axes, ("4x4", "8x8")):
+        topo = grouped[grouped["topology"] == topology]
+        groups = sorted(topo["group_size"].unique())
+        x = np.arange(len(groups))
+        for index, packet in enumerate(packets):
+            part = topo[topo["packet_flits"] == packet].set_index("group_size")
+            means = part.loc[groups, "mean"].to_numpy() * 100
+            lower = np.maximum(
+                0.0, means - part.loc[groups, "min"].to_numpy() * 100
+            )
+            upper = np.maximum(
+                0.0, part.loc[groups, "max"].to_numpy() * 100 - means
+            )
+            positions = x + (index - (len(packets) - 1) / 2) * width
+            ax.bar(
+                positions, means, width, color=colors[index],
+                label=f"{packet} flits",
+            )
+            ax.errorbar(
+                positions, means, yerr=np.vstack((lower, upper)),
+                fmt="none", ecolor="#263238", capsize=3, linewidth=0.9,
+            )
+        ax.axhline(0.0, color="#444444", linestyle="--", linewidth=1)
+        ax.set_xticks(x, [str(value) for value in groups])
+        ax.set_xlabel("Multicast destination count")
+        ax.set_title(f"{topology} Mesh")
+        ax.grid(axis="y", alpha=0.25)
+    axes[0].set_ylabel("Throughput change (%)")
+    axes[-1].legend(frameon=False, ncol=3)
+    fig.suptitle("Logical-throughput change across fanout and packet size")
+    save_figure(fig, output, "throughput_change_by_group_packet")
 
 
 def plot_throughput_heatmap(df: pd.DataFrame, output: Path) -> None:
@@ -290,6 +379,8 @@ def main() -> int:
     write_tables(df, args.tables)
     plot_traffic_reduction(df, args.output)
     plot_latency_speedup(df, args.output)
+    plot_internal_link_reduction(df, args.output)
+    plot_throughput_by_group_packet(df, args.output)
     plot_throughput_heatmap(df, args.output)
     plot_full_group_load(df, args.output)
     plot_throughput_distribution(df, args.output)

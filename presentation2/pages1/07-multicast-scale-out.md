@@ -30,7 +30,7 @@
 <div>
 
   <div class="fig" style="height:320px"><img src="/latency_speedup_by_group.png" alt="Multicast latency speedup by topology, fanout, and packet size" /></div>
-  <div class="cap">Scale-out means: +895.54% throughput at fanout 32 and +1,888.29% at fanout 64. These groups are not pooled with the common-fanout mean.</div>
+  <div class="cap">Latency bars are geometric means. Scale-out throughput means: +895.54% at fanout 32 and +1,888.29% at fanout 64.</div>
 
 </div>
 

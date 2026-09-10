@@ -8,10 +8,10 @@
 
 <div class="steps am" style="align-content:start">
 
-  <div class="row"><em>1</em><div><b>Price the whole suffix</b><span>At every current router and destination, compare ordinary XY with each legal express edge over the complete remaining path.</span></div></div>
+  <div class="row"><em>1</em><div><b>Build the table offline</b><span>For every current router and destination, compare ordinary XY with each legal express edge over the complete remaining path.</span></div></div>
   <div class="row"><em>2</em><div><b>Prefer XY on ties</b><span>Ordinary cost is link latency plus Router latency; express cost is distance-scaled wire latency plus one Router traversal and the best suffix.</span></div></div>
-  <div class="row"><em>3</em><div><b>Keep the phase order</b><span>Stride-2 repeats aligned +2 hops within X, then within Y. Diagonal uses X*, diagonal*, then Y*.</span></div></div>
-  <div class="row"><em>4</em><div><b>Admit adaptively, within two choices</b><span>Ordered Vnets follow the table. Unordered traffic selects express or monotonic XY using local credits, landing pressure, and hotspot state.</span></div></div>
+  <div class="row"><em>3</em><div><b>Look up, then admit</b><span>Each Router reads the precomputed entry. Ordered Vnets keep it; unordered traffic selects that express hop or monotonic XY from local credits, landing pressure, and hotspot state.</span></div></div>
+  <div class="row"><em>4</em><div><b>Apply packet-aware rules</b><span>Diagonal 1-flit packets, plus 4-flit packets on 4×4, use at most one express hop. Packets above 32 flits require an idle landing lookahead.</span></div></div>
 
 </div>
 
@@ -27,8 +27,8 @@
     return min(choices)  # exact tie: ordinary XY</code></pre>
 
   <div class="route-order">
-    <div><b>Diagonal</b><span>X* → diagonal* → Y*</span></div>
-    <div><b>Stride-2</b><span>aligned +2 X hops → aligned +2 Y hops</span></div>
+    <div><b>Diagonal static table</b><span>X* → diagonal* → Y*</span></div>
+    <div><b>Stride-2 static table</b><span>aligned +2 X hops → aligned +2 Y hops</span></div>
   </div>
 </div>
 
@@ -36,12 +36,10 @@
 
 </div>
 
-<div class="take am"><span class="lab">Safety</span>Before any run, all oracle routes are unioned into a channel-dependency graph; a complete topological order is required, and a cyclic placement is rejected at construction time.</div>
+<div class="take am"><span class="lab">Safety</span>Before any run, static routes must form an acyclic channel-dependency graph. Diagonal also audits the complete express-or-XY runtime choice union; stride choices remain monotonic X-before-Y DOR.</div>
 
 <!--
-对于 routing 部分，我们先考虑一个一般的问题：mesh 上摆了任意一组保持单调 XY 的 express link，怎么为每对 source/destination 选出 latency 最小的走法？我们可以用递归做离线的计算。在这里 latency 由普通 XY 边、Router latency，加上后面的最优 suffix 组成；对于 bypass 增加的快速通道（express link），我们考虑他的 link latency 是按照曼哈顿距离放大的，比如 diagonal 的话因为是斜边，曼哈顿距离是2，所以 link latency 是2。很显然在这里，这样一个离线计算得出的表最终的 routing 方法可以看出对于 diagonal，先走 X 到能对角的地方，然后再走对角线，最后再走 y；stride 2呢就是在原本 dimension order routing 的基础上，多走 bypass express link。
+对于 routing 部分，首先在仿真前用递归为每个 current router 和 destination 建一张静态表。普通 XY 和合法 express edge 都按完整 suffix 的 cycle cost 比较；相同 cost 时保留 XY。运行时不会重新计算 cost，而是每到一个 Router 查询这张表。Ordered Vnet 直接采用表项；unordered Vnet 在表中的 express hop 和单调 XY 之间，根据本地 credit、landing pressure 和 hotspot state 做准入。静态表中 diagonal 是 X、diagonal、Y 三阶段，stride-2 保持 X-before-Y DOR。实际准入还有 packet-aware 规则：1-flit diagonal，以及 4×4 上的 4-flit diagonal，最多使用一个 express hop；超过 32 flit 的包还要求 landing lookahead 空闲。
 
-（对于 adaptive routing 来说，在traffic实际运行的时候不是随便选路，而是按照对于 ordered Vnet 直接查这张算好的路由表；而对于unordered Vnet来说，它会根据credit 和落点压力，在 express 跳和普通 XY 里二选一）
-
-（安全检查：在跑每一种不同的bypass拓扑之前，为了避免出现环路导致死锁问题，会把表里生成的所有路径收集起来，做成一个 channel-dependency graph——每条路径上前后相邻的两条链路连一条有向边。然后做拓扑排序：如果能排出一个完整顺序，说明没有环、不会死锁，这个 placement 可以用）
+（安全检查：静态表中的所有路径先合成 channel-dependency graph，并要求完整拓扑序。Diagonal 还会把运行时 express-or-XY 的全部选择合并后再做一次 DAG 审计；stride 的两个选择都保持单调的 X-before-Y DOR。）
 -->

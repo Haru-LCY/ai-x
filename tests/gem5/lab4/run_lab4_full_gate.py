@@ -2,7 +2,7 @@
 
 Orchestrates, in order:
   1. legacy scalar collective regression (11 cases)
-  2. multicast correctness matrix (208 paired cases)
+  2. multicast correctness matrix (240 executions / 120 mode-matched pairs)
   3. T3 H100 broadcast replay (30 requests, 6,720 flits)
   4. tensor correctness matrix H2+H4 (14 cases)
   5. tensor backpressure matrix H3 (32 cases, link-latency x router-latency
@@ -77,12 +77,12 @@ def main():
             output,
         ),
         run_gate(
-            "multicast_208",
+            "multicast_240",
             "run_multicast_matrix.py",
             ["--jobs", str(args.jobs),
              "--rounds", str(args.multicast_rounds),
              "--packet-flits", "1", "4", "16", "64"],
-            "PASS: all 208 paired multicast cases",
+            "PASS: all 240 executions",
             output,
         ),
         run_gate(

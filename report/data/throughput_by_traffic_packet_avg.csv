@@ -1,0 +1,17 @@
+topology,size,traffic,packet_avg_cases,throughput_improvement_mean
+Diagonal,4,bit_complement,4,0.04839980045131808
+Diagonal,4,hotspot,4,0.00186948113634214
+Diagonal,4,transpose,4,0.09690497262029328
+Diagonal,4,uniform_random,4,0.023447571017852806
+Diagonal,8,bit_complement,4,0.2577771635641451
+Diagonal,8,hotspot,4,0.00883648301631241
+Diagonal,8,transpose,4,0.18687340746469303
+Diagonal,8,uniform_random,4,0.06231915756433749
+Stride-2,4,bit_complement,4,0.0790361245864505
+Stride-2,4,hotspot,4,0.004329244701304531
+Stride-2,4,transpose,4,0.03306964543228231
+Stride-2,4,uniform_random,4,0.05821438598653625
+Stride-2,8,bit_complement,4,1.1423678467700031
+Stride-2,8,hotspot,4,0.02121970792456123
+Stride-2,8,transpose,4,0.07692266374858028
+Stride-2,8,uniform_random,4,0.3343929682135333

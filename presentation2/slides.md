@@ -55,6 +55,16 @@ src: ./pages1/07-multicast-scale-out.md
 ---
 
 ---
+src: ./pages1/07b-multicast-link-work.md
+
+---
+
+---
+src: ./pages1/07c-multicast-throughput.md
+
+---
+
+---
 src: ./sections/03-bypass.md
 
 ---

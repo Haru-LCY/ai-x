@@ -1,32 +1,20 @@
 # Multicast results
 
-<p class="lede">At matched fanout, multicast moves fewer flits on both mesh sizes.</p>
+<p class="lede">Each Mesh aggregate covers its complete evaluated fanout range.</p>
 
 <div class="body">
 
-<div class="grid2">
-
-<div>
-
-  <div class="fig" style="height:275px"><img src="/traffic_reduction_common.png" alt="Internal-link flit reduction by topology and common fanout" /></div>
-  <div class="cap">Each bar averages the 1-, 4-, and 16-flit packet cases at that common fanout; error bars show the observed min–max.</div>
-
-</div>
-
-<div class="stack">
+<div class="stack" style="max-width:900px;margin:30px auto 0">
 
   <table class="tbl multicast-summary">
-    <thead><tr><th>Metric</th><th class="r">4×4</th><th class="r">8×8</th></tr></thead>
+    <thead><tr><th>Mesh</th><th>Fanouts</th><th class="r">Latency</th><th class="r">Link-flit red.</th><th class="r">Throughput</th></tr></thead>
     <tbody>
-      <tr><td>Link-flit red.</td><td class="num">39.51%</td><td class="num">34.95%</td></tr>
-      <tr><td>Latency</td><td class="num">3.638×</td><td class="num">3.472×</td></tr>
-      <tr><td>Throughput</td><td class="num">+190.89%</td><td class="num">+208.34%</td></tr>
+      <tr><td>4×4</td><td>4, 8, 16</td><td class="num">3.638×</td><td class="num">39.51%</td><td class="num">+190.89%</td></tr>
+      <tr><td>8×8</td><td>4, 8, 16, 32, 64</td><td class="num">6.331×</td><td class="num">48.53%</td><td class="num">+681.77%</td></tr>
     </tbody>
   </table>
 
-  <div class="cap" style="text-align:left">Latency is geometric mean; link-flit reduction and throughput are arithmetic means. Medians: 41.18%/29.63% traffic and 3.588×/2.667× latency.</div>
-
-</div>
+  <div class="cap" style="text-align:left">4×4 contains 162 matched cases; 8×8 contains 270. Latency is geometric mean; link-flit reduction and throughput are arithmetic means over all cases in each row.</div>
 
 </div>
 
@@ -36,7 +24,7 @@
 
 <!--
 这一页报告 multicast 的总体结果。我们在 4×4 和 8×8 两种 mesh 上测试了 fanout 4、8、16，
-表格和 figure 中的数值都平均了 1、4、16-flit packet case，表格汇总了对于不同fanout的 latency 和 throughput。
+表格单独列出每个 Mesh 实际统计的 fanout。4×4 包含 fanout 4、8、16，共 162 个 matched cases；8×8 还包含 fanout 32 和 64，共 270 个 matched cases。Latency 使用 geometric mean，link-flit reduction 和 throughput change 使用 arithmetic mean。
 
-先看 4×4。平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 也减少 34.95% 的 link flits，latency 是 3.472×，throughput 提升 208.34%。这里 latency 使用 geometric mean，link-flit reduction 和 throughput 使用 arithmetic mean。
+4×4 平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 在完整 fanout 范围内平均减少 48.53% 的 link flits，latency 是 6.331×，throughput 提升 681.77%。
 -->

@@ -30,8 +30,8 @@
   </div>
   <div class="card am">
     <span class="mark">CYCLE-AWARE TABLE</span>
-    <h3>Multi-hop X then Y</h3>
-    <p>Express latency scales with Manhattan span. An edge is selected only when it lowers the complete remaining path cost.</p>
+    <h3>Offline multi-hop routes</h3>
+    <p>Stride keeps X-before-Y DOR; diagonal uses an X* → diagonal* → Y* static chain. Every express entry must lower the complete remaining path cost.</p>
   </div>
   <div class="card">
     <span class="mark">BASELINE</span>
@@ -43,5 +43,5 @@
 </div>
 
 <!--
-第二部分是 express-link bypass。我们保留普通 Mesh，增加了两种 bypass 架构。第一种 diagonal placement，第二种是 stride-2 placement。flit 可以通过这些快速通道来跳过一些 router 节点。但是要说明的一点就是这个实现是没有考虑实际硬件资源的实现，比如这个 stride 2 就是把规则允许的 shortcuts 都放进去，Baseline 就是 plain Mesh XY
+第二部分是 express-link bypass。我们保留普通 Mesh，增加 diagonal 和 stride-2 两种 placement。Stride 的静态路径保持 X-before-Y DOR，diagonal 的静态路径是 X、diagonal、Y 三阶段；只有能降低完整剩余路径 cycle cost 的 express edge 才会进入表。Baseline 是 plain Mesh XY；bypass arm 额外增加 links、ports 和 buffers，因此这里比较的是增加这些资源后的性能。
 -->

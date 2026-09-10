@@ -1,6 +1,6 @@
 # 演讲稿 · Collective-Aware Router Microarchitecture in gem5 Garnet
 
-> 共 18 页（按放映顺序），内容逐字取自 Slidev presenter notes。
+> 共 20 页（按放映顺序），内容逐字取自 Slidev presenter notes。
 
 ## 01 · Collective-Aware Router Microarchitecture in gem5 Garnet
 
@@ -33,47 +33,53 @@ Timing 5 s. 下面进入第二部分，multicast：先讲设计，再看结果�
 ## 07 · Multicast results
 
 这一页报告 multicast 的总体结果。我们在 4×4 和 8×8 两种 mesh 上测试了 fanout 4、8、16，
-表格和 figure 中的数值都平均了 1、4、16-flit packet case，表格汇总了对于不同fanout的 latency 和 throughput。
+表格单独列出每个 Mesh 实际统计的 fanout。4×4 包含 fanout 4、8、16，共 162 个 matched cases；8×8 还包含 fanout 32 和 64，共 270 个 matched cases。Latency 使用 geometric mean，link-flit reduction 和 throughput change 使用 arithmetic mean。
 
-先看 4×4。平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 也减少 34.95% 的 link flits，latency 是 3.472×，throughput 提升 208.34%。这里 latency 使用 geometric mean，link-flit reduction 和 throughput 使用 arithmetic mean。
+4×4 平均减少 39.51% 的 link flits，latency 是 3.638× speedup，throughput 提升 190.89%。8×8 在完整 fanout 范围内平均减少 48.53% 的 link flits，latency 是 6.331×，throughput 提升 681.77%。
 
 ## 08 · Higher fanout, stronger speedup
 
 在右边的这个图，我们接着把 fanout 从常见的 4、8、16 扩大到 32 和 64。可以看到fanout 越大，更多目的地可以共享同一棵树，multicast 的加速越明显。图中我们也可以发现4 flit speedup 最高，1-flit 最低，16-flit 介于两者之间。这是因为长 packet 的 branch和VC 占用会抵消部分共享收益。
 
-## 09 · Section 3 · Bypass（过渡页）
+## 09 · Internal-link flit reduction
+
+这张图把 internal-link flit reduction 按 topology、fanout 和 packet size 展开。左右分别是 4×4 和 8×8，横轴是 fanout，颜色区分 1、4、16-flit packet；柱子是 matched load、background load 和 seed 的 arithmetic mean，whisker 是 observed range。两种 Mesh 上 reduction 都随 fanout 增大，8×8 scale-out 在 fanout 32 达到 62.41%，fanout 64 达到 75.39%。
+
+## 10 · Throughput across fanout and packet size
+
+这张图用和 latency figure 相同的组织方式展示 logical throughput change：左右分别是 4×4 和 8×8，横轴是 fanout，颜色区分 1、4、16-flit packet。柱子是相同 load、background load 和 seed 下 paired comparison 的 arithmetic mean，whisker 是 observed range。两种 topology 上，throughput 的平均提升都会随 fanout 增大；在同一个 fanout 内，短 packet 通常提升最大。8×8 的 fanout 32 和 64 延续了相同趋势。
+
+## 11 · Section 3 · Bypass（过渡页）
 
 Timing 5 s. 第三部分是 bypass：先看拓扑，再看路由和安全检查，最后是实验结果。
 
-## 10 · Bypass topology
+## 12 · Bypass topology
 
-第二部分是 express-link bypass。我们保留普通 Mesh，增加了两种 bypass 架构。第一种 diagonal placement，第二种是 stride-2 placement。flit 可以通过这些快速通道来跳过一些 router 节点。但是要说明的一点就是这个实现是没有考虑实际硬件资源的实现，比如这个 stride 2 就是把规则允许的 shortcuts 都放进去，Baseline 就是 plain Mesh XY
+第二部分是 express-link bypass。我们保留普通 Mesh，增加 diagonal 和 stride-2 两种 placement。Stride 的静态路径保持 X-before-Y DOR，diagonal 的静态路径是 X、diagonal、Y 三阶段；只有能降低完整剩余路径 cycle cost 的 express edge 才会进入表。Baseline 是 plain Mesh XY；bypass arm 额外增加 links、ports 和 buffers，因此这里比较的是增加这些资源后的性能。
 
-## 11 · Bypass routing
+## 13 · Bypass routing
 
-对于 routing 部分，我们先考虑一个一般的问题：mesh 上摆了任意一组保持单调 XY 的 express link，怎么为每对 source/destination 选出 latency 最小的走法？我们可以用递归做离线的计算。在这里 latency 由普通 XY 边、Router latency，加上后面的最优 suffix 组成；对于 bypass 增加的快速通道（express link），我们考虑他的 link latency 是按照曼哈顿距离放大的，比如 diagonal 的话因为是斜边，曼哈顿距离是2，所以 link latency 是2。很显然在这里，这样一个离线计算得出的表最终的 routing 方法可以看出对于 diagonal，先走 X 到能对角的地方，然后再走对角线，最后再走 y；stride 2呢就是在原本 dimension order routing 的基础上，多走 bypass express link。
+对于 routing 部分，首先在仿真前用递归为每个 current router 和 destination 建一张静态表。普通 XY 和合法 express edge 都按完整 suffix 的 cycle cost 比较；相同 cost 时保留 XY。运行时不会重新计算 cost，而是每到一个 Router 查询这张表。Ordered Vnet 直接采用表项；unordered Vnet 在表中的 express hop 和单调 XY 之间，根据本地 credit、landing pressure 和 hotspot state 做准入。静态表中 diagonal 是 X、diagonal、Y 三阶段，stride-2 保持 X-before-Y DOR。实际准入还有 packet-aware 规则：1-flit diagonal，以及 4×4 上的 4-flit diagonal，最多使用一个 express hop；超过 32 flit 的包还要求 landing lookahead 空闲。
 
-（对于 adaptive routing 来说，在traffic实际运行的时候不是随便选路，而是按照对于 ordered Vnet 直接查这张算好的路由表；而对于unordered Vnet来说，它会根据credit 和落点压力，在 express 跳和普通 XY 里二选一）
+（安全检查：静态表中的所有路径先合成 channel-dependency graph，并要求完整拓扑序。Diagonal 还会把运行时 express-or-XY 的全部选择合并后再做一次 DAG 审计；stride 的两个选择都保持单调的 X-before-Y DOR。）
 
-（安全检查：在跑每一种不同的bypass拓扑之前，为了避免出现环路导致死锁问题，会把表里生成的所有路径收集起来，做成一个 channel-dependency graph——每条路径上前后相邻的两条链路连一条有向边。然后做拓扑排序：如果能排出一个完整顺序，说明没有环、不会死锁，这个 placement 可以用）
+## 14 · Bypass results
 
-## 12 · Bypass results
+我们对于每个 bypass family 都做一个 matched-pair sweep：2 个 mesh size、4 种 traffic pattern、4 种 packet size、16 个 offered load、3 个 seed，相乘是 1,536 个 case；每个 case 分别跑一次 plain Mesh XY 和一次 bypass。运行前有 1,000 warm-up 和 5,000 measurement source cycles，之后 drain 和 cooldown。Latency 的汇总顺序是：先在每个 packet size 内对 load 和 seed 做 geometric mean，再对四个 packet size 做 arithmetic mean，最后对四种 traffic pattern 做 geometric mean；throughput 对全部 matched cases 做 arithmetic mean。按这个与图表一致的口径，stride-2 在 8×8 是 1.620× 和 +39.37%，diagonal 在 4×4 是 1.426×，到 8×8 是 1.165×。
 
-我们对于每个 bypass family 都做一个 matched-pair sweep：2 个 mesh size、4 种 traffic pattern、4 种 packet size、16 个 offered load、3 个 seed，相乘是 1,536 个 case；每个 case 分别跑一次 plain Mesh XY 和一次 bypass。运行前有 1,000 warm-up 和 5,000 measurement source cycles，之后 drain 和 cooldown；最后我们可以得到结果，可以看出 stride-2 在 8×8 最好：latency speedup 的几何平均有 1.620×，throughput 平均 +39.37%。diagonal 在 4×4 也有 1.426×，但到 8×8 降到 1.165×，说明 placement 和 mesh size 的匹配很重要。
-
-## 13 · Latency
+## 15 · Latency
 
 （可以讲 4x4 的 transpose 对于 diagonal 效果很好，这也说明了transpose 这种全是对角的天然适合 diagonal bypass。）
 
-## 14 · Throughput
+## 16 · Throughput
 
 （Throughput 的分布更明显。8×8 bit-complement 下 stride-2 的提升最大，diagonal 的收益相对小；hotspot 仍然比较保守。这个顺序和前一页的 latency 是一致的：长路径、能多次使用 shortcut 的 traffic 更占优势。）
 
-## 15 · Section 4 · Trace-based Tensor All-Reduce（过渡页）
+## 17 · Section 4 · Trace-based Tensor All-Reduce（过渡页）
 
 Timing 5 s. 最后一部分是 trace-based tensor all-reduce。
 
-## 16 · H100 trace replay
+## 18 · H100 trace replay
 
 （指向左边流程图）我们对于 8 个 distributed processes 分别绑定一张 H100，然后运行了（跑了） NCCL 的 collective traffic；每轮对 1、4、16 MiB 的 tensor 依次执行 all-reduce 和 root-0 broadcast。我们保留的是 all-reduce event 的大小和相对 release 顺序，形成了 trace-based traffic pattern。
 
@@ -81,10 +87,10 @@ Timing 5 s. 最后一部分是 trace-based tensor all-reduce。
 
 （指向右边表格）我们把 scalar 的一个 event 拆成很多 one-flit rounds；tensor 保留成一个 multi-flit request。两边搬运的 payload 和 tree work 相同，但 tensor 消除了 request serialization，所以说最后的 replay window 缩短了 4.728 倍。
 
-## 17 · Division of labor
+## 19 · Division of Labor
 
-（这个可以随便讲）（分工上，Chunyu Liu 负责 Garnet collective plumbing、tree multicast、H100 trace 的抓取和编译、replay 工具链和 tensor 实验统计，以及 aggregate analysis 和 figures。Boyan Pu 负责 express-link bypass 和 tensor all-reduce 的实现与评估、backpressure 和 correctness validation。Report 和 slides 两人各做一半。）
+（这个可以随便讲）（分工上，Chunyu Liu 负责 Stride-2 bypass、tree multicast、H100 trace 的抓取和编译，以及现场汇报。Boyan Pu 负责 Diagonal bypass、tensor all-reduce、backpressure 和 correctness validation。Report 和 slides 两人共同完成。）
 
-## 18 · Thank you
+## 20 · Thank you
 
 谢谢大家。
