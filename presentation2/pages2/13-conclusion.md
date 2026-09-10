@@ -13,7 +13,7 @@
   <div class="card am">
     <span class="mark">PRESSURE-AWARE BYPASS</span>
     <h3>Useful, not free</h3>
-    <p>Distance-scaled stride links give 1.291× and 1.583× mean latency speedup, with explicit added links, ports, wire span, and buffer proxies.</p>
+    <p>Distance-scaled diagonal: 1.426×/+4.27% (4×4), 1.165×/+12.90% (8×8). Stride-2: 1.312×/+4.37% (4×4), 1.620×/+39.37% (8×8), with explicit added links, ports, wire span, and buffer proxies.</p>
   </div>
   <div class="card vi">
     <span class="mark">TENSOR ALL-REDUCE</span>

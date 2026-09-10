@@ -7,9 +7,9 @@
     <div>
       <h3>Chunyu Liu</h3>
       <ul>
+        <li>Stride-2 express-link bypass design and evaluation</li>
         <li>Tree multicast design and evaluation</li>
         <li>H100 trace capture and compilation</li>
-        <li>Replay tooling and tensor experiment statistics</li>
         <li>Report, and slide production</li>
       </ul>
     </div>
@@ -18,7 +18,7 @@
     <div>
       <h3>Boyan Pu</h3>
       <ul>
-        <li>Express-link bypass design and evaluation</li>
+        <li>Diagonal express-link bypass design and evaluation</li>
         <li>Tensor all-reduce implementation</li>
         <li>Backpressure and correctness validation</li>
         <li>Report and slide production</li>

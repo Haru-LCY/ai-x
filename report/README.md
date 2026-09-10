@@ -53,10 +53,16 @@ python3 report/scripts/plot_multicast.py
 python3 report/scripts/plot_bypass_topology.py
 python3 report/scripts/build_final_report_data.py
 python3 report/scripts/generate_architecture_figures.py
+python3 report/scripts/sync_presentation_figures.py
 ```
 
 The architecture-figure script requires Graphviz (`neato`) and writes both
 vector PDFs and PNG previews into `figures/`.
+
+The sync step copies the eleven report figures used by
+`ai_collectives_report.tex` into `presentation2/public/` and verifies that the
+two copies are byte-identical.  The report itself prefers those shared
+presentation assets, so the PDF and slides render the same figure revisions.
 
 The scripts reject missing/non-finite multicast pairs, inconsistent bypass
 VNet/routing metadata, and inconsistent final artifact counts or statuses
