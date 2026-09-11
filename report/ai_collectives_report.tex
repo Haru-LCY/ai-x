@@ -91,7 +91,7 @@ tensor operations onto packets and flits in the interconnection network.
 Network behavior therefore contributes directly to the synchronization path
 of training.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{training_to_network.png}
 \caption{GPU training repeatedly maps gradient tensors and collective
@@ -216,7 +216,7 @@ collective domain to 64 Routers.
 Figure~\ref{fig:multicast-tree-flow} contrasts replicated unicast with the
 shared-prefix tree used by the proposed mechanism.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \begin{minipage}[t]{0.47\linewidth}
 \centering
@@ -380,7 +380,7 @@ therefore show that fanout controls how much network work can be shared, while
 packet length controls how efficiently the atomic tree can realize that
 structural saving.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.90\linewidth]{latency_speedup_by_group.png}
 \caption{Multicast latency speedup by topology, fanout, and packet size.  Bars
@@ -388,7 +388,7 @@ are geometric means; whiskers show observed ranges.}
 \label{fig:multicast-scaling}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{internal_link_flit_reduction_by_group_packet.png}
 \caption{Mean internal-link flit reduction by topology, fanout, and packet
@@ -397,7 +397,7 @@ whiskers show observed ranges.}
 \label{fig:multicast-link-work}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{throughput_change_by_group_packet.png}
 \caption{Multicast logical-throughput change by topology, fanout, and packet
@@ -431,7 +431,7 @@ iso-power, or iso-wire claim.
 
 Figure~\ref{fig:bypass-topology-route-table} contrasts the two placements.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \begin{minipage}[t]{0.47\linewidth}
 \centering
@@ -534,7 +534,7 @@ sweep: transpose creates a diagonal permutation, bit complement crosses the
 mesh, uniform random spreads arrivals, and hotspot concentrates half of the
 packets on one Router.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.63\linewidth]{bypass_traffic_pattern_structure.png}
 \caption{Illustrative spatial structure of the four synthetic traffic
@@ -576,7 +576,7 @@ Stride-2 & 8$\times$8 & 1.620$\times$ & +39.37\% \\
 Figure~\ref{fig:bypass-latency-pattern} breaks latency speedup down by traffic
 pattern, placement, and Mesh size.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{bypass_latency_speedup_by_traffic_pattern.png}
 \caption{Packet-averaged latency speedup by traffic pattern for the
@@ -588,7 +588,7 @@ distance-scaled diagonal and stride-2 adaptive bypass families.  Values above
 Figure~\ref{fig:bypass-throughput-pattern} uses the same grouping for
 throughput improvement.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{throughput_by_traffic_packet_avg.png}
 \caption{Packet-averaged throughput improvement by traffic pattern for the
@@ -727,7 +727,7 @@ prefixes.
 Figure~\ref{fig:tensor-allreduce-pipeline} connects the exact trace sizes,
 the two lowerings, the Router operation, and the two controlled outcomes.
 
-\begin{figure}[tb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.98\linewidth]{tensor_allreduce_pipeline.png}
 \caption{Scalar and tensor lowering of the same scaled all-reduce events.  The
